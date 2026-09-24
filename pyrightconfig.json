@@ -1,0 +1,12 @@
+{
+  "include": [
+    ".",
+    "ref_sih_amr"
+  ],
+  "extraPaths": [
+    "_build/windows-x86_64/release/kit/python/Lib/site-packages",
+    "ref_sih_amr"
+  ],
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows"
+}

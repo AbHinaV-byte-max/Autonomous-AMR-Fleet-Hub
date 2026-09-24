@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "omniverse-usd": {
+      "command": "c:\\Users\\goruv\\kit-app-template\\_build\\windows-x86_64\\release\\kit\\python\\python.exe",
+      "args": [
+        "c:\\Users\\goruv\\kit-app-template\\.agents\\plugins\\omniverse-usd\\server.py"
+      ]
+    }
+  }
+}
