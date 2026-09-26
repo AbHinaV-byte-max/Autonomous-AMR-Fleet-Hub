@@ -24,6 +24,7 @@ class RobotStatus(enum.Enum):
     REROUTING = "REROUTING"
     DEGRADED = "DEGRADED"
     OFFLINE = "OFFLINE"
+    CHARGING = "CHARGING"
 
 
 class Intent(enum.Enum):

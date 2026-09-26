@@ -4,7 +4,7 @@ from typing import List, Tuple
 from models import Task, TaskStatus
 
 class TaskGenerator:
-    def __init__(self, pickup_cells: List[Tuple[int, int]], dropoff_cells: List[Tuple[int, int]], spawn_interval: int = 10):
+    def __init__(self, pickup_cells: List[Tuple[int, int]], dropoff_cells: List[Tuple[int, int]], spawn_interval: int = 3):
         self.pickup_cells = pickup_cells
         self.dropoff_cells = dropoff_cells
         self.spawn_interval = spawn_interval
@@ -21,10 +21,10 @@ class TaskGenerator:
                 pickup = random.choice(self.pickup_cells)
                 dropoff = random.choice(self.dropoff_cells)
                 task = Task(
-                    task_id=str(uuid.uuid4()),
+                    task_id=str(uuid.uuid4())[:8].upper(),
                     pickup_cell=pickup,
                     dropoff_cell=dropoff,
-                    priority=1,
+                    priority=random.randint(1, 5),
                     status=TaskStatus.QUEUED,
                     created_at=current_time
                 )

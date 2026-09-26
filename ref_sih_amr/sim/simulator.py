@@ -93,8 +93,9 @@ class Simulator:
         from robot.coordination import ReservationTable
         self.global_reservation_table = ReservationTable()
 
-        # Spawn robots at R markers
+        # Spawn robots at R markers with realistic initial battery levels for demonstration
         num_robots = len(self.spawn_cells) if self.spawn_cells else 3
+        initial_batteries = [96.0, 42.0, 88.0, 68.0, 82.0, 32.0, 91.0, 54.0, 94.0]
         for i in range(num_robots):
             spawn = self.spawn_cells[i] if self.spawn_cells else (0, 0)
             state = RobotState(
@@ -103,7 +104,7 @@ class Simulator:
                 position=(float(spawn[0]), float(spawn[1])),
                 heading=0.0,
                 velocity=0.0,
-                battery=100.0,
+                battery=initial_batteries[i % len(initial_batteries)],
                 current_task_id=None,
                 task_priority=i + 1,  # unique base priority per robot — prevents priority ties
                 status=RobotStatus.IDLE
@@ -120,6 +121,23 @@ class Simulator:
 
             self.robot_managers.append(manager)
             self.last_heartbeat[state.robot_id] = 0.0
+
+        # Seed initial tasks so ALL robots have active paths and targets at tick 0
+        if self.pickup_cells and self.dropoff_cells:
+            for i in range(num_robots):
+                pickup = self.pickup_cells[i % len(self.pickup_cells)]
+                dropoff = self.dropoff_cells[i % len(self.dropoff_cells)]
+                t = Task(
+                    task_id=f"INIT_TASK_{i+1}",
+                    pickup_cell=pickup,
+                    dropoff_cell=dropoff,
+                    priority=i + 1,
+                    status=TaskStatus.QUEUED,
+                    created_at=0.0
+                )
+                self.tasks.append(t)
+                self.task_generator.queue.append(t)
+            self._allocate()
 
         # Rendering setup
         self.cell_size = 28
@@ -152,15 +170,46 @@ class Simulator:
         self.grid_map.grid[y][x] = '.'
 
     def kill_robot(self, robot_id: str):
-        """Immediately offline a robot (Phase 4 Scenario S5)."""
+        """Immediately offline a robot and automatically reallocate its task to an available peer."""
         manager = next((m for m in self.robot_managers if m.state.robot_id == robot_id), None)
-        if manager:
+        if manager and manager.state.status != RobotStatus.OFFLINE:
+            prev_task = manager.current_task
+            task_id = prev_task.task_id if prev_task else None
             manager.state.status = RobotStatus.OFFLINE
+            manager.state.planned_path = []
+            manager.target_cell = None
             manager.reservation_table.expire(robot_id)
             self._orphan_task(manager)
             for m in self.robot_managers:
                 m.last_seen.pop(robot_id, None)
                 m.peer_states.pop(robot_id, None)
+
+            # Trigger immediate task reallocation to an available peer
+            self._allocate()
+
+            if prev_task:
+                new_owner = prev_task.assigned_robot_id or "RECOVERABLE_QUEUE"
+                self.event_log.log_conflict(
+                    robot_id, new_owner, "TASK_REALLOCATION",
+                    f"Robot {robot_id} SHUTDOWN -> Task {task_id} reallocated to {new_owner}",
+                    self.tick_count
+                )
+
+    def revive_robot(self, robot_id: str):
+        """Revive an offline or charging robot back to active IDLE with 100% battery."""
+        manager = next((m for m in self.robot_managers if m.state.robot_id == robot_id), None)
+        if manager:
+            manager.state.status = RobotStatus.IDLE
+            manager.state.battery = 100.0
+            manager.state.planned_path = []
+            manager.target_cell = None
+            manager.wait_time = 0.0
+            self.event_log.log_conflict(
+                robot_id, "SYSTEM", "ROBOT_ONLINE",
+                f"Robot {robot_id} restored to full service (100% Battery)",
+                self.tick_count
+            )
+            self._allocate()
 
     # -------------------------------------------------------------------------
     # Internal helpers
@@ -173,6 +222,8 @@ class Simulator:
             t.assigned_robot_id = None
             manager.current_task = None
             manager.state.current_task_id = None
+            manager.state.planned_path = []
+            manager.target_cell = None
 
     def _check_heartbeats(self):
         for m in self.robot_managers:
@@ -186,6 +237,8 @@ class Simulator:
                 for peer in self.robot_managers:
                     peer.last_seen.pop(m.state.robot_id, None)
                     peer.peer_states.pop(m.state.robot_id, None)
+                self._allocate()
+
 
     def _run_deadlock_detection(self):
         wait_graph: Dict[str, str] = {}
@@ -252,18 +305,29 @@ class Simulator:
 
     def _allocate(self):
         eligible = [m.state for m in self.robot_managers
-                    if m.state.status in (RobotStatus.IDLE,)]
+                    if m.state.status == RobotStatus.IDLE and m.state.battery > 20.0]
         queueable = [t for t in self.tasks
                      if t.status in (TaskStatus.QUEUED, TaskStatus.RECOVERABLE)]
         if not eligible or not queueable:
             return
+
+        # Prioritize RECOVERABLE tasks from shutdown or low-battery robots so they are taken over first
+        queueable.sort(key=lambda t: (0 if t.status == TaskStatus.RECOVERABLE else 1, t.priority))
+
         assignments = self.allocator.allocate(eligible, queueable)
         newly_assigned = []
         for robot_id, task_id in assignments.items():
             manager = next(m for m in self.robot_managers if m.state.robot_id == robot_id)
             task = next(t for t in self.tasks if t.task_id == task_id)
+            was_recoverable = (task.status == TaskStatus.RECOVERABLE)
             manager.assign_task(task)
             newly_assigned.append(robot_id)
+            if was_recoverable:
+                self.event_log.log_conflict(
+                    "SYSTEM", robot_id, "TASK_TAKEOVER",
+                    f"Task {task_id} successfully reallocated & assigned to {robot_id}",
+                    self.tick_count
+                )
         # After new assignments, replan all active robots with CBS so new
         # robots don't conflict with robots already on their way.
         if newly_assigned and self.strategy == "P1":
@@ -277,14 +341,14 @@ class Simulator:
         CBSPlanner.plan(), and feeds each resulting path back via inject_path().
         Only runs when strategy == 'P1' and CBS mode is active.
 
-        Robots without a goal (IDLE, OFFLINE) are excluded.
+        Robots without a goal (IDLE, OFFLINE, CHARGING) are excluded.
         """
         goals     = {}
         positions = {}
         starts    = {}
 
         for m in self.robot_managers:
-            if m.state.status in (RobotStatus.OFFLINE, RobotStatus.IDLE):
+            if m.state.status in (RobotStatus.OFFLINE, RobotStatus.IDLE, RobotStatus.CHARGING):
                 continue
             goal = m.get_current_goal()
             if goal is None:
@@ -297,12 +361,12 @@ class Simulator:
         if not goals:
             return
 
-        # Idle / offline robots are static obstacles — wrap the costmap so CBS
+        # Idle / offline / charging robots are static obstacles — wrap the costmap so CBS
         # treats their cells as walls (O(1) per get_cell, zero constraint overhead).
         idle_cells = [
             m.state.position
             for m in self.robot_managers
-            if m.state.status in (RobotStatus.IDLE, RobotStatus.OFFLINE)
+            if m.state.status in (RobotStatus.IDLE, RobotStatus.OFFLINE, RobotStatus.CHARGING)
         ]
         planning_map = (
             ObstacleCostmap(self.grid_map, idle_cells) if idle_cells else self.grid_map
@@ -363,6 +427,51 @@ class Simulator:
 
         for m in self.robot_managers:
             m.tick(t)
+
+        # 3a. Battery discharge, low-battery failover & recharge cycle
+        for m in self.robot_managers:
+            if m.state.status == RobotStatus.OFFLINE:
+                continue
+
+            if m.state.status == RobotStatus.CHARGING:
+                # Recharging: realistic +1.5% per tick
+                m.state.battery = min(100.0, m.state.battery + 1.5)
+                if m.state.battery >= 90.0:
+                    m.state.status = RobotStatus.IDLE
+                    self.event_log.log_conflict(
+                        m.state.robot_id, "SYSTEM", "CHARGE_COMPLETE",
+                        f"Recharge complete ({m.state.battery:.0f}%) -> Returned to active fleet",
+                        self.tick_count
+                    )
+                    self._allocate()
+            else:
+                # Realistic operational discharge:
+                # Higher power draw when carrying cargo
+                if m.state.status == RobotStatus.MOVING:
+                    burn = 0.35 if (m.current_task and m.current_task.status == TaskStatus.IN_PROGRESS) else 0.22
+                else:
+                    burn = 0.06
+
+                m.state.battery = max(0.0, m.state.battery - burn)
+
+                # Low battery safety threshold (<= 20.0%):
+                # Robot must shed its task to an available peer and enter charging mode
+                if m.state.battery <= 20.0:
+                    orphaned = m.current_task
+                    task_id = orphaned.task_id if orphaned else None
+                    self._orphan_task(m)
+                    m.state.status = RobotStatus.CHARGING
+                    m.state.planned_path = []
+                    m.target_cell = None
+                    m.reservation_table.expire(m.state.robot_id)
+
+                    self.event_log.log_conflict(
+                        m.state.robot_id, "SYSTEM", "LOW_BATTERY_SHED",
+                        f"Battery low ({m.state.battery:.1f}%) -> Task {task_id} reallocated to fleet",
+                        self.tick_count
+                    )
+                    # Immediately reallocate the shed task to an available peer!
+                    self._allocate()
 
         # 3b. CBS checkpoint check + rolling-horizon replan
         if self.strategy == "P1":
