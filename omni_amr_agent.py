@@ -112,6 +112,11 @@ class DecentralizedAMRAgent:
         # Per-peer comm state tracking for transition-only logging (Phase 2D fix)
         # States: 'normal', 'degraded', 'safe_mode'
         self._peer_comm_state: Dict[str, str] = {}
+        # Phase 4F: Track per-peer PROCEED state to suppress repeated logs.
+        # Maps peer_id -> True if we are currently in the "higher-priority PROCEED" state for that peer.
+        self._proceeding_on: Dict[str, bool] = {}
+        # Phase 4F: Track safety-stop state per peer to suppress HARD_STOP spam.
+        self._safety_stopped_on: Dict[str, bool] = {}
 
     def assign_task(self, task: Task, current_time: float):
         """Assigns a task to this AMR and plans an A* space-time path to the pickup point."""
@@ -362,15 +367,21 @@ class DecentralizedAMRAgent:
                 px, py = peer_msg.position
                 dist = math.hypot(px - self.controller.actual_x, py - self.controller.actual_y)
                 if dist < SAFETY_STOP_DIST:
-                    if not self.controller.is_stopped:
+                    # Phase 4F: log HARD_STOP only on transition into stopped state for this peer
+                    if not self._safety_stopped_on.get(peer_id, False):
                         print(f"[SAFETY] {self.robot_id}: peer={peer_id} dist={dist:.3f}m < "
                               f"{SAFETY_STOP_DIST}m  -> HARD_STOP")
+                        self._safety_stopped_on[peer_id] = True
                     self.controller.is_stopped = True
                     self.state.status = RobotStatus.WAITING
                     # Record waiting_on so deadlock detector can see the circular wait
                     if self.waiting_on is None:
                         self.waiting_on = peer_id
                     return
+                else:
+                    # Peer moved far enough away — clear the safety-stop flag for this peer
+                    if self._safety_stopped_on.get(peer_id, False):
+                        self._safety_stopped_on[peer_id] = False
 
         conflict_peer = None
 
@@ -429,10 +440,14 @@ class DecentralizedAMRAgent:
                     self.state.status = RobotStatus.WAITING
                     return
                 else:
-                    # Higher priority proceeds
-                    # Log only on transition: when this robot was previously waiting
-                    if self.waiting_on is not None:
+                    # Higher priority: PROCEED
+                    # Phase 4F: log PROCEED only once per transition (first frame in this state for this peer)
+                    already_proceeding = self._proceeding_on.get(conflict_peer, False)
+                    was_waiting = self.waiting_on is not None
+                    if not already_proceeding:
                         print(f"[CONFLICT] t={current_time:.2f}s  {self.robot_id} priority={my_priority[0]:.3f} > {conflict_peer} priority={peer_priority[0]:.3f}  -> PROCEED")
+                        self._proceeding_on[conflict_peer] = True
+                    if was_waiting:
                         self.waiting_on = None
                         self.wait_time = 0.0
                     if not self.is_in_safe_mode:
@@ -441,6 +456,10 @@ class DecentralizedAMRAgent:
                     return
 
         # If previous conflict cleared, resume motion
+        # Phase 4F: also clear the PROCEED state tracker for all resolved peers
+        if conflict_peer is None:
+            # No conflict detected this frame; clear all PROCEED flags
+            self._proceeding_on.clear()
         if self.waiting_on:
             prev = self.waiting_on
             self.waiting_on = None
@@ -482,7 +501,7 @@ class DecentralizedAMRAgent:
                     self.current_task.status = TaskStatus.IN_PROGRESS
                     self.plan_path_to_world_target(self.current_task.dropoff_cell, current_time)
                 elif self.current_task.status == TaskStatus.IN_PROGRESS:
-                    print(f"[{self.robot_id} @ t={current_time:.2f}s] ✓ COMPLETED {self.current_task.task_id} at Dropoff {self.current_task.dropoff_cell}! Ready for Hungarian reallocation.")
+                    print(f"[{self.robot_id} @ t={current_time:.2f}s] [OK] COMPLETED {self.current_task.task_id} at Dropoff {self.current_task.dropoff_cell}! Ready for Hungarian reallocation.")
                     self.current_task.status = TaskStatus.COMPLETED
                     self.state.status = RobotStatus.IDLE
                     self.current_task = None

@@ -1,4 +1,158 @@
 {
+  "bench_A": {
+    "baseline": {
+      "name": "stop-and-wait",
+      "n_completed": 3,
+      "n_tasks": 3,
+      "completion_time": 17.4,
+      "all_done": true,
+      "total_waits": 44,
+      "total_wait_time": 1.467,
+      "task_completion_times": {
+        "AMR_03": 15.9,
+        "AMR_02": 17.067,
+        "AMR_01": 17.4
+      },
+      "collision": {
+        "min_distance": 2.2773,
+        "collision_frames": 0,
+        "collision_events": 0,
+        "threshold": 0.6,
+        "collision_log": []
+      }
+    },
+    "coordinated": {
+      "name": "coordinated",
+      "n_completed": 3,
+      "n_tasks": 3,
+      "completion_time": 28.3,
+      "all_done": true,
+      "n_conflicts": 2,
+      "n_deadlocks": 2,
+      "n_replans": 5,
+      "task_completion_times": {
+        "BENCH_A_AMR_03": 15.933,
+        "BENCH_A_AMR_01": 22.567,
+        "BENCH_A_AMR_02": 28.3
+      },
+      "collision": {
+        "min_distance": 0.9601,
+        "collision_frames": 0,
+        "collision_events": 0,
+        "threshold": 0.6,
+        "collision_log": []
+      }
+    },
+    "time_reduction_pct": -62.643678160919556
+  },
+  "bench_B": {
+    "baseline": {
+      "name": "stop-and-wait",
+      "n_completed": 6,
+      "n_tasks": 6,
+      "completion_time": 31.767,
+      "all_done": true,
+      "total_waits": 44,
+      "total_wait_time": 1.467,
+      "task_completion_times": {
+        "AMR_02": 17.067,
+        "AMR_04": 17.067,
+        "AMR_06": 17.067,
+        "AMR_01": 17.4,
+        "AMR_03": 20.033,
+        "AMR_05": 31.767
+      },
+      "collision": {
+        "min_distance": 2.2773,
+        "collision_frames": 0,
+        "collision_events": 0,
+        "threshold": 0.6,
+        "collision_log": []
+      }
+    },
+    "coordinated": {
+      "name": "coordinated",
+      "n_completed": 6,
+      "n_tasks": 6,
+      "completion_time": 31.8,
+      "all_done": true,
+      "n_conflicts": 2,
+      "n_deadlocks": 2,
+      "n_replans": 8,
+      "task_completion_times": {
+        "BENCH_B_AMR_04": 17.1,
+        "BENCH_B_AMR_06": 17.1,
+        "BENCH_B_AMR_03": 20.067,
+        "BENCH_B_AMR_01": 22.567,
+        "BENCH_B_AMR_02": 28.3,
+        "BENCH_B_AMR_05": 31.8
+      },
+      "collision": {
+        "min_distance": 0.9601,
+        "collision_frames": 0,
+        "collision_events": 0,
+        "threshold": 0.6,
+        "collision_log": []
+      }
+    },
+    "time_reduction_pct": -0.1038813863443235
+  },
+  "repeatability_A": {
+    "b_completion_stats": {
+      "mean": 17.4,
+      "min": 17.4,
+      "max": 17.4
+    },
+    "c_completion_stats": {
+      "mean": 28.3,
+      "min": 28.3,
+      "max": 28.3
+    },
+    "b_collision_events": [
+      0,
+      0,
+      0
+    ],
+    "c_collision_events": [
+      0,
+      0,
+      0
+    ],
+    "c_min_distances": [
+      0.9601,
+      0.9601,
+      0.9601
+    ],
+    "mean_time_reduction_pct": -62.643678160919556
+  },
+  "repeatability_B": {
+    "b_completion_stats": {
+      "mean": 31.767,
+      "min": 31.767,
+      "max": 31.767
+    },
+    "c_completion_stats": {
+      "mean": 31.8,
+      "min": 31.8,
+      "max": 31.8
+    },
+    "b_collision_events": [
+      0,
+      0,
+      0
+    ],
+    "c_collision_events": [
+      0,
+      0,
+      0
+    ],
+    "c_min_distances": [
+      0.9601,
+      0.9601,
+      0.9601
+    ],
+    "mean_time_reduction_pct": -0.1038813863443235
+  },
   "kit_build": {
     "kit_python_present": false
   }

@@ -51,7 +51,9 @@ class OmniSIHSimulationEngine:
         
         self.stage = None
         if USD_AVAILABLE and os.path.exists(self.usd_path):
-            self.stage = Usd.Stage.Open(self.usd_path)
+            # LoadNone prevents USD from trying to load external Omniverse CDN payloads
+            # that are not accessible offline, eliminating hundreds of warning messages.
+            self.stage = Usd.Stage.Open(self.usd_path, Usd.Stage.LoadNone)
             print(f"[OMNI ENGINE] Opened OpenUSD stage: {self.usd_path}")
             # Clear old legacy time samples from previous iterations
             clear_all_stage_time_samples(self.stage)
@@ -286,7 +288,7 @@ class OmniSIHSimulationEngine:
             print(f"[OMNI ENGINE] ✓ Saved updated simulation state ({total_frames} keyframes) to {self.usd_path}")
             
             # Also keep Downloads/simulation5.usd in sync if present via USD API
-            downloads_usd = r"C:\Users\goruv\Downloads\simulation5.usd"
+            downloads_usd = os.path.join(os.path.expanduser("~"), "Downloads", "simulation5.usd")
             if os.path.exists(downloads_usd):
                 try:
                     dst_stage = Usd.Stage.Open(downloads_usd)

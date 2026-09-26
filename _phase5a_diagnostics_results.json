@@ -1,0 +1,238 @@
+{
+  "3_amr": {
+    "baseline": {
+      "initial_planning_cpu_sec": 0.0003738000004886999,
+      "task_completion_times": {
+        "BENCH_A_INDEP": 15.9,
+        "BENCH_A_CROSS_N": 17.067,
+        "BENCH_A_CROSS_E": 17.4
+      },
+      "overall_completion_time": 17.4,
+      "actual_distance": {
+        "AMR_01": 13.570022945527445,
+        "AMR_02": 14.564597532144958,
+        "AMR_03": 13.570022945527452
+      },
+      "initial_path_lengths": {
+        "AMR_01": 15.0,
+        "AMR_02": 16.5,
+        "AMR_03": 15.5
+      },
+      "wait_times": {
+        "AMR_01": 1.466666666666668,
+        "AMR_02": 0.0,
+        "AMR_03": 0.0
+      },
+      "collision": {
+        "min_distance": 2.2773,
+        "collision_frames": 0,
+        "collision_events": 0,
+        "threshold": 0.6,
+        "collision_log": []
+      },
+      "task_map": {
+        "AMR_01": "BENCH_A_CROSS_E",
+        "AMR_02": "BENCH_A_CROSS_N",
+        "AMR_03": "BENCH_A_INDEP"
+      }
+    },
+    "coordinated": {
+      "task_allocation_cpu_sec": 0.000543199999810895,
+      "conflict_resolution_cpu_sec": 0.027629700011857494,
+      "deadlock_replan_cpu_sec": 0.0021077999999761232,
+      "task_reassign_cpu_sec": 0.0020289999956730753,
+      "task_completion_times": {
+        "AMR_03": 15.9,
+        "AMR_01": 22.533,
+        "AMR_02": 28.267
+      },
+      "overall_completion_time": 28.267,
+      "actual_distance": {
+        "AMR_01": 15.213006223965865,
+        "AMR_02": 14.564597532144958,
+        "AMR_03": 13.570022945527452
+      },
+      "initial_planned_distance": {
+        "AMR_01": 0.5,
+        "AMR_02": 3.5,
+        "AMR_03": 5.0
+      },
+      "wait_time_sim": {
+        "AMR_01": 0.6,
+        "AMR_02": 11.233333333333304,
+        "AMR_03": 0.03333333333333333
+      },
+      "deadlock_wait_sim": {
+        "AMR_01": 0.6333333333333333,
+        "AMR_02": 0.6333333333333333,
+        "AMR_03": 0.0
+      },
+      "replan_count": {
+        "AMR_01": 2,
+        "AMR_02": 0,
+        "AMR_03": 0
+      },
+      "deadlock_count": {
+        "AMR_01": 2,
+        "AMR_02": 0,
+        "AMR_03": 0
+      },
+      "accel_decel_overhead_sec": {
+        "AMR_01": 21.266666666666666,
+        "AMR_02": 17.066666666666666,
+        "AMR_03": 15.9
+      },
+      "collision": {
+        "min_distance": 0.9601,
+        "collision_frames": 0,
+        "collision_events": 0,
+        "threshold": 0.6,
+        "collision_log": []
+      },
+      "task_map": {
+        "AMR_01": "BENCH_A_CROSS_E",
+        "AMR_02": "BENCH_A_CROSS_N",
+        "AMR_03": "BENCH_A_INDEP"
+      }
+    }
+  },
+  "6_amr": {
+    "baseline": {
+      "initial_planning_cpu_sec": 0.0002893999999287189,
+      "task_completion_times": {
+        "B_N1": 17.067,
+        "B_N2": 17.067,
+        "B_N3": 17.067,
+        "B_E1": 17.4,
+        "B_E2": 20.033,
+        "B_E3": 31.767
+      },
+      "overall_completion_time": 31.767,
+      "actual_distance": {
+        "AMR_01": 13.570022945527445,
+        "AMR_02": 14.564597532144958,
+        "AMR_03": 17.064597532144955,
+        "AMR_04": 14.564597532144958,
+        "AMR_05": 27.064597532144983,
+        "AMR_06": 14.564597532144958
+      },
+      "initial_path_lengths": {
+        "AMR_01": 15.0,
+        "AMR_02": 16.5,
+        "AMR_03": 18.5,
+        "AMR_04": 16.5,
+        "AMR_05": 28.5,
+        "AMR_06": 16.5
+      },
+      "wait_times": {
+        "AMR_01": 1.466666666666668,
+        "AMR_02": 0.0,
+        "AMR_03": 0.0,
+        "AMR_04": 0.0,
+        "AMR_05": 0.0,
+        "AMR_06": 0.0
+      },
+      "collision": {
+        "min_distance": 2.2773,
+        "collision_frames": 0,
+        "collision_events": 0,
+        "threshold": 0.6,
+        "collision_log": []
+      },
+      "task_map": {
+        "AMR_01": "B_E1",
+        "AMR_02": "B_N1",
+        "AMR_03": "B_E2",
+        "AMR_04": "B_N2",
+        "AMR_05": "B_E3",
+        "AMR_06": "B_N3"
+      }
+    },
+    "coordinated": {
+      "task_allocation_cpu_sec": 0.0004856999994444777,
+      "conflict_resolution_cpu_sec": 0.0646947000259388,
+      "deadlock_replan_cpu_sec": 0.0025245999995604507,
+      "task_reassign_cpu_sec": 0.004572699983327766,
+      "task_completion_times": {
+        "AMR_04": 17.067,
+        "AMR_06": 17.067,
+        "AMR_03": 20.033,
+        "AMR_01": 22.533,
+        "AMR_02": 28.267,
+        "AMR_05": 31.767
+      },
+      "overall_completion_time": 31.767,
+      "actual_distance": {
+        "AMR_01": 15.213006223965865,
+        "AMR_02": 14.564597532144958,
+        "AMR_03": 17.064597532144955,
+        "AMR_04": 14.564597532144958,
+        "AMR_05": 27.064597532144983,
+        "AMR_06": 14.564597532144958
+      },
+      "initial_planned_distance": {
+        "AMR_01": 0.5,
+        "AMR_02": 3.5,
+        "AMR_03": 0.5,
+        "AMR_04": 3.5,
+        "AMR_05": 0.5,
+        "AMR_06": 3.5
+      },
+      "wait_time_sim": {
+        "AMR_01": 0.6,
+        "AMR_02": 11.233333333333304,
+        "AMR_03": 0.03333333333333333,
+        "AMR_04": 0.03333333333333333,
+        "AMR_05": 0.03333333333333333,
+        "AMR_06": 0.03333333333333333
+      },
+      "deadlock_wait_sim": {
+        "AMR_01": 0.6333333333333333,
+        "AMR_02": 0.6333333333333333,
+        "AMR_03": 0.0,
+        "AMR_04": 0.0,
+        "AMR_05": 0.0,
+        "AMR_06": 0.0
+      },
+      "replan_count": {
+        "AMR_01": 2,
+        "AMR_02": 0,
+        "AMR_03": 0,
+        "AMR_04": 0,
+        "AMR_05": 0,
+        "AMR_06": 0
+      },
+      "deadlock_count": {
+        "AMR_01": 2,
+        "AMR_02": 0,
+        "AMR_03": 0,
+        "AMR_04": 0,
+        "AMR_05": 0,
+        "AMR_06": 0
+      },
+      "accel_decel_overhead_sec": {
+        "AMR_01": 21.266666666666666,
+        "AMR_02": 17.066666666666666,
+        "AMR_03": 20.0,
+        "AMR_04": 17.066666666666666,
+        "AMR_05": 31.733333333333334,
+        "AMR_06": 17.066666666666666
+      },
+      "collision": {
+        "min_distance": 0.9601,
+        "collision_frames": 0,
+        "collision_events": 0,
+        "threshold": 0.6,
+        "collision_log": []
+      },
+      "task_map": {
+        "AMR_01": "B_E1",
+        "AMR_02": "B_N1",
+        "AMR_03": "B_E2",
+        "AMR_04": "B_N2",
+        "AMR_05": "B_E3",
+        "AMR_06": "B_N3"
+      }
+    }
+  }
+}
