@@ -109,6 +109,9 @@ class DecentralizedAMRAgent:
         self.is_in_safe_mode: bool = False
         self.seq: int = 0
         self.confidence: float = 0.95
+        # Per-peer comm state tracking for transition-only logging (Phase 2D fix)
+        # States: 'normal', 'degraded', 'safe_mode'
+        self._peer_comm_state: Dict[str, str] = {}
 
     def assign_task(self, task: Task, current_time: float):
         """Assigns a task to this AMR and plans an A* space-time path to the pickup point."""
@@ -146,9 +149,13 @@ class DecentralizedAMRAgent:
         )
 
         if not nav_path:
+            print(f"[PATH] {self.robot_id}: start={start_nav} goal={goal_nav} -> NO PATH FOUND (blocked or unreachable)")
             self.state.status = RobotStatus.WAITING
             self.controller.clear_path()
             return False
+
+        # Diagnostic: log the plan
+        print(f"[PATH] {self.robot_id}: start={start_nav} goal={goal_nav}  path_length={len(nav_path)} cells  target_world={target_world}")
 
         # Convert navigation path to world coordinates for kinematic controller
         world_path = [self.nav_map.nav_to_world(cell[0], cell[1]) for cell in nav_path]
@@ -219,20 +226,42 @@ class DecentralizedAMRAgent:
             self.peer_states[msg.robot_id] = msg
             self.last_seen[msg.robot_id] = current_time
 
-        # Check for stale peers & communication degradation
+        # Check for stale peers & communication degradation.
+        # Phase 2D fix: log ONLY on state TRANSITIONS (normal->degraded, degraded->safe_mode,
+        # degraded/safe_mode->restored).  Never log on repeated frames in the same state.
         comm_healthy = True
         for peer_id, last_t in list(self.last_seen.items()):
             age = current_time - last_t
+            prev_state = self._peer_comm_state.get(peer_id, "normal")
+
             if age >= self.t_safe_mode:
-                self.is_in_safe_mode = True
+                if prev_state != "safe_mode":
+                    print(f"[COMMS] {self.robot_id}: peer={peer_id} age={age:.1f}s"
+                          f" --> SAFE_MODE (t_safe_mode={self.t_safe_mode}s)  action=HARD_STOP")
+                    self._peer_comm_state[peer_id] = "safe_mode"
+                if not self.is_in_safe_mode:
+                    self.is_in_safe_mode = True
                 self.state.status = RobotStatus.DEGRADED
                 self.controller.is_stopped = True
                 comm_healthy = False
+
             elif age >= self.t_degraded:
+                if prev_state == "normal":
+                    print(f"[COMMS] {self.robot_id}: peer={peer_id} age={age:.1f}s"
+                          f" --> DEGRADED (t_degraded={self.t_degraded}s)")
+                    self._peer_comm_state[peer_id] = "degraded"
                 self.state.status = RobotStatus.DEGRADED
                 comm_healthy = False
 
+            else:
+                # Peer heartbeat is fresh -- restore if previously degraded
+                if prev_state in ("degraded", "safe_mode"):
+                    print(f"[COMMS] {self.robot_id}: peer={peer_id} age={age:.1f}s"
+                          f" --> RESTORED (was {prev_state})")
+                    self._peer_comm_state[peer_id] = "normal"
+
         if comm_healthy and self.is_in_safe_mode:
+            print(f"[COMMS] {self.robot_id}: All peers restored  --> resuming MOVING")
             self.is_in_safe_mode = False
             self.state.status = RobotStatus.MOVING
             self.controller.is_stopped = False
@@ -306,9 +335,42 @@ class DecentralizedAMRAgent:
         """
         Detects space-time conflicts, prioritizes via PriorityCalculator,
         and detects deadlocks via detect_deadlock.
+
+        Phase 3A Safety Fix:
+        SAFETY_STOP_DIST (1.0m) enforces a hard physical stop independent of priority.
+        Priority arbitration governs only who resumes first after the gap opens.
+        This prevents the higher-priority robot from driving through the lower-priority
+        robot's occupied cell.
         """
         if self.state.status == RobotStatus.OFFLINE:
             return
+
+        # ---------------------------------------------------------------
+        # HARD SAFETY STOP (Phase 3A)
+        # If this robot is moving and ANY peer is within SAFETY_STOP_DIST,
+        # stop unconditionally before contact.
+        # SAFETY_STOP_DIST > COLLISION_THRESHOLD (0.6m) so we stop before impact.
+        # The deadlock resolver handles escape: it replans the victim with the
+        # peer's footprint (radius-2 ring) as a temporary nav obstacle, forcing
+        # A* to find a route through an adjacent walkable row.
+        # ---------------------------------------------------------------
+        SAFETY_STOP_DIST = 1.0  # metres: must be > collision threshold (0.6m)
+        my_v = self.controller.actual_v
+
+        if my_v > 0.01:  # Only when actually moving forward
+            for peer_id, peer_msg in self.peer_states.items():
+                px, py = peer_msg.position
+                dist = math.hypot(px - self.controller.actual_x, py - self.controller.actual_y)
+                if dist < SAFETY_STOP_DIST:
+                    if not self.controller.is_stopped:
+                        print(f"[SAFETY] {self.robot_id}: peer={peer_id} dist={dist:.3f}m < "
+                              f"{SAFETY_STOP_DIST}m  -> HARD_STOP")
+                    self.controller.is_stopped = True
+                    self.state.status = RobotStatus.WAITING
+                    # Record waiting_on so deadlock detector can see the circular wait
+                    if self.waiting_on is None:
+                        self.waiting_on = peer_id
+                    return
 
         conflict_peer = None
 
@@ -356,6 +418,11 @@ class DecentralizedAMRAgent:
 
                 if my_priority < peer_priority:
                     # Lower priority yields cleanly
+                    if self.waiting_on != conflict_peer:
+                        # Log only on first yield (not every repeated frame)
+                        print(f"[CONFLICT] t={current_time:.2f}s  cell=~{self.current_path_nav[:1]}")
+                        print(f"[CONFLICT]   {self.robot_id} priority={my_priority[0]:.3f}  vs  {conflict_peer} priority={peer_priority[0]:.3f}")
+                        print(f"[CONFLICT]   decision={self.robot_id} YIELD -> waiting_on={conflict_peer}")
                     self.waiting_on = conflict_peer
                     self.wait_time += 0.05
                     self.controller.is_stopped = True
@@ -363,7 +430,11 @@ class DecentralizedAMRAgent:
                     return
                 else:
                     # Higher priority proceeds
-                    self.waiting_on = None
+                    # Log only on transition: when this robot was previously waiting
+                    if self.waiting_on is not None:
+                        print(f"[CONFLICT] t={current_time:.2f}s  {self.robot_id} priority={my_priority[0]:.3f} > {conflict_peer} priority={peer_priority[0]:.3f}  -> PROCEED")
+                        self.waiting_on = None
+                        self.wait_time = 0.0
                     if not self.is_in_safe_mode:
                         self.controller.is_stopped = False
                         self.state.status = RobotStatus.MOVING
@@ -371,8 +442,10 @@ class DecentralizedAMRAgent:
 
         # If previous conflict cleared, resume motion
         if self.waiting_on:
+            prev = self.waiting_on
             self.waiting_on = None
             if not self.is_in_safe_mode and len(self.controller.waypoints) > 0 and self.controller.current_waypoint_idx < len(self.controller.waypoints):
+                print(f"[CONFLICT] t={current_time:.2f}s  {self.robot_id}: conflict with {prev} cleared  -> RESUMING")
                 self.controller.is_stopped = False
                 self.state.status = RobotStatus.MOVING
 

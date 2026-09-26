@@ -8,6 +8,15 @@ Implements all key operational scenarios from the SIH specification:
 - S5: Robot Failure & Automated Hungarian Task Recovery
 - S6: Communication Packet Loss, Safe Mode Halt & Auto-Resume
 - S0: Unified Comprehensive Multi-Phase Demonstration
+
+Phase 1 changes:
+  F2 ? Added proper __main__ block so scenarios are directly runnable:
+           python omni_scenarios.py s2
+  F3 ? run_scenario() now delegates to engine.step() exclusively.
+       All scenario-specific events are injected via event_callback
+       so there is ONE authoritative tick loop (engine.step).
+       Deadlock detection, which lives in engine.step(), now runs on
+       every frame regardless of which scenario is active.
 """
 
 import os
@@ -27,6 +36,10 @@ from run_omni_sih_simulation import OmniSIHSimulationEngine
 from omni_amr_controller import clear_all_stage_time_samples
 from ref_sih_amr.models import Task, TaskStatus, RobotStatus
 
+
+# ---------------------------------------------------------------------------
+# Scenario setup functions (unchanged API)
+# ---------------------------------------------------------------------------
 
 def setup_s1_multi_task_hungarian(engine: OmniSIHSimulationEngine):
     """
@@ -136,14 +149,130 @@ def setup_s6_comms_degradation(engine: OmniSIHSimulationEngine):
     engine.add_task("LONG_HAUL_REPLENISH", pickup_cell=(-16.0, 3.0), dropoff_cell=(-16.0, 14.5), priority=2)
 
 
-def run_scenario(scenario_name: str = "multi_task_hungarian", duration_sec: float = 25.0, fps: float = 60.0):
+# ---------------------------------------------------------------------------
+# F3 FIX: Scenario event callbacks (one per scenario that needs events)
+# Each callback is called by engine.step() at the start of every tick.
+# Return value: None (no comms fault) or the robot_id to drop packets for.
+# ---------------------------------------------------------------------------
+
+def _make_s4_callback():
+    """Factory returns a stateful S4 event callback."""
+    obstacle_injected = [False]  # mutable cell so closure can write
+
+    def _cb(engine, t: float):
+        if not obstacle_injected[0] and t >= 3.0:
+            obstacle_injected[0] = True
+            obs_world = (4.5, 5.0)
+            obs_nav = engine.nav_map.world_to_nav(obs_world[0], obs_world[1])
+            print(f"\n[OBSTACLE] t={t:.2f}s  INJECTED: FALLEN_PALLET at world={obs_world}  nav_cell={obs_nav}")
+
+            # Inject into the nav map (this immediately makes the cell '#' for A*)
+            engine.nav_map.update_dynamic_obstacle("FALLEN_PALLET", obs_world, active=True)
+
+            # Check which active robots have this cell on their CURRENT planned path
+            affected_current = []
+            will_affect = []   # robots not yet at dropoff but whose dropoff path will pass through it
+            for a in engine.agents:
+                if obs_nav in a.current_path_nav:
+                    affected_current.append(a.robot_id)
+                elif a.current_task is not None:
+                    # Heuristic: if dropoff cell is north of obstacle, the path likely passes it
+                    from ref_sih_amr.models import TaskStatus
+                    if a.current_task.status != TaskStatus.COMPLETED:
+                        goal = (a.current_task.dropoff_cell
+                                if a.current_task.status.value in ("in_progress", "assigned")
+                                else None)
+                        if goal and goal[1] > obs_world[1]:
+                            will_affect.append((a.robot_id, goal))
+
+            if affected_current:
+                print(f"[OBSTACLE] CURRENT PATH BLOCKED = YES  robots={affected_current}")
+                for robot_id in affected_current:
+                    a = next(ag for ag in engine.agents if ag.robot_id == robot_id)
+                    target = (a.current_task.dropoff_cell
+                              if a.current_task and a.current_task.status.value == "in_progress"
+                              else (a.current_task.pickup_cell if a.current_task else None))
+                    if target:
+                        print(f"[OBSTACLE] REPLAN TRIGGERED for {robot_id}  new_target={target}")
+                        a.plan_path_to_world_target(target, t)
+                    else:
+                        print(f"[OBSTACLE] {robot_id} has no active target; no replan issued")
+            else:
+                print(f"[OBSTACLE] CURRENT PATH AFFECTED = NO  (obstacle injected before dropoff path planned)")
+                if will_affect:
+                    print(f"[OBSTACLE] NOTE: Future dropoff paths for {[r for r,_ in will_affect]} will route around it")
+                    print(f"[OBSTACLE]       (A* will avoid nav_cell={obs_nav} when they reach pickup and replan)")
+                else:
+                    print(f"[OBSTACLE] No robots currently have paths through this cell")
+
+        return None  # no comms fault
+
+    return _cb
+
+
+def _make_s5_callback():
+    """Factory returns a stateful S5 event callback."""
+    failure_triggered = [False]
+
+    def _cb(engine: OmniSIHSimulationEngine, t: float):
+        if not failure_triggered[0] and t >= 4.0:
+            failure_triggered[0] = True
+            amr3 = next((a for a in engine.agents if a.robot_id == "AMR_03"), None)
+            if amr3 and amr3.state.status != RobotStatus.OFFLINE:
+                failed_task = amr3.current_task.task_id if amr3.current_task else "None"
+                print(f"\n[FAILURE] t={t:.2f}s  robot=AMR_03  task={failed_task}")
+                print(f"[FAILURE] action=TASK_REASSIGNMENT  (Hungarian reallocation will run next tick)")
+                amr3.trigger_failure(t)
+        return None
+
+    return _cb
+
+
+def _make_s6_callback():
+    """Factory returns a stateful S6 event callback (returns dropped_peer or None)."""
+    comms_fault_start = 2.5
+    comms_fault_end   = 6.5
+    logged_start = [False]
+    logged_end   = [False]
+
+    def _cb(engine: OmniSIHSimulationEngine, t: float):
+        if comms_fault_start <= t <= comms_fault_end:
+            if not logged_start[0]:
+                logged_start[0] = True
+                print(f"\n[COMMS] t={t:.2f}s  Packet loss injected for AMR_02  (until t={comms_fault_end}s)")
+            return "AMR_02"   # drop AMR_02 broadcasts
+        else:
+            if logged_start[0] and not logged_end[0] and t > comms_fault_end:
+                logged_end[0] = True
+                print(f"\n[COMMS] t={t:.2f}s  Network restored for AMR_02  Heartbeats nominal.")
+            return None        # no comms fault
+
+    return _cb
+
+
+# ---------------------------------------------------------------------------
+# F3 FIX: Unified run_scenario() ? delegates entirely to engine.step()
+# ---------------------------------------------------------------------------
+
+def run_scenario(scenario_name: str = "multi_task_hungarian",
+                 duration_sec: float = 25.0, fps: float = 60.0):
     """
     Runs the selected scenario, executing decentralized coordination and baking to simulation5.usd.
+
+    F3: This function now calls engine.step() on every frame ? the ONLY tick path.
+    Scenario-specific events are passed as an event_callback so engine.step() injects
+    them at the right time without any duplicate loop logic here.
     """
     engine = OmniSIHSimulationEngine(cell_size=0.5)
 
+    # Print grid diagnostic immediately after construction so we have proof
+    engine.nav_map.print_grid_summary()
+
     name_lower = scenario_name.lower().strip()
-    
+
+    # Choose setup and optional event callback
+    event_callback = None
+
     if name_lower in ["s1", "s1_hungarian", "multi_task_hungarian", "all", "unified", "default"]:
         setup_s1_multi_task_hungarian(engine)
     elif name_lower in ["s2", "s2_crossing", "crossing", "crossing_priority"]:
@@ -152,10 +281,13 @@ def run_scenario(scenario_name: str = "multi_task_hungarian", duration_sec: floa
         setup_s3_narrow_aisle_headway(engine)
     elif name_lower in ["s4", "s4_blocked", "obstacle", "dynamic_obstacle"]:
         setup_s4_dynamic_obstacle(engine)
+        event_callback = _make_s4_callback()
     elif name_lower in ["s5", "s5_failure", "failure", "fault_recovery"]:
         setup_s5_robot_failure_recovery(engine)
+        event_callback = _make_s5_callback()
     elif name_lower in ["s6", "s6_comms", "comms", "comms_recovery"]:
         setup_s6_comms_degradation(engine)
+        event_callback = _make_s6_callback()
     else:
         print(f"Unknown scenario '{scenario_name}', defaulting to Multi-Task Hungarian.")
         setup_s1_multi_task_hungarian(engine)
@@ -166,63 +298,29 @@ def run_scenario(scenario_name: str = "multi_task_hungarian", duration_sec: floa
     print_frames = max(1, int(2.0 * fps))
 
     print(f"\n[SCENARIO RUNNER] Executing '{scenario_name}' ({duration_sec}s, {total_frames} frames @ {fps} FPS)...")
+    print(f"[SCENARIO RUNNER] Tick loop: engine.step() (unified ? deadlock detection active every frame)")
+
+    # Initial Hungarian allocation at t=0
     engine.run_hungarian_allocation()
 
+    # F3: Single authoritative tick loop ? engine.step() handles everything including
+    # deadlock detection. Scenario events flow through event_callback.
     for f in range(total_frames):
-        current_t = f * dt_frame
-        
-        # Scenario 4 Event: Inject dynamic obstacle at t=3.0s
-        if "s4" in name_lower or "obstacle" in name_lower:
-            if 3.0 <= current_t < 3.05:
-                print(f"\n>>> [EVENT @ t={current_t:.2f}s] Injecting Dynamic Fallen Obstacle at (4.5, 5.0) in Aisle X=4.5!")
-                engine.nav_map.update_dynamic_obstacle("FALLEN_PALLET", (4.5, 5.0), active=True)
-                # Notify agents
-                for a in engine.agents:
-                    if a.current_task:
-                        a.plan_path_to_world_target(a.current_task.dropoff_cell if a.current_task.status == TaskStatus.IN_PROGRESS else a.current_task.pickup_cell, current_t)
-
-        # Scenario 5 Event: Trigger hardware breakdown on AMR_03 at t=4.0s
-        if "s5" in name_lower or "failure" in name_lower:
-            if 4.0 <= current_t < 4.05:
-                print(f"\n>>> [EVENT @ t={current_t:.2f}s] Hardware Failure Injected into AMR_03! Motor stalled.")
-                amr3 = next((a for a in engine.agents if a.robot_id == "AMR_03"), None)
-                if amr3:
-                    amr3.trigger_failure(current_t)
-                    # Trigger immediate Hungarian reallocation of abandoned tasks
-                    engine.run_hungarian_allocation()
-
-        # Scenario 6 Event: Inject communication fault to AMR_02 from t=2.5s to t=6.5s
-        dropped_peer = None
-        if "s6" in name_lower or "comms" in name_lower:
-            if 2.5 <= current_t <= 6.5:
-                dropped_peer = "AMR_02"
-                if 2.5 <= current_t < 2.55:
-                    print(f"\n>>> [EVENT @ t={current_t:.2f}s] Communication Packet Loss Injected for AMR_02!")
-            elif 6.5 < current_t < 6.55:
-                print(f"\n>>> [EVENT @ t={current_t:.2f}s] Communication Network Restored for AMR_02! Heartbeats nominal.")
-
-        # Step simulation with custom message dropping if active
-        for a in engine.agents:
-            a.broadcast_intent(current_t)
-        engine.comms.clear()
-        for a in engine.agents:
-            a.process_peer_messages(current_t, dropped_peer=dropped_peer)
-        for a in engine.agents:
-            if a.state.status != RobotStatus.OFFLINE:
-                a.evaluate_edge_ai_and_safety(current_t)
-        for a in engine.agents:
-            a.resolve_conflicts_and_coordination(current_t, engine.agents)
-        for a in engine.agents:
-            a.step(engine.dt, current_t, frame=float(f))
-        engine.run_hungarian_allocation()
+        engine.step(frame=float(f), event_callback=event_callback)
 
         if f % print_frames == 0:
-            print(f"[Frame {f:4d} | t={current_t:.2f}s]")
+            t = engine.current_time
+            print(f"\n[Frame {f:4d} | t={t:.2f}s]")
             for a in engine.agents:
                 tel = a.controller.get_telemetry()
                 pos = tel["actual_position"]
                 task_str = a.current_task.task_id if a.current_task else "IDLE"
-                print(f"  • {a.robot_id}: Pos=({pos[0]:.2f}, {pos[1]:.2f}), Heading={tel['actual_heading']:.1f}°, v={tel['linear_velocity']:.2f} m/s, Status={a.state.status.value}, Task={task_str}")
+                stopped_str = " STOPPED" if tel["is_stopped"] else ""
+                waiting_str = f" waiting_on={a.waiting_on}" if a.waiting_on else ""
+                print(f"  ? {a.robot_id}: Pos=({pos[0]:.2f},{pos[1]:.2f})"
+                      f"  Hdg={tel['actual_heading']:.0f}?  v={tel['linear_velocity']:.2f}m/s"
+                      f"  Status={a.state.status.value}  Task={task_str}"
+                      f"{stopped_str}{waiting_str}")
 
     # Finalize stage
     if engine.stage:
@@ -230,9 +328,9 @@ def run_scenario(scenario_name: str = "multi_task_hungarian", duration_sec: floa
         engine.stage.SetEndTimeCode(float(total_frames))
         engine.stage.SetTimeCodesPerSecond(fps)
         engine.stage.Save()
-        print(f"\n[SCENARIO RUNNER] ✓ Saved {total_frames} keyframes to {engine.usd_path}")
+        print(f"\n[SCENARIO RUNNER] ? Saved {total_frames} keyframes to {engine.usd_path}")
 
-        # Synchronize to Downloads
+        # Synchronize to Downloads if present
         downloads_usd = r"C:\Users\goruv\Downloads\simulation5.usd"
         if os.path.exists(downloads_usd):
             try:
@@ -262,10 +360,61 @@ def run_scenario(scenario_name: str = "multi_task_hungarian", duration_sec: floa
                     dst_stage.SetEndTimeCode(float(total_frames))
                     dst_stage.SetTimeCodesPerSecond(fps)
                     dst_stage.Save()
-                    print(f"[SCENARIO RUNNER] ✓ Synchronized to {downloads_usd} via USD API")
+                    print(f"[SCENARIO RUNNER] ? Synchronized to {downloads_usd} via USD API")
             except Exception as e:
                 print(f"[SCENARIO RUNNER] Warning syncing to Downloads: {e}")
 
     print("\n" + "=" * 80)
-    print(f"✓ SCENARIO '{scenario_name.upper()}' BAKED SUCCESSFULLY TO OMNIVERSE!")
+    print(f"? SCENARIO '{scenario_name.upper()}' BAKED SUCCESSFULLY TO OMNIVERSE!")
     print("=" * 80)
+
+
+# ---------------------------------------------------------------------------
+# F2 FIX: __main__ entry point ? makes scenarios directly runnable
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    import argparse
+
+    VALID_SCENARIOS = {
+        "s1": "Multi-Task Hungarian Allocation (6 robots, 2 waves)",
+        "s2": "Crossing Priority & Intersection Yielding",
+        "s3": "Narrow Aisle Headway & Convoy",
+        "s4": "Dynamic Obstacle Blockage & Space-Time A* Detour",
+        "s5": "Robot Failure & Automated Hungarian Task Recovery",
+        "s6": "Communication Packet Loss, Safe Mode & Auto-Resume",
+    }
+
+    parser = argparse.ArgumentParser(
+        description="SIH-AMR Omniverse Scenario Runner",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="\n".join(f"  {k}: {v}" for k, v in VALID_SCENARIOS.items())
+    )
+    parser.add_argument(
+        "scenario",
+        nargs="?",
+        default="s1",
+        help="Scenario key: s1 s2 s3 s4 s5 s6  (default: s1)"
+    )
+    parser.add_argument(
+        "--duration", "-d",
+        type=float,
+        default=25.0,
+        help="Simulation duration in seconds  (default: 25.0)"
+    )
+    parser.add_argument(
+        "--fps", "-f",
+        type=float,
+        default=60.0,
+        help="Frames per second for USD keyframe baking  (default: 60.0)"
+    )
+    args = parser.parse_args()
+
+    print(f"\n{'='*80}")
+    print(f"SIH-AMR Phase 1 ? Omniverse Scenario: {args.scenario.upper()}")
+    if args.scenario.lower() in VALID_SCENARIOS:
+        print(f"  {VALID_SCENARIOS[args.scenario.lower()]}")
+    print(f"  Duration: {args.duration}s @ {args.fps} FPS")
+    print(f"{'='*80}\n")
+
+    run_scenario(args.scenario, duration_sec=args.duration, fps=args.fps)

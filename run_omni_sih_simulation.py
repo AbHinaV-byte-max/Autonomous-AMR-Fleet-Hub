@@ -88,6 +88,11 @@ class OmniSIHSimulationEngine:
 
         self.tasks: List[Task] = []
         self.completed_tasks = 0
+        # Phase 3A: Per-victim deadlock replan cooldown.
+        # Maps victim_id -> last_replan_time.  Suppresses repeated deadlock
+        # triggers for the same cycle until DEADLOCK_COOLDOWN_SEC has elapsed.
+        self._deadlock_last_replan: Dict[str, float] = {}
+        self.DEADLOCK_COOLDOWN_SEC = 1.5
 
     def add_task(self, task_id: str, pickup_cell: Tuple[float, float], dropoff_cell: Tuple[float, float], priority: int = 1):
         """Register a warehouse logistics task."""
@@ -137,8 +142,28 @@ class OmniSIHSimulationEngine:
                 print(f"[HUNGARIAN @ t={self.current_time:.2f}s] Allocated {task.task_id} (P={task.priority}) to {agent.robot_id} -> Pickup: {task.pickup_cell}, Dropoff: {task.dropoff_cell}")
                 agent.assign_task(task, self.current_time)
 
-    def step(self, frame: Optional[float] = None):
-        """Executes one simulation tick across all decentralized agents and bakes to USD."""
+    def step(self, frame: Optional[float] = None,
+             event_callback=None, dropped_peer: Optional[str] = None):
+        """
+        Executes one simulation tick across all decentralized agents and bakes to USD.
+
+        Parameters
+        ----------
+        frame        : USD timeline frame number for keyframe baking (None = no baking).
+        event_callback : Optional callable invoked BEFORE the agent loop so scenarios
+                         can inject events (obstacles, failures, comms faults) at precise
+                         times without duplicating the core tick logic.
+                         Signature: event_callback(engine, current_time) -> Optional[str]
+                         Return value (if any) is used as dropped_peer override.
+        dropped_peer : robot_id whose broadcast messages are suppressed this tick
+                       (comms fault injection).  event_callback return value wins.
+        """
+        # 0. Scenario event injection BEFORE physics tick
+        if event_callback is not None:
+            cb_result = event_callback(self, self.current_time)
+            if cb_result is not None:
+                dropped_peer = cb_result
+
         # 1. P2P Broadcast
         for agent in self.agents:
             agent.broadcast_intent(self.current_time)
@@ -146,9 +171,9 @@ class OmniSIHSimulationEngine:
         # 2. Swap comms channel buffer
         self.comms.clear()
 
-        # 3. Process Peer Messages
+        # 3. Process Peer Messages (with optional comms fault)
         for agent in self.agents:
-            agent.process_peer_messages(self.current_time)
+            agent.process_peer_messages(self.current_time, dropped_peer=dropped_peer)
 
         # 4. Edge-AI Policy & Safety Arbitration
         for agent in self.agents:
@@ -163,11 +188,62 @@ class OmniSIHSimulationEngine:
         wait_graph = {a.robot_id: a.waiting_on for a in self.agents if a.waiting_on is not None}
         cycle = detect_deadlock(wait_graph)
         if cycle:
-            print(f"[COORDINATION] DEADLOCK CYCLE DETECTED: {cycle} -> Triggering cycle break replan.")
             victim_id = cycle[0]
-            victim = next((a for a in self.agents if a.robot_id == victim_id), None)
-            if victim and victim.current_task:
-                victim.plan_path_to_world_target(victim.current_task.pickup_cell, self.current_time)
+
+            # Cooldown: suppress re-triggering for the same victim until enough
+            # time has elapsed since the last safe replan.
+            last_t = self._deadlock_last_replan.get(victim_id, -999.0)
+            if self.current_time - last_t < self.DEADLOCK_COOLDOWN_SEC:
+                pass  # Still in cooldown window — skip replan
+            else:
+                print(f"[DEADLOCK] cycle={cycle}")
+                victim = next((a for a in self.agents if a.robot_id == victim_id), None)
+                if victim and victim.current_task:
+                    # --- Phase 3A Safety Fix ---
+                    # Determine correct replan target (pickup or dropoff depending on task phase)
+                    from ref_sih_amr.models import TaskStatus
+                    if victim.current_task.status == TaskStatus.IN_PROGRESS:
+                        replan_target = victim.current_task.dropoff_cell
+                    else:
+                        replan_target = victim.current_task.pickup_cell
+
+                    # Gather physical footprints of ALL other live robots as exclusion zone.
+                    # radius=2 forces A* to use an adjacent row (1m clearance around peer body)
+                    FOOTPRINT_RADIUS = 2  # cells; 2 * 0.5m/cell = 1.0m clearance
+                    exclusion_cells = set()
+                    for other in self.agents:
+                        if other.robot_id == victim_id or other.state.status == RobotStatus.OFFLINE:
+                            continue
+                        ox = other.controller.actual_x
+                        oy = other.controller.actual_y
+                        cx, cy = self.nav_map.world_to_nav(ox, oy)
+                        for dr in range(-FOOTPRINT_RADIUS, FOOTPRINT_RADIUS + 1):
+                            for dc in range(-FOOTPRINT_RADIUS, FOOTPRINT_RADIUS + 1):
+                                if abs(dr) + abs(dc) <= FOOTPRINT_RADIUS:
+                                    exclusion_cells.add((cx + dc, cy + dr))
+
+                    print(f"[DEADLOCK] victim={victim_id}  target={replan_target}  "
+                          f"exclusion_zone={len(exclusion_cells)} cells  action=SAFE_REPLAN")
+
+                    _EXCL_TAG = f"_deadlock_excl_{victim_id}"
+                    for (ecx, ecy) in exclusion_cells:
+                        self.nav_map.set_cell_blocked(ecx, ecy, tag=_EXCL_TAG)
+
+                    try:
+                        success = victim.plan_path_to_world_target(replan_target, self.current_time)
+                    finally:
+                        self.nav_map.clear_cells_by_tag(_EXCL_TAG)
+
+                    if success:
+                        # Replan succeeded: record cooldown time, clear victim's waiting_on
+                        # so the deadlock graph resets properly.
+                        self._deadlock_last_replan[victim_id] = self.current_time
+                        victim.waiting_on = None
+                        victim.wait_time = 0.0
+                    else:
+                        print(f"[DEADLOCK] {victim_id}: safe replan failed (cornered), "
+                              f"backing off for {self.DEADLOCK_COOLDOWN_SEC}s")
+                        self._deadlock_last_replan[victim_id] = self.current_time
 
         # 7. Physical Kinematic Step in Omniverse (writing time-sample keyframe)
         for agent in self.agents:

@@ -60,12 +60,14 @@ class OmniAMRController:
     and synchronizes actual simulated state to USD stage transform ops.
     """
     def __init__(self, robot_id: str, stage, max_v: float = 1.5, max_omega: float = 120.0,
-                 waypoint_tolerance: float = 0.35, heading_align_threshold: float = 25.0):
+                 waypoint_tolerance: float = 0.35, goal_tolerance: float = 0.12,
+                 heading_align_threshold: float = 25.0):
         self.robot_id = robot_id
         self.stage = stage
         self.max_v = float(max_v)                        # 1.5 m/s
         self.max_omega = float(max_omega)                # 120.0 deg/s
-        self.waypoint_tolerance = float(waypoint_tolerance) # 0.35 m
+        self.waypoint_tolerance = float(waypoint_tolerance) # 0.35 m  (intermediate waypoints)
+        self.goal_tolerance = float(goal_tolerance)          # 0.12 m  (final goal only)
         self.heading_align_threshold = float(heading_align_threshold) # 25.0 deg
         
         # Actual state read from USD or default spawn table
@@ -241,8 +243,13 @@ class OmniAMRController:
 
         # -------------------------------------------------------------
         # Waypoint Progression (STRICTLY DISTANCE-BASED)
+        # F5 FIX: use tight goal_tolerance for the final waypoint so robots
+        # stop precisely at their goal, and waypoint_tolerance for the rest.
         # -------------------------------------------------------------
-        if dist <= self.waypoint_tolerance:
+        is_final_wp = (self.current_waypoint_idx == len(self.waypoints) - 1)
+        active_tolerance = self.goal_tolerance if is_final_wp else self.waypoint_tolerance
+
+        if dist <= active_tolerance:
             self.current_waypoint_idx += 1
             if self.current_waypoint_idx >= len(self.waypoints):
                 self.is_stopped = True
