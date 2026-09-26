@@ -352,7 +352,27 @@ class LocalTaskManager:
         if self.state.status == RobotStatus.OFFLINE:
             return
 
-        if self.state.status != RobotStatus.OFFLINE:
+        if self.state.status == RobotStatus.CHARGING:
+            self.seq += 1
+            curr_pos = (int(self.state.position[0]), int(self.state.position[1]))
+            msg = IntentMessage(
+                robot_id=self.state.robot_id,
+                seq=self.seq,
+                timestamp=current_time,
+                position=self.state.position,
+                velocity=0.0,
+                intent=Intent.WAIT,
+                next_intersection=None,
+                task_id=None,
+                priority=0,
+                planned_path=[curr_pos] * 200,
+                waiting_on=None,
+                heartbeat=current_time
+            )
+            self.comms.send(msg)
+            return
+
+        if self.state.status not in (RobotStatus.OFFLINE, RobotStatus.CHARGING):
             if self._check_conflicts(current_time):
                 # Move
                 next_cell = self.state.planned_path.pop(0)

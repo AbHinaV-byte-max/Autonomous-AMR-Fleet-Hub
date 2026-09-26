@@ -405,11 +405,11 @@
               </div>
 
               <!-- Safety Integrity Verification -->
-              <div class="mt-3 bg-white/40 p-2.5 rounded-xl border border-white/60 flex items-center justify-between text-xs">
-                <span class="text-gray-600 font-medium flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-emerald-600 text-[18px]">verified</span> Collisions:
+              <div class="mt-3 bg-white/40 p-2.5 rounded-xl border border-white/60 flex items-center justify-between text-xs transition-all duration-300" id="bench-safety-container">
+                <span class="text-gray-600 font-medium flex items-center gap-1.5" id="bench-safety-title">
+                  <span class="material-symbols-outlined text-emerald-600 text-[18px] transition-all" id="bench-safety-icon">verified</span> Collisions:
                 </span>
-                <span class="font-bold text-emerald-700 font-mono">0 (Safe &amp; Deadlock Free)</span>
+                <span class="font-bold text-emerald-700 font-mono transition-colors" id="bench-collisions-status">0 (Safe &amp; Deadlock Free)</span>
               </div>
             </div>
 
@@ -424,14 +424,18 @@
 
       <!-- MIDDLE SECTION: 4 Glassmorphic KPI Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="glass-panel p-5 rounded-3xl shadow-lg border border-white/60">
+        <div class="glass-panel p-5 rounded-3xl shadow-lg border border-white/60 transition-all duration-300" id="kpi-safety-card">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Safety Integrity</span>
-            <span class="material-symbols-outlined text-emerald-600 text-[20px]">shield</span>
+            <span class="material-symbols-outlined text-emerald-600 text-[22px] transition-all" id="kpi-safety-icon">shield</span>
           </div>
           <div class="mt-2 flex items-baseline gap-2">
-            <span class="text-3xl font-heading font-black text-gray-900" id="kpi-collisions">0</span>
-            <span class="text-xs font-bold text-emerald-600">Collisions (100% Safe)</span>
+            <span class="text-3xl font-heading font-black text-gray-900 transition-colors" id="kpi-collisions">0</span>
+            <span class="text-xs font-bold text-emerald-600 transition-colors" id="kpi-safety-label">Collisions (100% Safe)</span>
+          </div>
+          <div class="mt-2.5 pt-2 border-t border-gray-100/80 flex items-center justify-between text-[10px]">
+            <span class="text-gray-400 font-mono" id="kpi-safety-sub">Zero Incursions</span>
+            <span class="px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 transition-colors" id="kpi-safety-badge">100% Safe</span>
           </div>
         </div>
 
@@ -459,12 +463,18 @@
 
         <div class="glass-panel p-5 rounded-3xl shadow-lg border border-white/60">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Swarm Consensus</span>
-            <span class="material-symbols-outlined text-emerald-600 text-[20px]">hub</span>
+            <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Fleet Power &amp; Status</span>
+            <span class="material-symbols-outlined text-emerald-600 text-[20px]">battery_charging_full</span>
           </div>
           <div class="mt-2 flex items-baseline gap-2">
             <span class="text-3xl font-heading font-black text-gray-900" id="kpi-nodes-count">9 / 9</span>
-            <span class="text-xs font-bold text-emerald-600">Nodes Online</span>
+            <span class="text-xs font-bold text-emerald-600" id="kpi-nodes-desc">Nodes Online</span>
+          </div>
+          <div class="mt-1 flex items-center gap-1.5 text-[10px] text-gray-500 font-mono">
+            <span id="kpi-active-status" class="text-emerald-700 font-bold">9 Active</span> &bull; 
+            <span id="kpi-charging-status" class="text-cyan-700 font-bold">0 Charging</span> &bull; 
+            <span id="kpi-low-status" class="text-amber-700 font-bold">0 Low</span> &bull; 
+            <span id="kpi-offline-status" class="text-rose-700 font-bold">0 Off</span>
           </div>
         </div>
       </div>
@@ -499,18 +509,69 @@
                 </tbody>
               </table>
             </div>
+
+            <!-- Autonomous Failover & Dynamic Task Reallocation Live Feed -->
+            <div class="mt-4 pt-3 border-t border-gray-200/70">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="font-heading font-bold text-xs text-gray-800 flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-amber-500 text-[16px]">published_with_changes</span>
+                  Autonomous Failover &amp; Task Reallocation Events
+                </h3>
+                <span class="text-[10px] text-gray-500 font-mono" id="failoverEventsCount">0 Failover Events</span>
+              </div>
+              <div id="failoverEventsList" class="flex flex-col gap-1.5 max-h-[130px] overflow-y-auto pr-1 text-xs">
+                <div class="text-gray-400 italic text-[11px] py-1">Monitoring fleet health... Any robot shutdown or low battery automatically reallocates tasks to peers.</div>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- Right (4 Cols): Live Swarm Fleet List -->
         <div class="lg:col-span-4">
           <div class="glass-panel p-6 rounded-3xl h-full shadow-xl flex flex-col">
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center justify-between mb-3">
               <h2 class="font-heading font-bold text-base text-gray-900 flex items-center gap-2">
                 <span class="material-symbols-outlined text-indigo-600 text-[20px]">smart_toy</span>
                 Live Swarm Fleet
               </h2>
-              <span class="text-xs text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">9 Online</span>
+              <span id="fleetHeaderBadge" class="text-xs text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs">9 Active</span>
+            </div>
+
+            <!-- Fleet Status & Charging Hub Counters -->
+            <div class="grid grid-cols-4 gap-2 mb-3">
+              <div onclick="setFleetFilter('active')" class="bg-emerald-50/90 border border-emerald-200/90 rounded-2xl p-2 text-center shadow-2xs cursor-pointer hover:bg-emerald-100/80 transition-all" title="Filter: Show Active AMRs">
+                <div class="flex items-center justify-center gap-1 text-[9px] uppercase font-bold text-emerald-700">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                </div>
+                <div id="statCountActive" class="font-heading font-black text-base text-emerald-950">9</div>
+              </div>
+              <div onclick="setFleetFilter('charging')" class="bg-cyan-50/90 border border-cyan-200/90 rounded-2xl p-2 text-center shadow-2xs cursor-pointer hover:bg-cyan-100/80 transition-all" title="Filter: Show Charging AMRs">
+                <div class="flex items-center justify-center gap-1 text-[9px] uppercase font-bold text-cyan-700">
+                  <span class="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></span> Charge
+                </div>
+                <div id="statCountCharging" class="font-heading font-black text-base text-cyan-950">0</div>
+              </div>
+              <div onclick="setFleetFilter('low_batt')" class="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-2 text-center shadow-2xs cursor-pointer hover:bg-amber-100/80 transition-all" title="Filter: Show Low Battery AMRs">
+                <div class="flex items-center justify-center gap-1 text-[9px] uppercase font-bold text-amber-700">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Low
+                </div>
+                <div id="statCountLowBatt" class="font-heading font-black text-base text-amber-950">0</div>
+              </div>
+              <div onclick="setFleetFilter('shutdown')" class="bg-rose-50/90 border border-rose-200/90 rounded-2xl p-2 text-center shadow-2xs cursor-pointer hover:bg-rose-100/80 transition-all" title="Filter: Show Shut Down AMRs">
+                <div class="flex items-center justify-center gap-1 text-[9px] uppercase font-bold text-rose-700">
+                  <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Off
+                </div>
+                <div id="statCountShutdown" class="font-heading font-black text-base text-rose-950">0</div>
+              </div>
+            </div>
+
+            <!-- Filter Segment Control -->
+            <div class="flex items-center justify-between gap-1 mb-3 bg-gray-100/90 p-1 rounded-xl text-[10px] font-bold">
+              <button onclick="setFleetFilter('all')" id="tabFilterAll" class="flex-1 py-1 rounded-lg bg-white shadow-xs text-indigo-700 font-extrabold transition-all border border-indigo-200">All (9)</button>
+              <button onclick="setFleetFilter('active')" id="tabFilterActive" class="flex-1 py-1 rounded-lg text-gray-600 hover:text-gray-900 transition-all">Active</button>
+              <button onclick="setFleetFilter('charging')" id="tabFilterCharging" class="flex-1 py-1 rounded-lg text-gray-600 hover:text-gray-900 transition-all">Charging</button>
+              <button onclick="setFleetFilter('low_batt')" id="tabFilterLowBatt" class="flex-1 py-1 rounded-lg text-gray-600 hover:text-gray-900 transition-all">Low</button>
+              <button onclick="setFleetFilter('shutdown')" id="tabFilterShutdown" class="flex-1 py-1 rounded-lg text-gray-600 hover:text-gray-900 transition-all">Off</button>
             </div>
 
             <div class="flex flex-col gap-2.5 overflow-y-auto max-h-[380px] custom-scrollbar pr-1" id="live-fleet-list">
@@ -969,9 +1030,25 @@
         const cargo = mesh.getObjectByName('cargoMesh');
         if (cargo) cargo.visible = !!r.has_cargo;
 
-        // LiDAR toggle
+        // Dynamic Status & LiDAR Visuals
         const scanRing = mesh.getObjectByName('scanRing');
-        if (scanRing) scanRing.visible = state.toggles.lidar && r.status !== 'OFFLINE';
+        if (scanRing) {
+          if (r.status === 'CHARGING') {
+            scanRing.visible = true;
+            scanRing.material.color.setHex(0x06b6d4);
+            scanRing.material.opacity = 0.55;
+          } else if (r.status === 'OFFLINE') {
+            scanRing.visible = false;
+          } else if (r.status === 'WAITING') {
+            scanRing.visible = state.toggles.lidar;
+            scanRing.material.color.setHex(0xf59e0b);
+            scanRing.material.opacity = 0.35;
+          } else {
+            scanRing.visible = state.toggles.lidar;
+            scanRing.material.color.setHex(AMR_COLORS[idx % AMR_COLORS.length]);
+            scanRing.material.opacity = 0.25;
+          }
+        }
 
         // Selection highlight
         const selRing = mesh.getObjectByName('selRing');
@@ -1313,12 +1390,37 @@
         updateMetrics(snap.metrics);
       }
 
+      if (snap.conflicts) {
+        updateFailoverFeed(snap.conflicts);
+      }
+
       updateRobotHud();
     }
 
     /* -------------------------------------------------------------
        UI CONTROLLERS & DATA UPDATES
        ------------------------------------------------------------- */
+    let fleetFilter = 'all';
+
+    function setFleetFilter(f) {
+      fleetFilter = f;
+      const filters = ['all', 'active', 'charging', 'low_batt', 'shutdown'];
+      filters.forEach(id => {
+        const btnId = 'tabFilter' + id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
+        const btn = document.getElementById(btnId);
+        if (btn) {
+          if (id === f) {
+            btn.className = 'flex-1 py-1 rounded-lg bg-white shadow-xs text-indigo-700 font-extrabold transition-all border border-indigo-200';
+          } else {
+            btn.className = 'flex-1 py-1 rounded-lg text-gray-600 hover:text-gray-900 transition-all';
+          }
+        }
+      });
+      if (state.robots) {
+        updateFleetList(state.robots);
+      }
+    }
+
     function updateRobotHud() {
       const hud = document.getElementById('robotHud');
       if (!hud) return;
@@ -1333,23 +1435,44 @@
       const cleanId = (activeRobot.robot_id || activeRobot.id).replace('robot-', 'AMR-');
       document.getElementById('hudRobotId').innerText = cleanId;
 
+      const bat = Math.round(activeRobot.battery !== undefined ? activeRobot.battery : (activeRobot.battery_pct || 95));
       const statusEl = document.getElementById('hudStatus');
-      statusEl.innerText = activeRobot.status || 'MOVING';
-      if (activeRobot.status === 'WAITING') {
+
+      if (activeRobot.status === 'OFFLINE' || activeRobot.status === 'DEGRADED') {
+        statusEl.className = 'px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold border border-rose-500/40';
+        statusEl.innerText = '⛔ SHUT DOWN';
+      } else if (activeRobot.status === 'CHARGING') {
+        statusEl.className = 'px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-bold animate-pulse border border-cyan-500/40';
+        statusEl.innerText = '⚡ CHARGING';
+      } else if (bat <= 20) {
+        statusEl.className = 'px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold animate-pulse border border-amber-500/40';
+        statusEl.innerText = '⚠️ LOW BATTERY';
+      } else if (activeRobot.status === 'WAITING') {
         statusEl.className = 'px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold';
-      } else if (activeRobot.status === 'OFFLINE' || activeRobot.status === 'DEGRADED') {
-        statusEl.className = 'px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold';
+        statusEl.innerText = 'ACTIVE (WAITING)';
       } else {
         statusEl.className = 'px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold';
+        statusEl.innerText = activeRobot.status === 'MOVING' ? 'ACTIVE (MOVING)' : 'ACTIVE (IDLE)';
       }
 
       document.getElementById('hudPose').innerText = `(${activeRobot.position[0].toFixed(1)}, ${activeRobot.position[1].toFixed(1)})`;
       document.getElementById('hudHeading').innerText = `${(activeRobot.heading || 0).toFixed(0)}&deg;`;
       
-      const bat = Math.round(activeRobot.battery !== undefined ? activeRobot.battery : (activeRobot.battery_pct || 95));
-      document.getElementById('hudBattery').innerText = `${bat}%`;
+      const batEl = document.getElementById('hudBattery');
+      if (batEl) {
+        if (activeRobot.status === 'CHARGING') {
+          batEl.className = 'text-right text-cyan-400 font-bold animate-pulse';
+          batEl.innerText = `⚡ ${bat}% (Charging)`;
+        } else if (bat <= 20) {
+          batEl.className = 'text-right text-rose-400 font-bold animate-pulse';
+          batEl.innerText = `⚠️ ${bat}% (Low)`;
+        } else {
+          batEl.className = 'text-right text-emerald-400 font-bold';
+          batEl.innerText = `${bat}%`;
+        }
+      }
       document.getElementById('hudCargo').innerText = activeRobot.has_cargo ? 'Carrying Crate' : 'Empty Tray';
-      document.getElementById('hudTask').innerText = activeRobot.current_task_id ? activeRobot.current_task_id.substring(0, 11) : 'STANDBY';
+      document.getElementById('hudTask').innerText = activeRobot.current_task_id ? activeRobot.current_task_id.substring(0, 11) : (activeRobot.status === 'CHARGING' ? 'RECHARGING' : 'STANDBY');
     }
 
     async function switchScenario(scen) {
@@ -1392,88 +1515,348 @@
 
     function updateFleetList(robots) {
       const fleetContainer = document.getElementById('live-fleet-list');
-      if (!fleetContainer) return;
+      if (!fleetContainer || !robots) return;
 
-      fleetContainer.innerHTML = '';
-      const onlineCount = robots.filter(r => r.status !== 'OFFLINE').length;
-      document.getElementById('mapStatRobots').innerText = `${onlineCount} / ${robots.length}`;
-      document.getElementById('kpi-nodes-count').innerText = `${onlineCount} / ${robots.length}`;
+      // 4 mutually exclusive fleet status categories
+      const shutdownRobots = robots.filter(r => r.status === 'OFFLINE');
+      const chargingRobots = robots.filter(r => r.status === 'CHARGING');
+      const lowBattRobots  = robots.filter(r => r.status !== 'OFFLINE' && r.status !== 'CHARGING' && (r.battery !== undefined && r.battery <= 20.0));
+      const activeRobots   = robots.filter(r => r.status !== 'OFFLINE' && r.status !== 'CHARGING' && (r.battery === undefined || r.battery > 20.0));
 
-      robots.forEach(r => {
-        const rId = (r.robot_id || r.id).replace('robot-', 'AMR-');
-        const bat = Math.round(r.battery !== undefined ? r.battery : (r.battery_pct || 95));
-        const batColor = bat > 50 ? 'bg-emerald-500' : bat > 20 ? 'bg-amber-500' : 'bg-rose-500';
-        const isMoving = r.status === 'MOVING' || r.status === 'BUSY';
-        const isWaiting = r.status === 'WAITING';
+      const activeCount = activeRobots.length;
+      const chargingCount = chargingRobots.length;
+      const lowBattCount = lowBattRobots.length;
+      const shutdownCount = shutdownRobots.length;
+      const totalCount = robots.length;
+      const onlineCount = totalCount - shutdownCount;
 
-        const card = document.createElement('div');
-        card.className = `bg-white/40 p-3 rounded-2xl border border-white/60 hover:bg-white/80 transition-all cursor-pointer ${state.selectedRobotId === (r.robot_id || r.id) ? 'ring-2 ring-indigo-500 bg-white/90' : ''}`;
-        card.onclick = () => selectRobot(r.robot_id || r.id);
+      // Update Top Status Strips & KPI Cards
+      const mapStatRobots = document.getElementById('mapStatRobots');
+      if (mapStatRobots) {
+        mapStatRobots.innerText = `${onlineCount} / ${totalCount} (${activeCount} Active, ${chargingCount} Charging)`;
+      }
 
-        card.innerHTML = `
-          <div class="flex items-center justify-between mb-1.5">
-            <div class="flex items-center gap-2">
-              <span class="font-bold text-gray-900 text-xs">${rId}</span>
-              <span class="px-2 py-0.5 rounded-full ${isMoving ? 'bg-emerald-100 text-emerald-800' : isWaiting ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'} text-[9px] font-bold tracking-wider">${r.status || 'ONLINE'}</span>
-            </div>
-            <span class="font-mono text-[10px] text-gray-500">(${r.position[0].toFixed(1)}, ${r.position[1].toFixed(1)})</span>
-          </div>
+      const kpiNodes = document.getElementById('kpi-nodes-count');
+      if (kpiNodes) kpiNodes.innerText = `${onlineCount} / ${totalCount}`;
 
-          <div class="flex items-center justify-between text-[11px] text-gray-600 mb-1">
-            <span>Battery Level</span>
-            <span class="font-bold font-mono text-gray-800">${bat}%</span>
-          </div>
-          <div class="w-full bg-gray-200/80 rounded-full h-1.5 overflow-hidden">
-            <div class="${batColor} h-1.5 rounded-full transition-all" style="width: ${bat}%"></div>
-          </div>
+      const kpiActive = document.getElementById('kpi-active-status');
+      if (kpiActive) kpiActive.innerText = `${activeCount} Active`;
 
-          <div class="mt-2 text-[10px] text-gray-500 font-mono flex items-center justify-between">
-            <span>TASK: ${r.current_task_id ? r.current_task_id.substring(0, 11) : 'Awaiting Task'}</span>
-            <span>${(27 + (bat % 7)).toFixed(1)}&deg;C</span>
-          </div>
-        `;
-        fleetContainer.appendChild(card);
+      const kpiCharging = document.getElementById('kpi-charging-status');
+      if (kpiCharging) kpiCharging.innerText = `${chargingCount} Charging`;
+
+      const kpiLow = document.getElementById('kpi-low-status');
+      if (kpiLow) kpiLow.innerText = `${lowBattCount} Low`;
+
+      const kpiOff = document.getElementById('kpi-offline-status');
+      if (kpiOff) kpiOff.innerText = `${shutdownCount} Off`;
+
+      // Update Real-Time Status & Charging Hub Counters
+      const elAct = document.getElementById('statCountActive');
+      if (elAct) elAct.innerText = activeCount;
+
+      const elChg = document.getElementById('statCountCharging');
+      if (elChg) elChg.innerText = chargingCount;
+
+      const elLow = document.getElementById('statCountLowBatt');
+      if (elLow) elLow.innerText = lowBattCount;
+
+      const elOff = document.getElementById('statCountShutdown');
+      if (elOff) elOff.innerText = shutdownCount;
+
+      // Update Filter Tab Labels
+      const tabAll = document.getElementById('tabFilterAll');
+      if (tabAll) tabAll.innerText = `All (${totalCount})`;
+
+      const tabAct = document.getElementById('tabFilterActive');
+      if (tabAct) tabAct.innerText = `Active (${activeCount})`;
+
+      const tabChg = document.getElementById('tabFilterCharging');
+      if (tabChg) tabChg.innerText = `Charging (${chargingCount})`;
+
+      const tabLow = document.getElementById('tabFilterLowBatt');
+      if (tabLow) tabLow.innerText = `Low (${lowBattCount})`;
+
+      const tabOff = document.getElementById('tabFilterShutdown');
+      if (tabOff) tabOff.innerText = `Off (${shutdownCount})`;
+
+      // Update Panel Header Badge
+      const fleetHdr = document.getElementById('fleetHeaderBadge');
+      if (fleetHdr) {
+        if (shutdownCount > 0) {
+          fleetHdr.className = 'text-xs text-rose-800 font-bold bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 shadow-2xs';
+          fleetHdr.innerText = `${activeCount} Active • ${shutdownCount} Off`;
+        } else if (chargingCount > 0) {
+          fleetHdr.className = 'text-xs text-cyan-800 font-bold bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-200 shadow-2xs';
+          fleetHdr.innerText = `${activeCount} Active • ${chargingCount} Charging`;
+        } else {
+          fleetHdr.className = 'text-xs text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs';
+          fleetHdr.innerText = `${activeCount} / ${totalCount} Active`;
+        }
+      }
+
+      // Remove empty state message if any
+      const emptyMsg = document.getElementById('fleet-empty-state');
+      if (emptyMsg) emptyMsg.remove();
+
+      // Filter robots based on selected tab
+      const displayRobots = robots.filter(r => {
+        const isOffline = r.status === 'OFFLINE';
+        const isCharging = r.status === 'CHARGING';
+        const isLowBatt = !isOffline && !isCharging && (r.battery !== undefined && r.battery <= 20.0);
+
+        if (fleetFilter === 'active') return !isOffline && !isCharging && !isLowBatt;
+        if (fleetFilter === 'charging') return isCharging;
+        if (fleetFilter === 'low_batt') return isLowBatt;
+        if (fleetFilter === 'shutdown') return isOffline;
+        return true; // 'all'
       });
-    }
 
-    function updateOrderPipeline(tasks) {
-      const tbody = document.getElementById('order-pipeline-body');
-      if (!tbody) return;
-
-      tbody.innerHTML = '';
-      if (!tasks || tasks.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="5" class="px-4 py-4 text-center text-gray-500 italic">No pending orders in queue.</td>
-          </tr>
-        `;
+      if (displayRobots.length === 0) {
+        // Hide all existing cards and show empty state
+        const allCards = fleetContainer.querySelectorAll('[data-robot-card]');
+        allCards.forEach(c => c.style.display = 'none');
+        fleetContainer.insertAdjacentHTML('beforeend', `<div id="fleet-empty-state" class="text-center py-6 text-xs text-gray-400 italic">No AMRs in "${fleetFilter.replace('_', ' ')}" state.</div>`);
         return;
       }
 
-      tasks.slice(0, 9).forEach(t => {
-        const tId = t.task_id || t.id || '#ORD-101';
-        const assigned = t.assigned_robot_id || t.assigned_robot ? (t.assigned_robot_id || t.assigned_robot).replace('robot-', 'AMR-') : 'Awaiting';
-        const isComp = t.status === 'COMPLETED' || t.status === 4;
-        const isInProg = t.status === 'IN_PROGRESS' || t.status === 3;
-        const isAssigned = t.status === 'ASSIGNED' || t.status === 2;
+      const activeIds = new Set(displayRobots.map(r => r.robot_id || r.id));
 
-        const badgeClass = isComp ? 'bg-emerald-100 text-emerald-800' : isInProg ? 'bg-indigo-100 text-indigo-800' : isAssigned ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800';
-        const badgeLabel = isComp ? 'COMPLETED' : isInProg ? 'IN PROGRESS' : isAssigned ? 'ASSIGNED' : 'QUEUED';
-
-        const pCell = t.pickup_cell || t.pickup || [2, 0];
-        const dCell = t.dropoff_cell || t.dropoff || [3, 17];
-
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-white/50 transition-colors';
-        tr.innerHTML = `
-          <td class="px-4 py-3 font-mono font-bold text-indigo-700">${tId}</td>
-          <td class="px-4 py-3 font-medium text-gray-800">${assigned}</td>
-          <td class="px-4 py-3 font-mono text-gray-600">(${pCell[0]},${pCell[1]}) &rarr; (${dCell[0]},${dCell[1]})</td>
-          <td class="px-4 py-3 text-gray-600">${t.payload || 'Avionics Crate'}</td>
-          <td class="px-4 py-3"><span class="px-2 py-0.5 rounded ${badgeClass} text-[10px] font-bold">${badgeLabel}</span></td>
-        `;
-        tbody.appendChild(tr);
+      // Hide cards that are filtered out
+      const existingCards = fleetContainer.querySelectorAll('[data-robot-card]');
+      existingCards.forEach(card => {
+        const cId = card.getAttribute('data-robot-id');
+        if (!activeIds.has(cId)) {
+          card.style.display = 'none';
+        } else {
+          card.style.display = 'block';
+        }
       });
+
+      displayRobots.forEach(r => {
+        const rawId = r.robot_id || r.id;
+        const rId = rawId.replace('robot-', 'AMR-');
+        const bat = Math.round(r.battery !== undefined ? r.battery : (r.battery_pct || 95));
+        const isOffline = r.status === 'OFFLINE';
+        const isCharging = r.status === 'CHARGING';
+        const isLowBatt = !isOffline && !isCharging && (bat <= 20);
+        const isMoving = r.status === 'MOVING' || r.status === 'BUSY';
+        const isWaiting = r.status === 'WAITING';
+
+        let batColor = 'bg-emerald-500';
+        let batLabel = `${bat}%`;
+        let cardBorder = 'border-white/60 bg-white/40';
+
+        if (isCharging) {
+          batColor = 'bg-gradient-to-r from-cyan-400 to-sky-500 animate-pulse';
+          batLabel = `⚡ ${bat}% (Charging +1.5%/t)`;
+          cardBorder = 'border-cyan-300/80 bg-cyan-50/40';
+        } else if (isOffline) {
+          batColor = 'bg-rose-400';
+          batLabel = `⛔ Offline (0% Output)`;
+          cardBorder = 'border-rose-300/80 bg-rose-50/40 opacity-85';
+        } else if (isLowBatt) {
+          batColor = 'bg-rose-500 animate-pulse';
+          batLabel = `⚠️ ${bat}% (Critical - Shedding)`;
+          cardBorder = 'border-amber-300/80 bg-amber-50/40';
+        } else if (bat <= 50) {
+          batColor = 'bg-amber-500';
+        }
+
+        let badgeClass = 'bg-gray-100 text-gray-800';
+        let badgeText = 'ACTIVE (IDLE)';
+        if (isOffline) {
+          badgeClass = 'bg-rose-100 text-rose-800 font-extrabold border border-rose-300';
+          badgeText = '⛔ SHUT DOWN';
+        } else if (isCharging) {
+          badgeClass = 'bg-cyan-100 text-cyan-800 border border-cyan-300 font-extrabold animate-pulse';
+          badgeText = '⚡ CHARGING';
+        } else if (isLowBatt) {
+          badgeClass = 'bg-amber-100 text-amber-800 border border-amber-300 font-extrabold animate-pulse';
+          badgeText = '⚠️ LOW BATTERY';
+        } else if (isMoving) {
+          badgeClass = 'bg-emerald-100 text-emerald-800 font-bold';
+          badgeText = 'ACTIVE (MOVING)';
+        } else if (isWaiting) {
+          badgeClass = 'bg-amber-100 text-amber-800 font-bold';
+          badgeText = 'ACTIVE (WAITING)';
+        }
+
+        const taskText = r.current_task_id ? r.current_task_id.substring(0, 11) : (isCharging ? 'Stationary (Charging)' : isOffline ? 'Unavailable' : 'Standby');
+        const cardClass = `p-3 rounded-2xl border ${cardBorder} hover:bg-white/80 transition-all cursor-pointer ${state.selectedRobotId === rawId ? 'ring-2 ring-indigo-500 bg-white/90 shadow-md' : 'shadow-2xs'}`;
+
+        let card = document.getElementById(`fleet-card-${rawId}`);
+        if (!card) {
+          card = document.createElement('div');
+          card.id = `fleet-card-${rawId}`;
+          card.setAttribute('data-robot-card', 'true');
+          card.setAttribute('data-robot-id', rawId);
+          card.className = cardClass;
+          card.onclick = () => selectRobot(rawId);
+
+          card.innerHTML = `
+            <div class="flex items-center justify-between mb-1.5">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-gray-900 text-xs">${rId}</span>
+                <span id="badge-${rawId}" class="px-2 py-0.5 rounded-full ${badgeClass} text-[9px] tracking-wider">${badgeText}</span>
+              </div>
+              <span id="coords-${rawId}" class="font-mono text-[10px] text-gray-500">(${r.position[0].toFixed(1)}, ${r.position[1].toFixed(1)})</span>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] text-gray-600 mb-1">
+              <span>Battery Level</span>
+              <span id="bat-label-${rawId}" class="font-bold font-mono ${isLowBatt ? 'text-rose-600 font-black' : isCharging ? 'text-cyan-700 font-black' : 'text-gray-800'}">${batLabel}</span>
+            </div>
+            <div class="w-full bg-gray-200/80 rounded-full h-1.5 overflow-hidden">
+              <div id="bat-bar-${rawId}" class="${batColor} h-1.5 rounded-full transition-all" style="width: ${Math.min(100, Math.max(5, bat))}%"></div>
+            </div>
+
+            <div class="mt-2 text-[10px] text-gray-500 font-mono flex items-center justify-between">
+              <span id="task-${rawId}" class="${r.current_task_id ? 'text-indigo-700 font-semibold' : ''}">TASK: ${taskText}</span>
+              <span id="temp-${rawId}">${(27 + (bat % 7)).toFixed(1)}&deg;C</span>
+            </div>
+
+            <!-- Interactive Action Triggers for Failover & Battery Demo -->
+            <div class="mt-2.5 pt-2 border-t border-gray-200/60 flex items-center justify-between gap-1.5">
+              <button id="btn-power-${rawId}" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation(); togglePower('${rawId}')" class="flex-1 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-2xs ${isOffline ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-500/50' : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'}" title="${isOffline ? 'Restore robot back to active IDLE' : 'Instantly trigger robot shutdown to observe automatic task handover'}">
+                <span id="icon-power-${rawId}" class="material-symbols-outlined text-[13px]">${isOffline ? 'power' : 'power_off'}</span>
+                <span id="text-power-${rawId}">${isOffline ? 'Revive Robot' : 'Shutdown / E-Stop'}</span>
+              </button>
+              <button id="btn-batt-${rawId}" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation(); forceBattery('${rawId}', ${isCharging ? 95 : 18})" class="flex-1 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-2xs ${isCharging ? 'bg-cyan-600 hover:bg-cyan-700 text-white' : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200'}" title="${isCharging ? 'Fast recharge to 95%' : 'Drain battery to 18% to trigger low-battery automatic task shedding and charging'}">
+                <span id="icon-batt-${rawId}" class="material-symbols-outlined text-[13px]">${isCharging ? 'bolt' : 'battery_alert'}</span>
+                <span id="text-batt-${rawId}">${isCharging ? '⚡ Charge 95%' : '⚠️ Test Low (18%)'}</span>
+              </button>
+            </div>
+          `;
+          fleetContainer.appendChild(card);
+        } else {
+          // In-place persistent update: NEVER tear down DOM during clicks!
+          card.className = cardClass;
+          card.style.display = 'block';
+
+          const bEl = document.getElementById(`badge-${rawId}`);
+          if (bEl) { bEl.className = `px-2 py-0.5 rounded-full ${badgeClass} text-[9px] tracking-wider`; bEl.innerText = badgeText; }
+
+          const cEl = document.getElementById(`coords-${rawId}`);
+          if (cEl) cEl.innerText = `(${r.position[0].toFixed(1)}, ${r.position[1].toFixed(1)})`;
+
+          const blEl = document.getElementById(`bat-label-${rawId}`);
+          if (blEl) {
+            blEl.className = `font-bold font-mono ${isLowBatt ? 'text-rose-600 font-black' : isCharging ? 'text-cyan-700 font-black' : 'text-gray-800'}`;
+            blEl.innerText = batLabel;
+          }
+
+          const bbEl = document.getElementById(`bat-bar-${rawId}`);
+          if (bbEl) {
+            bbEl.className = `${batColor} h-1.5 rounded-full transition-all`;
+            bbEl.style.width = `${Math.min(100, Math.max(5, bat))}%`;
+          }
+
+          const tEl = document.getElementById(`task-${rawId}`);
+          if (tEl) {
+            tEl.className = r.current_task_id ? 'text-indigo-700 font-semibold' : '';
+            tEl.innerText = `TASK: ${taskText}`;
+          }
+
+          const tmpEl = document.getElementById(`temp-${rawId}`);
+          if (tmpEl) tmpEl.innerHTML = `${(27 + (bat % 7)).toFixed(1)}&deg;C`;
+
+          // Power Button (only update if not currently undergoing a click transition)
+          const btnP = document.getElementById(`btn-power-${rawId}`);
+          const iconP = document.getElementById(`icon-power-${rawId}`);
+          const textP = document.getElementById(`text-power-${rawId}`);
+          if (btnP && !btnP.dataset.busy) {
+            btnP.className = `flex-1 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-2xs ${isOffline ? 'bg-emerald-600 hover:bg-emerald-700 text-white ring-2 ring-emerald-500/50' : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'}`;
+            btnP.title = isOffline ? 'Restore robot back to active IDLE' : 'Instantly trigger robot shutdown to observe automatic task handover';
+            if (iconP) iconP.innerText = isOffline ? 'power' : 'power_off';
+            if (textP) textP.innerText = isOffline ? 'Revive Robot' : 'Shutdown / E-Stop';
+          }
+
+          // Battery Button
+          const btnB = document.getElementById(`btn-batt-${rawId}`);
+          const iconB = document.getElementById(`icon-batt-${rawId}`);
+          const textB = document.getElementById(`text-batt-${rawId}`);
+          if (btnB && !btnB.dataset.busy) {
+            btnB.className = `flex-1 py-1.5 px-2 rounded-xl text-[10px] font-bold transition-all flex items-center justify-center gap-1 shadow-2xs ${isCharging ? 'bg-cyan-600 hover:bg-cyan-700 text-white' : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200'}`;
+            btnB.title = isCharging ? 'Fast recharge to 95%' : 'Drain battery to 18% to trigger low-battery automatic task shedding and charging';
+            if (iconB) iconB.innerText = isCharging ? 'bolt' : 'battery_alert';
+            if (textB) textB.innerText = isCharging ? '⚡ Charge 95%' : '⚠️ Test Low (18%)';
+          }
+        }
+      });
+    }
+
+    async function togglePower(robotId) {
+      const btn = document.getElementById(`btn-power-${robotId}`);
+      const textEl = document.getElementById(`text-power-${robotId}`);
+      const iconEl = document.getElementById(`icon-power-${robotId}`);
+
+      if (btn) {
+        btn.dataset.busy = 'true';
+        btn.style.opacity = '0.6';
+        if (textEl) textEl.innerText = textEl.innerText.includes('Revive') ? 'Reviving...' : 'Shutting down...';
+        if (iconEl) iconEl.innerText = 'sync';
+        if (iconEl) iconEl.classList.add('animate-spin');
+      }
+
+      try {
+        const res = await fetch(`/api/robot/${robotId}/toggle-power`, { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          const bot = state.robots.find(r => (r.robot_id || r.id) === robotId);
+          if (bot) {
+            bot.status = data.new_status;
+            if (data.battery !== undefined) bot.battery = data.battery;
+          }
+          if (btn) delete btn.dataset.busy;
+          updateFleetList(state.robots);
+          updateRobots3D(state.robots);
+          updateRobotHud();
+        }
+      } catch (e) {
+        console.error('Power toggle failed:', e);
+      } finally {
+        if (btn) {
+          delete btn.dataset.busy;
+          btn.style.opacity = '1';
+          if (iconEl) iconEl.classList.remove('animate-spin');
+        }
+      }
+    }
+
+    async function forceBattery(robotId, battLevel) {
+      const btn = document.getElementById(`btn-batt-${robotId}`);
+      if (btn) {
+        btn.dataset.busy = 'true';
+        btn.style.opacity = '0.6';
+      }
+
+      try {
+        const res = await fetch(`/api/robot/${robotId}/force-battery`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ battery: battLevel })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+          const bot = state.robots.find(r => (r.robot_id || r.id) === robotId);
+          if (bot) {
+            bot.battery = data.battery;
+            if (data.new_status) bot.status = data.new_status;
+          }
+          if (btn) delete btn.dataset.busy;
+          updateFleetList(state.robots);
+          updateRobots3D(state.robots);
+          updateRobotHud();
+        }
+      } catch (e) {
+        console.error('Force battery failed:', e);
+      } finally {
+        if (btn) {
+          delete btn.dataset.busy;
+          btn.style.opacity = '1';
+        }
+      }
     }
 
     function updateOrderCounters(tasks) {
@@ -1493,8 +1876,90 @@
     }
 
     function updateMetrics(m) {
+      if (!m) return;
+      const coll = m.COLLISION_COUNT !== undefined ? m.COLLISION_COUNT : (m.collision_count !== undefined ? m.collision_count : (m.total_collisions || 0));
+
       const collEl = document.getElementById('kpi-collisions');
-      if (collEl) collEl.innerText = m.COLLISION_COUNT !== undefined ? m.COLLISION_COUNT : (m.total_collisions || 0);
+      if (collEl) collEl.innerText = coll;
+
+      const safetyCard = document.getElementById('kpi-safety-card');
+      const safetyIcon = document.getElementById('kpi-safety-icon');
+      const safetyLabel = document.getElementById('kpi-safety-label');
+      const safetySub = document.getElementById('kpi-safety-sub');
+      const safetyBadge = document.getElementById('kpi-safety-badge');
+      const benchColl = document.getElementById('bench-collisions-status');
+      const benchIcon = document.getElementById('bench-safety-icon');
+      const benchCont = document.getElementById('bench-safety-container');
+
+      if (coll === 0) {
+        if (safetyCard) {
+          safetyCard.className = 'glass-panel p-5 rounded-3xl shadow-lg border border-white/60 bg-white/70 transition-all duration-300';
+        }
+        if (safetyIcon) {
+          safetyIcon.className = 'material-symbols-outlined text-emerald-600 text-[22px] transition-all';
+          safetyIcon.innerText = 'shield';
+        }
+        if (collEl) {
+          collEl.className = 'text-3xl font-heading font-black text-gray-900 transition-colors';
+        }
+        if (safetyLabel) {
+          safetyLabel.className = 'text-xs font-bold text-emerald-600 transition-colors';
+          safetyLabel.innerText = 'Collisions (100% Safe)';
+        }
+        if (safetySub) {
+          safetySub.className = 'text-gray-400 font-mono text-[10px]';
+          safetySub.innerText = 'Zero Incursions';
+        }
+        if (safetyBadge) {
+          safetyBadge.className = 'px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 transition-colors text-[10px]';
+          safetyBadge.innerText = '100% Safe';
+        }
+        if (benchColl) {
+          benchColl.className = 'font-bold text-emerald-700 font-mono transition-colors';
+          benchColl.innerText = '0 (Safe & Deadlock Free)';
+        }
+        if (benchIcon) {
+          benchIcon.className = 'material-symbols-outlined text-emerald-600 text-[18px] transition-all';
+          benchIcon.innerText = 'verified';
+        }
+        if (benchCont) {
+          benchCont.className = 'mt-3 bg-white/40 p-2.5 rounded-xl border border-white/60 flex items-center justify-between text-xs transition-all duration-300';
+        }
+      } else {
+        if (safetyCard) {
+          safetyCard.className = 'glass-panel p-5 rounded-3xl shadow-xl border border-rose-400 bg-rose-50/80 ring-2 ring-rose-400/40 transition-all duration-300';
+        }
+        if (safetyIcon) {
+          safetyIcon.className = 'material-symbols-outlined text-rose-600 text-[22px] animate-bounce';
+          safetyIcon.innerText = 'crisis_alert';
+        }
+        if (collEl) {
+          collEl.className = 'text-3xl font-heading font-black text-rose-600 transition-colors';
+        }
+        if (safetyLabel) {
+          safetyLabel.className = 'text-xs font-bold text-rose-600 transition-colors animate-pulse';
+          safetyLabel.innerText = `${coll} Incursion${coll > 1 ? 's' : ''} (Compromised)`;
+        }
+        if (safetySub) {
+          safetySub.className = 'text-rose-600 font-mono font-bold text-[10px]';
+          safetySub.innerText = 'Active Hazard Alert';
+        }
+        if (safetyBadge) {
+          safetyBadge.className = 'px-2 py-0.5 rounded-full font-extrabold bg-rose-200 text-rose-900 border border-rose-300 animate-pulse text-[10px]';
+          safetyBadge.innerText = `ALERT: ${coll} HITS`;
+        }
+        if (benchColl) {
+          benchColl.className = 'font-bold text-rose-700 font-mono animate-pulse transition-colors';
+          benchColl.innerText = `${coll} Collisions Detected`;
+        }
+        if (benchIcon) {
+          benchIcon.className = 'material-symbols-outlined text-rose-600 text-[18px] animate-pulse transition-all';
+          benchIcon.innerText = 'warning';
+        }
+        if (benchCont) {
+          benchCont.className = 'mt-3 bg-rose-50/80 p-2.5 rounded-xl border border-rose-300 flex items-center justify-between text-xs transition-all duration-300 ring-1 ring-rose-400/30';
+        }
+      }
 
       const effEl = document.getElementById('kpi-efficiency');
       if (effEl) effEl.innerText = '+31.2%';

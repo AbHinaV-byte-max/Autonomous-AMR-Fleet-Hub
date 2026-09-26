@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 
 from sim.simulator import Simulator
 from experiments.runner import SCENARIOS
+from models import RobotStatus
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -123,6 +124,78 @@ async def set_speed(request: dict):
     if request and "rate" in request:
         SIM_TICK_RATE = max(0.2, min(3.0, float(request["rate"])))
     return {"rate": SIM_TICK_RATE}
+
+
+@app.post("/api/robot/{robot_id}/toggle-power")
+async def toggle_robot_power(robot_id: str):
+    """Shuts down an active robot (triggering task handover) or revives an offline robot."""
+    global CURRENT_SIM
+    if not CURRENT_SIM:
+        return {"status": "error", "message": "Simulation not running"}
+    manager = next((m for m in CURRENT_SIM.robot_managers if m.state.robot_id == robot_id), None)
+    if not manager:
+        return {"status": "error", "message": f"Robot {robot_id} not found"}
+    
+    is_offline = (manager.state.status == RobotStatus.OFFLINE) or (str(manager.state.status).upper().endswith("OFFLINE"))
+    if is_offline:
+        CURRENT_SIM.revive_robot(robot_id)
+        action = "revived"
+    else:
+        CURRENT_SIM.kill_robot(robot_id)
+        action = "shutdown"
+
+    if CURRENT_SIM.telemetry_bus is not None:
+        snap = CURRENT_SIM._build_snapshot()
+        CURRENT_SIM.telemetry_bus.publish(snap)
+
+    return {"status": "ok", "robot_id": robot_id, "action": action, "new_status": manager.state.status.value, "battery": manager.state.battery}
+
+
+@app.post("/api/robot/{robot_id}/force-battery")
+async def force_robot_battery(robot_id: str, request: dict = None):
+    """Sets a robot's battery level (e.g. 18% to trigger auto-shedding or 95% to charge)."""
+    global CURRENT_SIM
+    if not CURRENT_SIM:
+        return {"status": "error", "message": "Simulation not running"}
+    manager = next((m for m in CURRENT_SIM.robot_managers if m.state.robot_id == robot_id), None)
+    if not manager:
+        return {"status": "error", "message": f"Robot {robot_id} not found"}
+    
+    target_batt = 18.0
+    if request and "battery" in request:
+        target_batt = float(request["battery"])
+    
+    manager.state.battery = target_batt
+
+    if target_batt <= 20.0:
+        if manager.state.status not in (RobotStatus.CHARGING, RobotStatus.OFFLINE):
+            orphaned = manager.current_task
+            task_id = orphaned.task_id if orphaned else None
+            CURRENT_SIM._orphan_task(manager)
+            manager.state.status = RobotStatus.CHARGING
+            manager.state.planned_path = []
+            manager.target_cell = None
+            manager.reservation_table.expire(manager.state.robot_id)
+            CURRENT_SIM.event_log.log_conflict(
+                robot_id, "SYSTEM", "LOW_BATTERY_SHED",
+                f"Battery forced low ({target_batt:.1f}%) -> Task {task_id} reallocated to fleet",
+                CURRENT_SIM.tick_count
+            )
+            CURRENT_SIM._allocate()
+    elif target_batt >= 90.0 and manager.state.status == RobotStatus.CHARGING:
+        manager.state.status = RobotStatus.IDLE
+        CURRENT_SIM.event_log.log_conflict(
+            robot_id, "SYSTEM", "CHARGE_COMPLETE",
+            f"Quick charged to {target_batt:.0f}% -> Restored to active service",
+            CURRENT_SIM.tick_count
+        )
+        CURRENT_SIM._allocate()
+
+    if CURRENT_SIM.telemetry_bus is not None:
+        snap = CURRENT_SIM._build_snapshot()
+        CURRENT_SIM.telemetry_bus.publish(snap)
+
+    return {"status": "ok", "robot_id": robot_id, "battery": manager.state.battery, "new_status": manager.state.status.value}
 
 @app.on_event("shutdown")
 async def _on_shutdown():

@@ -204,6 +204,9 @@ class Simulator:
             manager.state.planned_path = []
             manager.target_cell = None
             manager.wait_time = 0.0
+            self.last_heartbeat[robot_id] = float(self.tick_count)
+            for peer in self.robot_managers:
+                peer.last_seen[robot_id] = float(self.tick_count)
             self.event_log.log_conflict(
                 robot_id, "SYSTEM", "ROBOT_ONLINE",
                 f"Robot {robot_id} restored to full service (100% Battery)",
@@ -227,7 +230,7 @@ class Simulator:
 
     def _check_heartbeats(self):
         for m in self.robot_managers:
-            if m.state.status == RobotStatus.OFFLINE:
+            if m.state.status in (RobotStatus.OFFLINE, RobotStatus.CHARGING):
                 continue
             gap = self.tick_count - self.last_heartbeat.get(m.state.robot_id, 0)
             if gap > HEARTBEAT_TIMEOUT:
@@ -415,13 +418,13 @@ class Simulator:
         if self.strategy == "B0":
             active_robots = [m for m in self.robot_managers if m.state.status == RobotStatus.MOVING and m.state.planned_path]
             if not active_robots:
-                candidates = [m for m in self.robot_managers if m.target_cell and m.state.status != RobotStatus.OFFLINE]
+                candidates = [m for m in self.robot_managers if m.target_cell and m.state.status not in (RobotStatus.OFFLINE, RobotStatus.CHARGING)]
                 if candidates:
                     candidates[0].state.status = RobotStatus.MOVING
                     active_robots = [candidates[0]]
 
             for m in self.robot_managers:
-                if active_robots and m != active_robots[0] and m.target_cell and m.state.status != RobotStatus.OFFLINE:
+                if active_robots and m != active_robots[0] and m.target_cell and m.state.status not in (RobotStatus.OFFLINE, RobotStatus.CHARGING):
                     m.state.status = RobotStatus.WAITING
                     m.wait_time += 1.0
 
