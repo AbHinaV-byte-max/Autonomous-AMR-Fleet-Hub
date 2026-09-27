@@ -42,3 +42,7 @@ _phase1_validation_logs/
 # Node/tooling output if used locally.
 node_modules/
 dist/
+
+# Local Python virtual environments.
+.venv/
+venv/
