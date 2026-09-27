@@ -169,7 +169,7 @@ function setupControls() {
     btnBenchmark.disabled = true;
     btnBenchmark.innerHTML = '<span class="btn-icon">⏳</span> Benchmarking...';
     try {
-      const res = await fetch('/api/simulation/benchmark', { method: 'POST' });
+      const res = await fetch('/api/benchmark', { method: 'POST' });
       const data = await res.json();
       btnBenchmark.innerHTML = `<span class="btn-icon">⚡</span> Benchmark (+${data.improvement_pct}%)`;
     } catch (e) {
@@ -447,10 +447,10 @@ function updateDashboard(snapshot) {
           stateIcon = '⏹';
         }
 
-        const batPct = Math.round(r.battery_pct || 98);
+        const batPct = Math.round(r.battery_pct ?? 0);
         const batColor = batPct > 50 ? 'var(--accent-emerald)' : batPct > 20 ? 'var(--accent-amber)' : 'var(--accent-rose)';
         const p = canvasRenderer.robotPhysics[r.id];
-        const currentSpeed = p ? (p.speed * 0.8).toFixed(2) : (r.speed || 1.0).toFixed(2);
+        const currentSpeed = p ? (p.speed * 0.8).toFixed(2) : (r.velocity || 0.0).toFixed(2);
 
         card.innerHTML = `
           <div class="robot-card-top">
@@ -458,7 +458,7 @@ function updateDashboard(snapshot) {
               <div class="robot-id-badge">
                 <span style="color:#d97706;">🤖</span> <strong>${r.id}</strong>
               </div>
-              <div class="robot-type-label">${(r.type || 'AMR').replace('_', ' ')} &bull; ${currentSpeed} m/s</div>
+              <div class="robot-type-label">${'AMR'} &bull; ${currentSpeed} m/s</div>
             </div>
             <span class="robot-state-pill ${stateClass}">
               ${stateIcon} ${displayState}
