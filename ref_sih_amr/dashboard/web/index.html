@@ -12,7 +12,7 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   
-  <!-- Three.js & OrbitControls for 3D Omniverse USD Digital Twin Engine -->
+  <!-- Three.js & OrbitControls for the 3D digital twin renderer -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
@@ -152,7 +152,7 @@
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
           </span>
-          <span class="text-xs font-bold text-emerald-800" id="conn-label">RAFT Swarm Live (9/9 Nodes)</span>
+          <span class="text-xs font-bold text-emerald-800" id="conn-label">Telemetry Connected</span>
         </div>
 
         <!-- Telemetry Badge -->
@@ -247,8 +247,8 @@
               <!-- Telemetry HUD Badge (Top-Left) -->
               <div class="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-white pointer-events-none flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                <span class="font-mono text-[11px] font-bold tracking-wide" id="hudStageTitle">scenarios/S1 normal warehouse.usd</span>
-                <span class="text-[9px] bg-indigo-600/80 text-white px-1.5 py-0.5 rounded font-bold">60 FPS</span>
+                <span class="font-mono text-[11px] font-bold tracking-wide" id="hudStageTitle">S1 · Normal Warehouse</span>
+                <span class="text-[9px] bg-indigo-600/80 text-white px-1.5 py-0.5 rounded font-bold">Live</span>
               </div>
 
               <!-- Interactive Camera Navigation Hint (Bottom-Left) -->
@@ -326,7 +326,7 @@
           </div>
         </div>
 
-        <!-- Right (4 Cols): Verified Performance Benchmark + Omniverse Bridge Cards -->
+        <!-- Right (4 Cols): Verified Performance Benchmark + Telemetry Status -->
         <div class="lg:col-span-4 flex flex-col gap-6">
           
           <!-- Live coordination metrics -->
@@ -610,9 +610,9 @@
     </div>
   </div>
 
-  <!-- 3D Omniverse WebGL Engine & Telemetry Controller -->
+  <!-- 3D WebGL Engine & Telemetry Controller -->
   <script>
-    const CELL_SIZE = 2.0; // Exactly matches Omniverse USD stage meters per grid cell
+    const CELL_SIZE = 2.0; // Warehouse grid cell size
     const SCENARIO_LABELS = {
       'S1_Normal': 'S1 · Normal Warehouse',
       'S2_Crossing': 'S2 · Crossing Traffic',
@@ -664,8 +664,8 @@
       scene.background = new THREE.Color(0x070b14);
       scene.fog = new THREE.FogExp2(0x070b14, 0.012);
 
-      // Camera: Defaults to /World/Camera_3D_Overview from S1 normal warehouse.usd
-      // In USD: position = (0, -42, 32), pitch = 46 deg looking at center (0,0,0)
+      // Camera: Default overview camera for the warehouse grid
+      // Warehouse overview camera pose
       // In Three.js: Z is depth, Y is up -> (0, 32, 42) looking at (0, 0, 0)
       const aspect = container.clientWidth / container.clientHeight;
       camera = new THREE.PerspectiveCamera(45, aspect, 0.5, 500);
@@ -730,7 +730,7 @@
       // Window resize listener
       window.addEventListener('resize', onWindowResize);
 
-      // Start 60 FPS Render Loop
+      // Start Live Render Loop
       requestAnimationFrame(renderLoop);
     }
 
@@ -1073,7 +1073,7 @@
     let lastTrackedBotPos = null;
 
     /* -------------------------------------------------------------
-       60 FPS ANIMATION LOOP (Smooth Interpolation & AMR Tracking)
+       Live ANIMATION LOOP (Smooth Interpolation & AMR Tracking)
        ------------------------------------------------------------- */
     function renderLoop() {
       requestAnimationFrame(renderLoop);
@@ -1293,7 +1293,7 @@
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
-          document.getElementById('conn-label').innerText = 'RAFT Swarm Live (9/9 Nodes)';
+          document.getElementById('conn-label').innerText = 'Telemetry Connected';
           document.getElementById('mapStatStream').innerText = '10 Hz Telemetry Stream Connected';
         };
 
