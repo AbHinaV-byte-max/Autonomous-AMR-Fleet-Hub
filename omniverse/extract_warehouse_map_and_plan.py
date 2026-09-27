@@ -1,6 +1,6 @@
 """
 Exact Warehouse Obstacle Map Extractor & Collision-Free AMR Path Planner
-Extracts 3D bounding boxes of all racks and crate piles from assets/omniverse/simulation5.usd,
+Extracts 3D bounding boxes of all racks and crate piles from assets/omniverse/assets/omniverse/simulation5.usd,
 builds an occupancy grid map with safety inflation margins, plans collision-free
 A* paths avoiding all racks and boxes, and bakes them to USD.
 """
@@ -170,8 +170,8 @@ def a_star_planner(start_world, goal_world, obstacle_cells, world_to_grid, grid_
 
 def plan_and_bake_warehouse_routes():
     usd_paths = [
-        os.path.join(REPO_ROOT, "assets/omniverse/simulation5.usd"),
-        r"C:\Users\goruv\Downloads\assets/omniverse/simulation5.usd"
+        os.path.join(REPO_ROOT, "assets/omniverse/assets/omniverse/simulation5.usd"),
+        r"C:\Users\goruv\Downloads\assets/omniverse/assets/omniverse/simulation5.usd"
     ]
 
     for usd_path in usd_paths:
