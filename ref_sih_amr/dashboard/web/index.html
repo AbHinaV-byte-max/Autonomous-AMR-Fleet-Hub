@@ -1435,7 +1435,7 @@
       const cleanId = activeRobot.id || activeRobot.robot_id;
       document.getElementById('hudRobotId').innerText = cleanId;
 
-      const bat = Math.round(activeRobot.battery_pct !== undefined ? activeRobot.battery_pct : (activeRobot.battery_pct_pct || 95));
+      const bat = Math.round(activeRobot.battery_pct !== undefined ? activeRobot.battery_pct : (activeRobot.battery_pct || 95));
       const statusEl = document.getElementById('hudStatus');
 
       if (activeRobot.state === 'OFFLINE' || activeRobot.state === 'DEGRADED') {
@@ -1636,7 +1636,7 @@
       displayRobots.forEach(r => {
         const rawId = r.robot_id || r.id;
         const rId = rawId.replace('robot-', 'AMR-');
-        const bat = Math.round(r.battery_pct !== undefined ? r.battery_pct : (r.battery_pct_pct || 95));
+        const bat = Math.round(r.battery_pct !== undefined ? r.battery_pct : (r.battery_pct || 95));
         const isOffline = r.state === 'OFFLINE';
         const isCharging = r.state === 'CHARGING';
         const isLowBatt = !isOffline && !isCharging && (bat <= 20);
