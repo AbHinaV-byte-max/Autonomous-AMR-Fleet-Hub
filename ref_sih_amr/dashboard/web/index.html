@@ -1331,7 +1331,7 @@
         state.currentScenario = snap.scenario;
         const sel = document.getElementById('scenarioSelect');
         if (sel) sel.value = snap.scenario;
-        updateUsdSceneDisplay(snap.scenario);
+        updateScenarioDisplay(snap.scenario);
       }
 
       if ((snap.warehouse ? snap.warehouse.grid : []) && (!state.grid.length || (snap.warehouse ? snap.warehouse.grid : []).length !== state.grid.length)) {
@@ -1401,7 +1401,7 @@
       const cleanId = activeRobot.id || activeRobot.robot_id;
       document.getElementById('hudRobotId').innerText = cleanId;
 
-      const bat = Math.round(activeRobot.battery_pct !== undefined ? activeRobot.battery_pct : (activeRobot.battery_pct || 95));
+      const bat = Math.round(activeRobot.battery_pct ?? 0);
       const statusEl = document.getElementById('hudStatus');
 
       if (activeRobot.state === 'OFFLINE' || activeRobot.state === 'DEGRADED') {
@@ -1443,7 +1443,7 @@
 
     async function switchScenario(scen) {
       state.currentScenario = scen;
-      updateUsdSceneDisplay(scen);
+      updateScenarioDisplay(scen);
       try {
         await fetch('/api/scenario', {
           method: 'POST',
@@ -1455,7 +1455,7 @@
       }
     }
 
-    function updateUsdSceneDisplay(scen) {
+    function updateScenarioDisplay(scen) {
       const pathEl = document.getElementById('activeUsdPath');
       const titleEl = document.getElementById('hudStageTitle');
       const label = SCENARIO_LABELS[scen] || 'S1 · Normal Warehouse';
