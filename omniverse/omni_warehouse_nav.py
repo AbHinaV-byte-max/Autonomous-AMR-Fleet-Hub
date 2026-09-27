@@ -15,7 +15,7 @@ import sys
 import math
 from typing import Tuple, List, Set, Dict, Optional, Any
 
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 from omni_usd_env import Usd, UsdGeom, Gf, Sdf, USD_AVAILABLE
 
 
