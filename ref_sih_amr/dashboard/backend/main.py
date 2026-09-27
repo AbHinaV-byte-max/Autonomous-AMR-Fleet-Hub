@@ -1,9 +1,13 @@
 """
-FastAPI WebSocket backend — strictly observational, read-only from simulation.
+FastAPI dashboard backend for the prototype live simulation.
 
-ARCHITECTURE RULE (Section 5.2): This file MUST NOT import anything from
-/robot, /allocator, or /sim.  It only reads from TelemetryBus and SQLite.
-The test_architecture.py CI test greps for any such import and fails if found.
+The dashboard backend currently owns the live Simulator lifecycle so the web UI
+can control scenarios, pause/resume/step execution, submit tasks, and stream
+TelemetryBus snapshots. The Section 5.2 architecture guard applies in the
+opposite direction: core modules under /robot, /allocator, /sim, and /comms
+must not import the dashboard. This keeps the simulation core independent of
+the presentation layer while allowing the prototype dashboard to orchestrate
+a local simulation instance.
 """
 import asyncio
 import json
