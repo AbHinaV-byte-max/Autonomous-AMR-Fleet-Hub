@@ -13,7 +13,7 @@ import os
 import sys
 import math
 
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 KIT_RELEASE_DIR = os.path.join(REPO_ROOT, "_build", "windows-x86_64", "release")
 EXTSCACHE_DIR = os.path.join(KIT_RELEASE_DIR, "extscache")
 
