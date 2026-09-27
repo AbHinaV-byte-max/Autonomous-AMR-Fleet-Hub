@@ -122,6 +122,17 @@ class Simulator:
             self.robot_managers.append(manager)
             self.last_heartbeat[state.robot_id] = 0.0
 
+        # Seed the local communication watchdog with an initial expectation
+        # for every peer. This lets a robot detect a peer that never delivers
+        # its first heartbeat.
+        robot_ids = [m.state.robot_id for m in self.robot_managers]
+        for manager in self.robot_managers:
+            manager.last_seen = {
+                peer_id: 0.0
+                for peer_id in robot_ids
+                if peer_id != manager.state.robot_id
+            }
+
         # Seed initial tasks so ALL robots have active paths and targets at tick 0
         if self.pickup_cells and self.dropoff_cells:
             for i in range(num_robots):
@@ -159,10 +170,14 @@ class Simulator:
         """Mark a free cell as temporarily blocked (Phase 4 Scenario S4)."""
         self.blocked_cells.add((x, y))
         self.grid_map.grid[y][x] = '#'
-        # Notify all robots to replan if path now hits this cell
+        # In CBS mode force_reroute() deliberately defers to the
+        # simulator-level CBS coordinator. A dynamic obstacle must therefore
+        # explicitly invalidate stale paths/reservations.
         for m in self.robot_managers:
             if any(c == (x, y) for c in m.state.planned_path):
-                m.force_reroute()
+                m.state.planned_path = []
+                m.reservation_table.expire(m.state.robot_id)
+                m.checkpoint_reached = True
                 self.metric_values[metrics.REPLAN_COUNT] += 1
 
     def unblock_cell(self, x: int, y: int):
