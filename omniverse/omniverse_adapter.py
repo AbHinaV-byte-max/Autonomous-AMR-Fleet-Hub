@@ -1,6 +1,6 @@
 """
 Omniverse Simulator Adapter for AMR Fleet Coordination.
-Provides bidirectional integration between the Decentralized Coordination Core and OpenUSD (simulation5.usd).
+Provides bidirectional integration between the Decentralized Coordination Core and OpenUSD (assets/omniverse/simulation5.usd).
 """
 
 import os
@@ -43,7 +43,7 @@ class OmniverseSimulatorAdapter:
     Handles coordinate transformations, USD Prim manipulation, and telemetry streaming.
     """
     def __init__(self, usd_path=None, cell_size=1.0, origin_offset=(0.0, 0.0, 0.035)):
-        self.usd_path = usd_path or os.path.join(REPO_ROOT, "simulation5.usd")
+        self.usd_path = usd_path or os.path.join(REPO_ROOT, "assets/omniverse/simulation5.usd")
         self.cell_size = float(cell_size)
         self.origin_offset = origin_offset
         self.stage = None
