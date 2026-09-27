@@ -1,8 +1,8 @@
 """
 FINAL SIH DEMONSTRATION & OMNIVERSE INTEGRATION SCRIPT
-Executes the complete 22-step workflow live against OpenUSD stage (assets/omniverse/simulation5.usd):
+Executes the complete 22-step workflow live against OpenUSD stage (assets/omniverse/assets/omniverse/simulation5.usd):
 1. Start Omniverse USD Stage
-2. Load assets/omniverse/simulation5.usd
+2. Load assets/omniverse/assets/omniverse/simulation5.usd
 3. Start coordination system
 4. Start 3 AMRs (AMR_01, AMR_02, AMR_03)
 5. Create tasks
@@ -47,8 +47,8 @@ def run_full_sih_demo():
     print("FINAL SIH DEMONSTRATION: FULL AMR SYSTEM INTEGRATION + OMNIVERSE")
     print("="*70)
     
-    # 1. Start Omniverse & Load assets/omniverse/simulation5.usd
-    print("\n[STEP 1 & 2] Loading OpenUSD Stage 'assets/omniverse/simulation5.usd'...")
+    # 1. Start Omniverse & Load assets/omniverse/assets/omniverse/simulation5.usd
+    print("\n[STEP 1 & 2] Loading OpenUSD Stage 'assets/omniverse/assets/omniverse/simulation5.usd'...")
     usd_adapter = OmniverseSimulatorAdapter(cell_size=1.0)
     
     # 3. Start Coordination System
