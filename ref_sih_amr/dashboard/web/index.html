@@ -1860,6 +1860,52 @@
       }
     }
 
+    function updateOrderPipeline(tasks) {
+      const body = document.getElementById('order-pipeline-body');
+      if (!body) return;
+
+      const list = Array.isArray(tasks) ? tasks : Object.values(tasks || {});
+      if (!list.length) {
+        body.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-400 italic">No active logistics orders</td></tr>';
+        return;
+      }
+
+      const statusLabel = (status) => {
+        if (status === 'COMPLETED' || status === 4) return 'COMPLETED';
+        if (status === 'IN_PROGRESS' || status === 3) return 'IN TRANSIT';
+        if (status === 'ASSIGNED' || status === 2) return 'ASSIGNED';
+        if (status === 'QUEUED' || status === 1) return 'QUEUED';
+        if (status === 'UNAVAILABLE') return 'UNAVAILABLE';
+        if (status === 'RECOVERABLE') return 'RECOVERABLE';
+        return String(status ?? 'UNKNOWN');
+      };
+
+      const statusClass = (status) => {
+        const label = statusLabel(status);
+        if (label === 'COMPLETED') return 'bg-emerald-100 text-emerald-800';
+        if (label === 'IN TRANSIT') return 'bg-indigo-100 text-indigo-800';
+        if (label === 'ASSIGNED') return 'bg-cyan-100 text-cyan-800';
+        if (label === 'UNAVAILABLE') return 'bg-rose-100 text-rose-800';
+        return 'bg-amber-100 text-amber-800';
+      };
+
+      body.innerHTML = list.slice(0, 12).map((t) => {
+        const id = t.id || t.task_id || 'TASK-—';
+        const robot = t.assigned_robot_id || 'Unassigned';
+        const pickup = t.pickup || t.pickup_cell || '—';
+        const dropoff = t.dropoff || t.dropoff_cell || '—';
+        const payload = t.payload ?? '—';
+        const status = statusLabel(t.status);
+        return `<tr class="text-gray-700">
+          <td class="px-4 py-3 font-mono font-bold text-gray-900">${id}</td>
+          <td class="px-4 py-3 font-mono text-indigo-700 font-semibold">${robot}</td>
+          <td class="px-4 py-3 font-mono">${pickup} &rarr; ${dropoff}</td>
+          <td class="px-4 py-3">${payload}</td>
+          <td class="px-4 py-3"><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-bold ${statusClass(t.status)}">${status}</span></td>
+        </tr>`;
+      }).join('');
+    }
+
     function updateOrderCounters(tasks) {
       if (!tasks) return;
       const inTransit = tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 3).length;
