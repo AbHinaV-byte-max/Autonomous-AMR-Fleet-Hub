@@ -240,7 +240,6 @@ function setupControls() {
       pickup_y: parseInt(document.getElementById('pickupY').value, 10),
       dropoff_x: parseInt(document.getElementById('dropoffX').value, 10),
       dropoff_y: parseInt(document.getElementById('dropoffY').value, 10),
-      payload_weight_kg: parseFloat(document.getElementById('payloadKg').value),
       priority: parseInt(document.getElementById('priorityLevel').value, 10),
     };
 
