@@ -163,7 +163,7 @@ SIH/
 │
 ├── assets/                      # Warehouse and presentation assets
 │   ├── omniverse/assets/omniverse/simulation5.usd
-│   ├── warehouse/assets/warehouse/warehouse_map.txt
+│   ├── warehouse/warehouse_map.txt
 │   └── dashboard/fleet_dashboard_hud.png
 │
 ├── docs/validation/             # Validation records

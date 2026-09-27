@@ -49,3 +49,6 @@ __pycache__/
 
 # Local validation/evidence output.
 _phase1_validation_logs/
+
+# Local editor configuration.
+.vscode/
