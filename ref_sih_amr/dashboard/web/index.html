@@ -62,6 +62,17 @@
       overflow: hidden;
       box-shadow: inset 0 2px 20px rgba(0, 0, 0, 0.9), 0 14px 36px rgba(0, 0, 0, 0.25);
     }
+    .viewport-3d-box:fullscreen {
+      width: 100vw;
+      height: 100vh;
+      border-radius: 0;
+      box-shadow: none;
+      background: #060911;
+    }
+    .viewport-3d-box:fullscreen #threeCanvas {
+      width: 100%;
+      height: 100%;
+    }
     #threeCanvas {
       width: 100% !important;
       height: 100% !important;
@@ -237,6 +248,17 @@
                   <button onclick="setSimSpeed(0.8, this)" class="speed-active px-2 py-0.5 text-[11px] font-bold rounded-lg text-gray-700 hover:bg-white transition-all">1&times;</button>
                   <button onclick="setSimSpeed(0.4, this)" class="px-2 py-0.5 text-[11px] font-bold rounded-lg text-gray-700 hover:bg-white transition-all">2&times;</button>
                 </div>
+
+                <button
+                  id="btnFullscreenSimulation"
+                  onclick="toggleSimulationFullscreen()"
+                  title="Enter Fullscreen"
+                  aria-label="Enter fullscreen simulation view"
+                  class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 text-white hover:bg-indigo-700 transition-all shadow-sm text-[11px] font-bold"
+                >
+                  <span class="material-symbols-outlined text-[16px]" id="fullscreenIcon">fullscreen</span>
+                  <span id="fullscreenLabel">Fullscreen</span>
+                </button>
               </div>
             </div>
 
@@ -776,6 +798,49 @@
       camera.updateProjectionMatrix();
       renderer.setSize(container.clientWidth, container.clientHeight);
     }
+
+    async function toggleSimulationFullscreen() {
+      const container = document.getElementById('viewport3DContainer');
+      if (!container) return;
+
+      try {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+          return;
+        }
+
+        if (container.requestFullscreen) {
+          await container.requestFullscreen({ navigationUI: 'hide' });
+        } else {
+          console.warn('Fullscreen API is not supported by this browser.');
+        }
+      } catch (err) {
+        console.warn('Unable to toggle simulation fullscreen:', err);
+      }
+    }
+
+    function updateFullscreenControl() {
+      const button = document.getElementById('btnFullscreenSimulation');
+      const icon = document.getElementById('fullscreenIcon');
+      const label = document.getElementById('fullscreenLabel');
+      const isFullscreen = document.fullscreenElement === document.getElementById('viewport3DContainer');
+
+      if (button) {
+        button.title = isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen';
+        button.setAttribute(
+          'aria-label',
+          isFullscreen ? 'Exit fullscreen simulation view' : 'Enter fullscreen simulation view'
+        );
+      }
+      if (icon) icon.innerText = isFullscreen ? 'fullscreen_exit' : 'fullscreen';
+      if (label) label.innerText = isFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+      updateFullscreenControl();
+      // Let the browser finish the fullscreen layout transition before resizing WebGL.
+      window.setTimeout(onWindowResize, 50);
+    });
 
     function buildWarehouseFloor(w, d) {
       // Concrete Base Plane
