@@ -516,6 +516,12 @@ class Simulator:
             self.telemetry_bus.publish(snapshot)
 
     def _build_snapshot(self) -> dict:
+        """Build the canonical dashboard telemetry snapshot.
+
+        The simulator remains the source of truth.  Dashboard-only aliases are
+        emitted here so the WebSocket payload has one stable contract without
+        inventing values that the simulator does not model.
+        """
         metrics_dict = dict(self.metric_values)
         metrics_dict.update({
             "makespan": self.metric_values.get(metrics.MAKESPAN, 0.0),
@@ -524,42 +530,92 @@ class Simulator:
             "deadlock_count": self.metric_values.get(metrics.DEADLOCK_COUNT, 0),
             "replan_count": self.metric_values.get(metrics.REPLAN_COUNT, 0),
             "waiting_time": self.metric_values.get(metrics.WAITING_TIME, 0.0),
+            "sum_completion_time": self.metric_values.get(metrics.SUM_COMPLETION_TIME, 0.0),
+            "avg_task_completion_time": self.metric_values.get(metrics.AVG_TASK_COMPLETION_TIME, 0.0),
+            "comm_latency": self.metric_values.get(metrics.COMM_LATENCY, 0.0),
+            "message_loss": self.metric_values.get(metrics.MESSAGE_LOSS, 0.0),
+            "cpu_memory": self.metric_values.get(metrics.CPU_MEMORY, 0.0),
+            "edge_inference_latency": self.metric_values.get(metrics.EDGE_INFERENCE_LATENCY, 0.0),
+            "energy_proxy": self.metric_values.get(metrics.ENERGY_PROXY, 0.0),
         })
+
+        grid = self.grid_map.grid if self.grid_map else []
+        obstacles = [
+            [x, y]
+            for y, row in enumerate(grid)
+            for x, cell in enumerate(row)
+            if cell == '#'
+        ]
+        pickup_stations = [
+            {"location": [x, y]}
+            for x, y in (self.grid_map.find_all('P') if self.grid_map else [])
+        ]
+        dropoff_stations = [
+            {"location": [x, y]}
+            for x, y in (self.grid_map.find_all('D') if self.grid_map else [])
+        ]
+        spawn_points = [
+            [x, y]
+            for x, y in (self.grid_map.find_all('R') if self.grid_map else [])
+        ]
+
+        robots = {}
+        for m in self.robot_managers:
+            state = m.state
+            robot = {
+                "id": state.robot_id,
+                "position": list(state.position),
+                "heading": getattr(state, "heading", 0.0),
+                "velocity": getattr(state, "velocity", 0.0),
+                "state": state.status.value,
+                "battery_pct": state.battery,
+                "current_task_id": state.current_task_id,
+                "task_priority": state.task_priority,
+                "planned_path": [list(p) for p in state.planned_path],
+                "communication_quality": state.communication_quality,
+                "localization_confidence": state.localization_confidence,
+                "has_cargo": (
+                    m.current_task is not None
+                    and m.current_task.status == TaskStatus.IN_PROGRESS
+                ),
+                "target_cell": list(m.target_cell) if m.target_cell is not None else None,
+            }
+            robots[state.robot_id] = robot
+
+        tasks = [
+            {
+                "id": t.task_id,
+                "pickup": list(t.pickup_cell),
+                "dropoff": list(t.dropoff_cell),
+                "priority": t.priority,
+                "status": t.status.value,
+                "assigned_robot_id": t.assigned_robot_id,
+                "created_at": t.created_at,
+            }
+            for t in self.tasks
+        ]
+
         return {
+            "schema_version": 1,
+            "timestamp": time.time(),
             "tick": self.tick_count,
-            "robots": [
-                {
-                    "robot_id": m.state.robot_id,
-                    "position": m.state.position,
-                    "status": m.state.status.value,
-                    "battery": m.state.battery,
-                    "current_task_id": m.state.current_task_id,
-                    "task_priority": m.state.task_priority,
-                    "planned_path": m.state.planned_path,
-                    "communication_quality": m.state.communication_quality,
-                    "localization_confidence": m.state.localization_confidence,
-                    "heading": getattr(m.state, "heading", 0.0),
-                    "has_cargo": m.current_task is not None and m.current_task.status == TaskStatus.IN_PROGRESS,
-                    "target_cell": m.target_cell,
-                }
-                for m in self.robot_managers
-            ],
-            "tasks": [
-                {
-                    "task_id": t.task_id,
-                    "pickup_cell": t.pickup_cell,
-                    "dropoff_cell": t.dropoff_cell,
-                    "status": t.status.value,
-                    "priority": t.priority,
-                    "assigned_robot_id": t.assigned_robot_id,
-                }
-                for t in self.tasks
-            ],
+            "scenario": getattr(self, "scenario_name", "S1_Normal"),
+            "warehouse": {
+                "width": self.grid_map.width if self.grid_map else 0,
+                "height": self.grid_map.height if self.grid_map else 0,
+                "grid": grid,
+                "obstacles": obstacles,
+                "pickup_stations": pickup_stations,
+                "dropoff_stations": dropoff_stations,
+                "spawn_points": spawn_points,
+                "human_zones": [],
+            },
+            "robots": robots,
+            "tasks": tasks,
             "conflicts": self.event_log.conflict_events[-20:],
             "deadlocks": self.event_log.deadlock_events[-10:],
             "metrics": metrics_dict,
-            "grid": self.grid_map.grid if self.grid_map else [],
-            "scenario": getattr(self, "scenario_name", "S1_Normal"),
+            "congestion_heatmap": {"cells": []},
         }
 
     # -------------------------------------------------------------------------
