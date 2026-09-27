@@ -2,17 +2,20 @@
 SQLite persistence for per-tick metrics.
 """
 import json
-import sqlite3
 import os
+import sqlite3
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "runs.db")
+if os.getenv("VERCEL"):
+    DB_PATH = os.path.join("/tmp", "sih_amr_runs.db")
+else:
+    DB_PATH = os.path.join(os.path.dirname(__file__), "runs.db")
 
 CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS metric_snapshots (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     tick      INTEGER NOT NULL,
     snapshot  TEXT    NOT NULL,
-    recorded_at REAL  NOT NULL
+    recorded_at REAL    NOT NULL
 );
 """
 
