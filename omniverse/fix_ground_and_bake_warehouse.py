@@ -7,7 +7,7 @@ import os
 import sys
 import math
 
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 KIT_RELEASE_DIR = os.path.join(REPO_ROOT, "_build", "windows-x86_64", "release")
 EXTSCACHE_DIR = os.path.join(KIT_RELEASE_DIR, "extscache")
 
@@ -30,8 +30,8 @@ from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf  # type: ignore
 
 def fix_and_bake_all():
     usd_paths = [
-        os.path.join(REPO_ROOT, "simulation5.usd"),
-        r"C:\Users\goruv\Downloads\simulation5.usd"
+        os.path.join(REPO_ROOT, "assets/omniverse/assets/omniverse/simulation5.usd"),
+        r"C:\Users\goruv\Downloads\assets/omniverse/assets/omniverse/simulation5.usd"
     ]
 
     for usd_path in usd_paths:

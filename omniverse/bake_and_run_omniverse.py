@@ -1,7 +1,7 @@
 """
 Bake and Run Omniverse Simulation Animation.
 Bakes the complete multi-AMR space-time simulation directly as USD TimeSamples
-into simulation5.usd (both in Downloads and repository) so Omniverse Kit viewport
+into assets/omniverse/assets/omniverse/simulation5.usd (both in Downloads and repository) so Omniverse Kit viewport
 plays the live motion smoothly when playing the timeline!
 """
 
@@ -9,7 +9,7 @@ import os
 import sys
 import math
 
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
@@ -46,8 +46,8 @@ except ImportError:
 def bake_simulation_to_usd(usd_paths=None, frames_per_timestep=20):
     if not usd_paths:
         usd_paths = [
-            os.path.join(REPO_ROOT, "simulation5.usd"),
-            r"C:\Users\goruv\Downloads\simulation5.usd"
+            os.path.join(REPO_ROOT, "assets/omniverse/assets/omniverse/simulation5.usd"),
+            r"C:\Users\goruv\Downloads\assets/omniverse/assets/omniverse/simulation5.usd"
         ]
         
     for usd_path in usd_paths:

@@ -3,7 +3,7 @@ SIH-AMR + NVIDIA Omniverse Kit Unified Framework Launcher
 Integrates the complete Decentralized Multi-AMR Coordination architecture:
 - Hungarian Dynamic Task Allocation & Recovery across diverse warehouse aisles
 - Space-Time Reservation Table & Conflict-Based Search
-- Differential Drive Physical Kinematic Controllers in Omniverse (simulation5.usd)
+- Differential Drive Physical Kinematic Controllers in Omniverse (assets/omniverse/assets/omniverse/simulation5.usd)
 - 9-Feature Edge-AI Local Policy with Authoritative Deterministic Safety Arbiter
 - Multi-Frame Keyframe Baking into the Omniverse Timeline (0-1500 frames @ 60 FPS)
 - Scenario Switcher: S1 (Multi-Task Hungarian), S2 (Crossing), S3 (Narrow Aisle),
@@ -14,7 +14,7 @@ import os
 import sys
 import argparse
 
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 SIH_ROOT = os.path.join(REPO_ROOT, "ref_sih_amr")
 
 if REPO_ROOT not in sys.path:
@@ -48,7 +48,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 80)
-    print("STARTING REAL SIH-AMR DECENTRALIZED RUNTIME ON OMNIVERSE (simulation5.usd)")
+    print("STARTING REAL SIH-AMR DECENTRALIZED RUNTIME ON OMNIVERSE (assets/omniverse/assets/omniverse/simulation5.usd)")
     print(f"Target Scenario: {args.scenario.upper()} | Duration: {args.duration}s | FPS: {args.fps}")
     print("=" * 80)
 

@@ -1,6 +1,6 @@
 """
 Real Omniverse AMR Kinematic Controller & Telemetry Feedback Engine
-Operates directly against USD prims in simulation5.usd using differential drive kinematics.
+Operates directly against USD prims in assets/omniverse/assets/omniverse/simulation5.usd using differential drive kinematics.
 Implements distance-based waypoint progression, in-place heading alignment, anti-oscillation guards,
 and synchronized USD TimeSample baking across both Warehouse and Depot prim hierarchies.
 """

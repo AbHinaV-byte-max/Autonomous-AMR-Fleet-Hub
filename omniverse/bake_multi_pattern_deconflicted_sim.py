@@ -6,14 +6,14 @@ Features:
 3. 100% Collision-Free (Zero rack collisions, Zero inter-robot collisions).
 4. Synchronized Cargo Box Payload Transport for all 6 AMRs.
 5. Realistic Kinematics (v = 1.0 m/s, smooth S-curve acceleration, in-place corridor turns).
-6. Bakes keyframes (0 to 1200 frames @ 60 FPS) to simulation5.usd in repo and Downloads.
+6. Bakes keyframes (0 to 1200 frames @ 60 FPS) to assets/omniverse/assets/omniverse/simulation5.usd in repo and Downloads.
 """
 
 import os
 import sys
 import math
 
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 KIT_RELEASE_DIR = os.path.join(REPO_ROOT, "_build", "windows-x86_64", "release")
 EXTSCACHE_DIR = os.path.join(KIT_RELEASE_DIR, "extscache")
 
@@ -254,8 +254,8 @@ def build_and_deconflict_all_patterns(total_frames=1200):
 
 def run_bake_all_multi_patterns():
     usd_paths = [
-        os.path.join(REPO_ROOT, "simulation5.usd"),
-        r"C:\Users\goruv\Downloads\simulation5.usd"
+        os.path.join(REPO_ROOT, "assets/omniverse/assets/omniverse/simulation5.usd"),
+        r"C:\Users\goruv\Downloads\assets/omniverse/assets/omniverse/simulation5.usd"
     ]
     
     TOTAL_FRAMES = 1200

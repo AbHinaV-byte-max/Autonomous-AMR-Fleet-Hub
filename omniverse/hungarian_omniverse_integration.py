@@ -2,7 +2,7 @@
 Hungarian Task Allocator & Omniverse USD Simulation Bridge
 Directly utilizes ref_sih_amr.allocator.hungarian.HungarianAllocator with scipy.optimize.linear_sum_assignment
 to assign warehouse picking and drop tasks to all 6 AMRs, computes collision-free trajectories,
-and bakes the synchronized animation to simulation5.usd.
+and bakes the synchronized animation to assets/omniverse/assets/omniverse/simulation5.usd.
 """
 
 import os
@@ -11,7 +11,7 @@ import math
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 SIH_ROOT = os.path.join(REPO_ROOT, "ref_sih_amr")
 
 if REPO_ROOT not in sys.path:

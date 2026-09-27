@@ -142,27 +142,38 @@ The benchmark framework includes sequential execution, independent planning, sto
 
 ## 📁 Repository structure
 
+`ref_sih_amr/` is the canonical SIH runtime. The Omniverse integration is grouped under `omniverse/` so the repository root stays focused on project entry points and configuration.
+
 ```text
 SIH/
-├── ref_sih_amr/              # Canonical SIH AMR runtime
-│   ├── allocator/            # Task allocation
-│   ├── comms/                # Simulated peer communication
-│   ├── dashboard/            # FastAPI backend + web dashboard
-│   ├── experiments/          # Benchmark scenarios
-│   ├── robot/                # Robot policies, A*, CBS, task management
-│   ├── sim/                  # Fleet simulation and orchestration
-│   └── tests/                # Regression and behavioral tests
+├── ref_sih_amr/                 # Canonical SIH AMR runtime
+│   ├── allocator/               # Task allocation
+│   ├── comms/                   # Simulated peer communication
+│   ├── dashboard/               # FastAPI backend + web dashboard
+│   ├── experiments/             # Benchmark scenarios
+│   ├── robot/                   # Robot policies, A*, CBS, task management
+│   ├── sim/                     # Fleet simulation and orchestration
+│   └── tests/                   # Regression and behavioral tests
 │
-├── start_dashboard.bat       # One-command dashboard launcher
-├── warehouse_map.txt         # Warehouse map representation
+├── omniverse/                   # OpenUSD / Omniverse integration
+│   ├── fleet_controller.py
+│   ├── omni_* / omniverse_adapter.py
+│   ├── run_omni_sih_simulation.py
+│   └── integration and demo scripts
 │
-├── mcp_fleet/                # Optional MCP integration
-├── scenarios/                # Omniverse scenario assets
-├── source/                   # Omniverse Kit project infrastructure
-├── templates/                # Omniverse templates
-├── tools/                    # Repository tooling
-├── simulation5.usd            # OpenUSD warehouse stage
-└── readme-assets/             # Documentation assets
+├── assets/                      # Warehouse and presentation assets
+│   ├── omniverse/assets/omniverse/simulation5.usd
+│   ├── warehouse/assets/warehouse/warehouse_map.txt
+│   └── dashboard/fleet_dashboard_hud.png
+│
+├── docs/validation/             # Validation records
+├── mcp_fleet/                   # MCP integration
+├── scenarios/                   # Omniverse scenario assets
+├── source/                      # Omniverse Kit project infrastructure
+├── templates/                   # Omniverse templates
+├── tools/                       # Repository tooling
+├── start_dashboard.bat          # Canonical dashboard launcher
+└── README.md
 ```
 
 ### Canonical runtime vs. Omniverse integration

@@ -1,6 +1,6 @@
 """
 Unified Omniverse SIH-AMR Real Runtime Engine
-Directly runs decentralized multi-AMR coordination on simulation5.usd in NVIDIA Omniverse.
+Directly runs decentralized multi-AMR coordination on assets/omniverse/simulation5.usd in NVIDIA Omniverse.
 Bakes continuous multi-pattern Hungarian-allocated workflows into USD TimeSamples for Omniverse timeline playback.
 """
 
@@ -11,7 +11,7 @@ import math
 import shutil
 from typing import List, Dict, Any, Optional, Tuple
 
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 SIH_ROOT = os.path.join(REPO_ROOT, "ref_sih_amr")
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
@@ -42,10 +42,10 @@ class OmniHungarianCostPlanner:
 class OmniSIHSimulationEngine:
     """
     Executes the true closed-loop SIH-AMR decentralized coordination system
-    directly inside NVIDIA Omniverse using simulation5.usd as the physical runtime.
+    directly inside NVIDIA Omniverse using assets/omniverse/simulation5.usd as the physical runtime.
     """
     def __init__(self, usd_path: Optional[str] = None, dt: float = 0.05, cell_size: float = 0.5):
-        self.usd_path = usd_path or os.path.join(REPO_ROOT, "simulation5.usd")
+        self.usd_path = usd_path or os.path.join(REPO_ROOT, "assets/omniverse/simulation5.usd")
         self.dt = float(dt)
         self.current_time = 0.0
         
@@ -287,8 +287,8 @@ class OmniSIHSimulationEngine:
             self.stage.Save()
             print(f"[OMNI ENGINE] ✓ Saved updated simulation state ({total_frames} keyframes) to {self.usd_path}")
             
-            # Also keep Downloads/simulation5.usd in sync if present via USD API
-            downloads_usd = os.path.join(os.path.expanduser("~"), "Downloads", "simulation5.usd")
+            # Also keep Downloads/assets/omniverse/simulation5.usd in sync if present via USD API
+            downloads_usd = os.path.join(os.path.expanduser("~"), "Downloads", "assets/omniverse/simulation5.usd")
             if os.path.exists(downloads_usd):
                 try:
                     dst_stage = Usd.Stage.Open(downloads_usd)
