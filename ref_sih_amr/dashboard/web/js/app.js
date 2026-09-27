@@ -547,8 +547,8 @@ function updateDashboard(snapshot) {
 
         tr.innerHTML = `
           <td><strong>${t.id.replace('TASK-', '#')}</strong></td>
-          <td>(${t.pickup_pos[0]}, ${t.pickup_pos[1]}) &rarr; (${t.dropoff_pos[0]}, ${t.dropoff_pos[1]})</td>
-          <td>${t.payload_weight_kg}kg</td>
+          <td>(${t.pickup[0]}, ${t.pickup[1]}) &rarr; (${t.dropoff[0]}, ${t.dropoff[1]})</td>
+          <td>Priority ${t.priority}</td>
           <td><strong>${t.assigned_robot_id || '<span style="color:var(--text-muted)">Matching...</span>'}</strong></td>
           <td>${statusBadge}</td>
         `;
