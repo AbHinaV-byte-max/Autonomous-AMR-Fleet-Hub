@@ -200,6 +200,28 @@ class LocalTaskManager:
                 self.waiting_on = physical_block
                 return False
 
+            # Final execution-time safety gate. CBS plans are discrete and
+            # may become stale between planning and execution.
+            reserved_by = check_vertex_conflict(
+                self.reservation_table, self.state.robot_id,
+                next_cell, current_time + 1
+            )
+            if not reserved_by:
+                reserved_by = check_edge_swap(
+                    self.reservation_table, self.state.robot_id,
+                    current_cell, next_cell, current_time
+                )
+            if reserved_by:
+                if self.event_logger and self.state.status != RobotStatus.WAITING:
+                    self.event_logger.log_conflict(
+                        self.state.robot_id, reserved_by,
+                        "CBS_EXECUTION_CONFLICT", "YIELD_WAIT", int(current_time)
+                    )
+                self.state.status = RobotStatus.WAITING
+                self.wait_time += 1.0
+                self.waiting_on = reserved_by
+                return False
+
             if self.state.status == RobotStatus.WAITING:
                 self.state.status = RobotStatus.MOVING
             return True
