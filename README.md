@@ -10,6 +10,8 @@ The project combines task allocation, grid-based path planning, multi-robot conf
 > **Dashboard:** FastAPI + WebSocket + HTML5 Canvas  
 > **Coordination:** Hungarian allocation + A* + CBS + runtime safety checks
 
+![SIH AMR Fleet Dashboard](assets/dashboard/fleet_dashboard_hud.png)
+
 ---
 
 ## ✨ What the prototype does
@@ -113,7 +115,7 @@ Run the regression suite:
 python -m pytest ref_sih_amr/tests -q
 ```
 
-The current regression suite covers architecture boundaries, allocation, collision avoidance, blocked aisles, robot failure recovery, communication degradation, planning behavior, and fleet coordination scenarios.
+The regression suite covers architecture boundaries, allocation, collision avoidance, blocked aisles, robot failure recovery, communication degradation, planning behavior, and fleet coordination scenarios.
 
 Benchmark scenarios and metrics live under:
 
@@ -142,47 +144,38 @@ The benchmark framework includes sequential execution, independent planning, sto
 
 ## 📁 Repository structure
 
-`ref_sih_amr/` is the canonical SIH runtime. The Omniverse integration is grouped under `omniverse/` so the repository root stays focused on project entry points and configuration.
+`ref_sih_amr/` is the canonical SIH runtime. The Omniverse integration is isolated under `omniverse/` and its supporting assets/scenarios.
 
 ```text
 SIH/
 ├── ref_sih_amr/                 # Canonical SIH AMR runtime
 │   ├── allocator/               # Task allocation
 │   ├── comms/                   # Simulated peer communication
-│   ├── dashboard/               # FastAPI backend + web dashboard
+│   ├── dashboard/               # FastAPI backend + HTML5 Canvas dashboard
 │   ├── experiments/             # Benchmark scenarios
 │   ├── robot/                   # Robot policies, A*, CBS, task management
 │   ├── sim/                     # Fleet simulation and orchestration
 │   └── tests/                   # Regression and behavioral tests
 │
-├── omniverse/                   # OpenUSD / Omniverse integration
-│   ├── fleet_controller.py
-│   ├── omni_* / omniverse_adapter.py
-│   ├── run_omni_sih_simulation.py
-│   └── integration and demo scripts
-│
-├── assets/                      # Warehouse and presentation assets
-│   ├── omniverse/assets/omniverse/simulation5.usd
-│   ├── warehouse/warehouse_map.txt
-│   └── dashboard/fleet_dashboard_hud.png
-│
-├── docs/validation/             # Validation records
-├── mcp_fleet/                   # MCP integration
+├── omniverse/                   # OpenUSD / Omniverse integration scripts
+├── assets/                      # Warehouse, USD and dashboard assets
 ├── scenarios/                   # Omniverse scenario assets
-├── source/                      # Omniverse Kit project infrastructure
-├── templates/                   # Omniverse templates
-├── tools/                       # Repository tooling
+├── mcp_fleet/                   # MCP integration
+├── docs/validation/             # Validation records
 ├── start_dashboard.bat          # Canonical dashboard launcher
+├── .gitignore
+├── LICENSE
+├── SECURITY.md
 └── README.md
 ```
 
 ### Canonical runtime vs. Omniverse integration
 
-`ref_sih_amr/` is the **primary implementation** used by the current automated regression suite and live dashboard.
+`ref_sih_amr/` is the **primary implementation** used by the automated regression suite and live dashboard.
 
 The Omniverse/MCP components are retained as an integration and visualization environment. They are **not required** to run the canonical simulator and dashboard.
 
-This separation keeps the fleet-coordination runtime independently testable while preserving the OpenUSD/Omniverse integration path.
+The repository no longer carries the inherited NVIDIA Kit application-template/tooling scaffolding; the project-specific runtime and integration code are kept separate.
 
 ---
 
@@ -223,4 +216,3 @@ The prototype targets coordinated operation of multiple AMRs in warehouse enviro
 **SIH 2026 prototype · actively developed**
 
 For the fastest path to the working demonstration, use the canonical runtime and dashboard described above.
-
