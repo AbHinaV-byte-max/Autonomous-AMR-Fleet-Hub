@@ -1,226 +1,213 @@
-﻿# SIH 2026 — Edge-AI Distributed Fleet Coordination for Autonomous Mobile Robots
+# 🤖 Edge-AI Distributed Fleet Coordination for AMRs
 
-**Problem Statement 26123 — Bharat Electronics Limited**
+**SIH 2026 · Problem Statement 26123 · Bharat Electronics Limited**
 
-This repository contains the SIH 2026 prototype for decentralized coordination of Autonomous Mobile Robots (AMRs) in a smart warehouse.
+A distributed multi-robot coordination prototype for **Autonomous Mobile Robots (AMRs)** operating in smart warehouses.
 
-The primary implementation is the `ref_sih_amr` runtime. It provides multi-robot task allocation, path planning, collision avoidance, dynamic rerouting, failure recovery, simulated peer communication, telemetry, benchmarking, and a live dashboard.
+The project combines task allocation, grid-based path planning, multi-robot conflict resolution, collision-safety checks, rerouting, failure recovery, simulated peer communication, telemetry, benchmarking, and a live fleet dashboard.
+
+> **Primary runtime:** `ref_sih_amr/`  
+> **Dashboard:** FastAPI + WebSocket + HTML5 Canvas  
+> **Coordination:** Hungarian allocation + A* + CBS + runtime safety checks
 
 ---
 
-## System Architecture
+## ✨ What the prototype does
+
+| Capability | Implementation |
+|---|---|
+| 🤖 Multi-AMR coordination | Concurrent simulated robot managers |
+| 📦 Task allocation | Fleet allocator with Hungarian assignment |
+| 🧭 Navigation | Grid-based A* path planning |
+| 🔀 Conflict resolution | Space-time planning + CBS |
+| 🛡️ Safety | Vertex, edge-swap, occupancy and reservation checks |
+| 🚧 Dynamic rerouting | Blocked-cell detection and replanning |
+| 🔋 Resilience | Battery/failure handling and task reassignment |
+| 📡 Peer communication | Simulated heartbeat/message channel with degradation handling |
+| 📊 Telemetry | Queue-based `TelemetryBus` + WebSocket stream |
+| 🖥️ Operations dashboard | Live fleet state, task pipeline and warehouse view |
+| 🧪 Benchmarking | Reproducible scenarios and coordination strategies |
+
+---
+
+## 🏗️ System architecture
 
 ```text
-                    SIH AMR Fleet
-                         |
-              +----------+----------+
-              |                     |
-        Task Allocation        Fleet Simulation
-        Hungarian Method       & Robot Managers
-              |                     |
-              +----------+----------+
-                         |
-                 Local Coordination
-                         |
-              +----------+----------+
-              |                     |
-             A*                   CBS
-        path planning       multi-robot conflict
-                            resolution / reservations
-              |                     |
-              +----------+----------+
-                         |
-                 TelemetryBus
-                         |
-                  Dashboard API
-                         |
-                  WebSocket Stream
-                         |
-                 Live Fleet UI
+                         SMART WAREHOUSE
+                               │
+                     ┌─────────▼─────────┐
+                     │   Fleet Simulator │
+                     │   Robot Managers  │
+                     └─────────┬─────────┘
+                               │
+                ┌──────────────┼──────────────┐
+                │              │              │
+          Task Allocation   A* Planning   Peer Comms
+          Hungarian Method  Grid Search    Heartbeats
+                │              │              │
+                └──────────────┼──────────────┘
+                               │
+                     ┌─────────▼─────────┐
+                     │   CBS Coordinator │
+                     │ conflicts / paths │
+                     └─────────┬─────────┘
+                               │
+                     Deterministic Safety
+                               │
+                     ┌─────────▼─────────┐
+                     │    TelemetryBus   │
+                     └─────────┬─────────┘
+                               │
+                       FastAPI WebSocket
+                               │
+                     ┌─────────▼─────────┐
+                     │   Fleet Dashboard │
+                     │  Canvas Warehouse │
+                     └───────────────────┘
+```
 
-The canonical implementation is under:
+The **deterministic safety and coordination layer remains authoritative** over higher-level decision logic.
 
-ref_sih_amr/
-├── allocator/       Task allocation
-├── comms/           Simulated peer communication
-├── dashboard/       FastAPI backend and web dashboard
-├── experiments/     Reproducible benchmark scenarios
-├── robot/           Robot policies, A*, CBS, task management
-├── sim/             Fleet simulator and orchestration
-└── tests/           Regression and behavioral tests
-Core Capabilities
-Distributed fleet coordination
+---
 
-The simulator models multiple AMRs operating concurrently in a warehouse environment.
+## 🖥️ Run the live dashboard
 
-Each robot maintains local state and participates in simulated peer communication.
+### Requirements
 
-Coordination includes:
+- Python environment with the project dependencies installed
+- Windows for the provided `.bat` launcher
 
-task assignment
-path planning
-reservations
-conflict detection
-waiting/yielding
-rerouting
-deadlock handling
-robot failure recovery
-degraded communication handling
-Task allocation
+### Start
 
-Queued and recoverable tasks are assigned to available robots using the fleet allocator.
-
-Recoverable tasks can be reassigned when a robot becomes unavailable.
-
-Path planning
-
-The runtime uses grid-based path planning with:
-
-A* shortest-path search
-obstacle-aware planning
-dynamic occupancy checks
-space-time constraints
-CBS-based multi-robot conflict resolution
-
-CBS is used to coordinate paths where independent plans would conflict.
-
-Safety layer
-
-The coordination stack includes runtime checks for:
-
-vertex conflicts
-edge-swap conflicts
-occupied cells
-reservations
-blocked cells
-stale peer heartbeats
-robot failure
-rerouting conditions
-
-The deterministic safety/coordination layer remains authoritative over higher-level decision logic.
-
-Dashboard
-
-The primary dashboard is served by the FastAPI backend.
-
-Start it with:
-
+```powershell
 .\start_dashboard.bat
+```
 
 Then open:
 
+```text
 http://localhost:8000
+```
 
-The dashboard receives live fleet telemetry through the backend WebSocket stream.
+The dashboard backend starts the simulator and streams live fleet telemetry to the web frontend.
 
-It provides visibility into:
+### Dashboard provides
 
-robot state
-position
-battery
-velocity
-current tasks
-task pipeline
-fleet coordination
-benchmark information
-warehouse visualization
+- Fleet robot state and positions
+- Battery and velocity information
+- Current task assignments
+- Logistics order pipeline
+- Coordination state
+- Warehouse visualization
+- Benchmark information
 
-The dashboard visualization is implemented with the project's web frontend and Canvas-based warehouse rendering.
+---
 
-Benchmarking
-
-The repository contains reproducible benchmark scenarios and strategies under:
-
-ref_sih_amr/experiments/
-
-The project evaluates metrics including:
-
-makespan
-task completion time
-waiting time
-collision count
-deadlock count
-replan count
-throughput
-communication latency
-message loss
-CPU/memory usage
-edge inference latency
-energy proxy metrics
-
-The intended comparison includes sequential execution, independent planning, stop-and-wait coordination, and the proposed coordinated fleet strategy.
-
-Testing
-
-Run the complete regression suite with:
-
-python -m pytest ref_sih_amr/tests -q
-
-The current regression suite validates:
-
-architecture boundaries
-task allocation
-collision avoidance
-blocked-aisle handling
-robot failure recovery
-communication degradation
-planning behavior
-fleet coordination scenarios
-Repository Structure
-ref_sih_amr/         Canonical SIH AMR runtime
-start_dashboard.bat  Dashboard launcher
-
-mcp_fleet/           Optional/legacy MCP integration
-fleet_controller.py  Omniverse fleet integration
-omniverse_adapter.py Omniverse adapter
-omni_*.py             Omniverse integration modules
-simulation5.usd      OpenUSD warehouse stage
-
-scenarios/            Omniverse scenario assets
-source/               Omniverse Kit project infrastructure
-templates/            Omniverse Kit templates
-tools/                Repository tooling
-
-readme-assets/        Documentation assets
-.github/              GitHub configuration
-Canonical vs. Omniverse integration
-
-ref_sih_amr is the primary implementation used by the current automated regression suite and dashboard.
-
-The Omniverse/MCP components are retained as an integration and visualization environment. They are not required to run the canonical simulator and dashboard.
-
-This separation keeps the fleet-coordination runtime independently testable while preserving the repository's OpenUSD/Omniverse integration.
-
-Running the Core Runtime
+## 🧪 Validation & benchmarking
 
 Run the regression suite:
 
+```powershell
 python -m pytest ref_sih_amr/tests -q
+```
 
-Start the live dashboard:
+The current regression suite covers architecture boundaries, allocation, collision avoidance, blocked aisles, robot failure recovery, communication degradation, planning behavior, and fleet coordination scenarios.
 
-.\start_dashboard.bat
+Benchmark scenarios and metrics live under:
 
-The dashboard backend starts the simulator and exposes live fleet telemetry to the web frontend.
+```text
+ref_sih_amr/experiments/
+```
 
-Development Principles
+Tracked metrics include:
 
-The project follows these architectural boundaries:
+- Makespan
+- Task completion time
+- Waiting time
+- Collision count
+- Deadlock count
+- Replan count
+- Throughput
+- Communication latency
+- Message loss
+- CPU / memory usage
+- Edge inference latency
+- Energy proxy metrics
 
-Core simulation and coordination code must not depend on the dashboard.
-Dashboard code consumes telemetry rather than owning coordination logic.
-Robot coordination is modeled at distributed edge-node level.
-Deterministic safety checks remain authoritative.
-Benchmark scenarios should remain reproducible.
-Omniverse integration remains isolated from the canonical runtime.
-SIH Problem Statement
+The benchmark framework includes sequential execution, independent planning, stop-and-wait coordination, and the proposed coordinated fleet strategy.
 
-Problem Statement 26123
+---
 
-Edge-AI Based Distributed Fleet Coordination for Autonomous Mobile Robots (AMRs) in Smart Warehouses
+## 📁 Repository structure
 
-The prototype targets coordinated operation of multiple AMRs in warehouse environments with emphasis on local decision-making, collision avoidance, task allocation, rerouting, resilience, telemetry, and measurable fleet performance.
+```text
+SIH/
+├── ref_sih_amr/              # Canonical SIH AMR runtime
+│   ├── allocator/            # Task allocation
+│   ├── comms/                # Simulated peer communication
+│   ├── dashboard/            # FastAPI backend + web dashboard
+│   ├── experiments/          # Benchmark scenarios
+│   ├── robot/                # Robot policies, A*, CBS, task management
+│   ├── sim/                  # Fleet simulation and orchestration
+│   └── tests/                # Regression and behavioral tests
+│
+├── start_dashboard.bat       # One-command dashboard launcher
+├── warehouse_map.txt         # Warehouse map representation
+│
+├── mcp_fleet/                # Optional MCP integration
+├── scenarios/                # Omniverse scenario assets
+├── source/                   # Omniverse Kit project infrastructure
+├── templates/                # Omniverse templates
+├── tools/                    # Repository tooling
+├── simulation5.usd            # OpenUSD warehouse stage
+└── readme-assets/             # Documentation assets
+```
 
-License
+### Canonical runtime vs. Omniverse integration
 
-See LICENSE.
+`ref_sih_amr/` is the **primary implementation** used by the current automated regression suite and live dashboard.
+
+The Omniverse/MCP components are retained as an integration and visualization environment. They are **not required** to run the canonical simulator and dashboard.
+
+This separation keeps the fleet-coordination runtime independently testable while preserving the OpenUSD/Omniverse integration path.
+
+---
+
+## 🧠 Coordination pipeline
+
+1. **Tasks enter the fleet queue.**
+2. **The allocator assigns work** to eligible robots.
+3. **A*** generates obstacle-aware paths.
+4. **CBS** resolves multi-robot path conflicts using space-time constraints.
+5. **Runtime safety checks** guard against occupancy, vertex and edge-swap conflicts.
+6. **Blocked paths or changing conditions** trigger replanning.
+7. **Robot failure or degraded communication** can move work into recovery/reassignment.
+8. **TelemetryBus** publishes the current fleet state to the dashboard.
+
+---
+
+## 🔬 Engineering principles
+
+- Core simulation and coordination code does **not** depend on the dashboard.
+- The dashboard consumes telemetry rather than owning coordination logic.
+- Robot coordination is modeled at the **distributed edge-node** level.
+- Deterministic safety checks remain authoritative.
+- Benchmark scenarios remain reproducible.
+- Omniverse integration remains separated from the canonical runtime.
+
+---
+
+## 🎯 SIH Problem Statement
+
+**26123 — Edge-AI Based Distributed Fleet Coordination for Autonomous Mobile Robots (AMRs) in Smart Warehouses**
+
+The prototype targets coordinated operation of multiple AMRs in warehouse environments, with emphasis on local decision-making, collision avoidance, task allocation, rerouting, resilience, telemetry, and measurable fleet performance.
+
+---
+
+## 📌 Status
+
+**SIH 2026 prototype · actively developed**
+
+For the fastest path to the working demonstration, use the canonical runtime and dashboard described above.
+
