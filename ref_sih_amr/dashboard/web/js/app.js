@@ -475,8 +475,8 @@ function updateDashboard(snapshot) {
               <span class="stat-val" style="color:${r.current_task_id ? 'var(--accent-amber-light)' : 'var(--text-muted)'};">${r.current_task_id ? r.current_task_id.replace('TASK-', '#') : 'Idle'}</span>
             </div>
             <div class="stat-item">
-              <span class="stat-lbl">Distance</span>
-              <span class="stat-val">${Math.round(r.odometer_meters || 0)}m</span>
+              <span class="stat-lbl">Heading</span>
+              <span class="stat-val">${Math.round(r.heading || 0)}°</span>
             </div>
           </div>
 
