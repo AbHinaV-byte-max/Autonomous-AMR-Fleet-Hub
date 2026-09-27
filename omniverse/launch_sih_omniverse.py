@@ -14,7 +14,7 @@ import os
 import sys
 import argparse
 
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 SIH_ROOT = os.path.join(REPO_ROOT, "ref_sih_amr")
 
 if REPO_ROOT not in sys.path:
