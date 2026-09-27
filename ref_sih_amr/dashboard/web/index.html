@@ -134,7 +134,7 @@
           <div class="flex items-center gap-2 text-xs text-gray-600 font-medium">
             <span>SIH Grand Finale</span>
             <span>&bull;</span>
-            <span class="text-indigo-600 font-semibold">PS-26123 NVIDIA Omniverse Digital Twin</span>
+            <span class="text-indigo-600 font-semibold">PS-26123 Warehouse Digital Twin</span>
           </div>
         </div>
       </div>
@@ -155,10 +155,10 @@
           <span class="text-xs font-bold text-emerald-800" id="conn-label">RAFT Swarm Live (9/9 Nodes)</span>
         </div>
 
-        <!-- Omniverse USD Badge -->
+        <!-- Telemetry Badge -->
         <div class="hidden md:flex glass-panel px-3.5 py-1.5 rounded-full items-center gap-2 border border-green-500/30 bg-green-50/50">
           <span class="material-symbols-outlined text-[16px] text-green-700">view_in_ar</span>
-          <span class="text-xs font-bold text-green-800" id="hdr-omni-status">USD Stage Synced (60 FPS)</span>
+          <span class="text-xs font-bold text-green-800" id="hdr-omni-status">Telemetry Synced</span>
         </div>
 
         <!-- Dispatch Order Button -->
@@ -173,27 +173,27 @@
   <main class="w-full pt-24 pb-12">
     <div class="max-w-[1680px] mx-auto px-6 flex flex-col gap-6">
 
-      <!-- TOP SECTION: Omniverse 3D USD Digital Twin Viewport + Performance Card -->
+      <!-- TOP SECTION: 3D Digital Twin Viewport + Performance Card -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        <!-- Left (8 Cols): 3D Omniverse USD Viewport -->
+        <!-- Left (8 Cols): 3D Digital Twin Viewport -->
         <div class="lg:col-span-8 flex flex-col">
           <div class="glass-panel p-5 rounded-3xl flex flex-col gap-3 shadow-xl">
             
             <!-- Top Controls Bar -->
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200/60 pb-3">
-              <!-- Scenario USD Selector -->
+              <!-- Scenario Selector -->
               <div class="flex items-center gap-2">
                 <span class="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
-                  <span class="material-symbols-outlined text-[16px] text-indigo-600">view_in_ar</span> USD Scene:
+                  <span class="material-symbols-outlined text-[16px] text-indigo-600">view_in_ar</span> Scenario:
                 </span>
                 <select id="scenarioSelect" onchange="switchScenario(this.value)" class="text-xs font-heading font-bold rounded-xl border border-gray-300 bg-white/90 text-gray-800 px-3 py-1.5 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 cursor-pointer">
-                  <option value="S1_Normal">S1 &middot; Normal Warehouse.usd</option>
-                  <option value="S2_Crossing">S2 &middot; Crossing Traffic.usd</option>
-                  <option value="S3_Narrow">S3 &middot; Narrow Aisle.usd</option>
-                  <option value="S4_Blocked">S4 &middot; Blocked Aisle.usd</option>
-                  <option value="S5_Failure">S5 &middot; Robot Failure.usd</option>
-                  <option value="S6_CommDelay">S6 &middot; Comm Delay.usd</option>
+                  <option value="S1_Normal">S1 &middot; Normal Warehouse</option>
+                  <option value="S2_Crossing">S2 &middot; Crossing Traffic</option>
+                  <option value="S3_Narrow">S3 &middot; Narrow Aisle</option>
+                  <option value="S4_Blocked">S4 &middot; Blocked Aisle</option>
+                  <option value="S5_Failure">S5 &middot; Robot Failure</option>
+                  <option value="S6_CommDelay">S6 &middot; Communication Degradation</option>
                 </select>
               </div>
 
@@ -240,11 +240,11 @@
               </div>
             </div>
 
-            <!-- 3D Omniverse WebGL Viewport Canvas Container -->
+            <!-- 3D WebGL Digital Twin Viewport -->
             <div id="viewport3DContainer" class="viewport-3d-box relative h-[480px]">
               <canvas id="threeCanvas"></canvas>
 
-              <!-- Watermark HUD Badge (Top-Left) -->
+              <!-- Telemetry HUD Badge (Top-Left) -->
               <div class="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-white pointer-events-none flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
                 <span class="font-mono text-[11px] font-bold tracking-wide" id="hudStageTitle">scenarios/S1 normal warehouse.usd</span>
@@ -647,13 +647,13 @@
   <!-- 3D Omniverse WebGL Engine & Telemetry Controller -->
   <script>
     const CELL_SIZE = 2.0; // Exactly matches Omniverse USD stage meters per grid cell
-    const SCENARIO_USD_MAP = {
-      'S1_Normal': 'scenarios/S1 normal warehouse.usd',
-      'S2_Crossing': 'scenarios/Crossing Traffic.usd',
-      'S3_Narrow': 'scenarios/Narrow Aisle.usd',
-      'S4_Blocked': 'scenarios/Blocked Aisle.usd',
-      'S5_Failure': 'scenarios/Robot Failure.usd',
-      'S6_CommDelay': 'scenarios/Comm Delay.usd'
+    const SCENARIO_LABELS = {
+      'S1_Normal': 'S1 · Normal Warehouse',
+      'S2_Crossing': 'S2 · Crossing Traffic',
+      'S3_Narrow': 'S3 · Narrow Aisle',
+      'S4_Blocked': 'S4 · Blocked Aisle',
+      'S5_Failure': 'S5 · Robot Failure',
+      'S6_CommDelay': 'S6 · Communication Degradation'
     };
 
     const AMR_COLORS = [
@@ -673,7 +673,7 @@
       cameraMode: 'overview' // 'overview', 'iso', 'top', 'chase'
     };
 
-    // Three.js Core Globals
+    // Three.js Scene Globals
     let scene, camera, renderer, controls;
     let rackGroup, robotGroup, pathGroup, dockGroup;
     let robotMeshes = {}; // rid -> THREE.Group
@@ -688,7 +688,7 @@
     });
 
     /* -------------------------------------------------------------
-       THREE.JS SCENE INITIALIZATION (Matches Omniverse USD Stage)
+       THREE.JS SCENE INITIALIZATION (Matches warehouse telemetry)
        ------------------------------------------------------------- */
     function initThreeScene() {
       const container = document.getElementById('viewport3DContainer');
@@ -1033,13 +1033,13 @@
         // Dynamic Status & LiDAR Visuals
         const scanRing = mesh.getObjectByName('scanRing');
         if (scanRing) {
-          if (r.status === 'CHARGING') {
+          if (r.state === 'CHARGING') {
             scanRing.visible = true;
             scanRing.material.color.setHex(0x06b6d4);
             scanRing.material.opacity = 0.55;
-          } else if (r.status === 'OFFLINE') {
+          } else if (r.state === 'OFFLINE') {
             scanRing.visible = false;
-          } else if (r.status === 'WAITING') {
+          } else if (r.state === 'WAITING') {
             scanRing.visible = state.toggles.lidar;
             scanRing.material.color.setHex(0xf59e0b);
             scanRing.material.opacity = 0.35;
@@ -1368,9 +1368,9 @@
         updateUsdSceneDisplay(snap.scenario);
       }
 
-      if (snap.grid && (!state.grid.length || snap.grid.length !== state.grid.length)) {
-        state.grid = snap.grid;
-        build3DEnvironment(snap.grid);
+      if ((snap.warehouse ? snap.warehouse.grid : []) && (!state.grid.length || (snap.warehouse ? snap.warehouse.grid : []).length !== state.grid.length)) {
+        state.grid = (snap.warehouse ? snap.warehouse.grid : []);
+        build3DEnvironment((snap.warehouse ? snap.warehouse.grid : []));
       }
 
       if (snap.robots) {
@@ -1432,27 +1432,27 @@
       }
 
       hud.style.display = 'block';
-      const cleanId = (activeRobot.robot_id || activeRobot.id).replace('robot-', 'AMR-');
+      const cleanId = activeRobot.id || activeRobot.robot_id;
       document.getElementById('hudRobotId').innerText = cleanId;
 
-      const bat = Math.round(activeRobot.battery !== undefined ? activeRobot.battery : (activeRobot.battery_pct || 95));
+      const bat = Math.round(activeRobot.battery_pct !== undefined ? activeRobot.battery_pct : (activeRobot.battery_pct_pct || 95));
       const statusEl = document.getElementById('hudStatus');
 
-      if (activeRobot.status === 'OFFLINE' || activeRobot.status === 'DEGRADED') {
+      if (activeRobot.state === 'OFFLINE' || activeRobot.state === 'DEGRADED') {
         statusEl.className = 'px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[10px] font-bold border border-rose-500/40';
         statusEl.innerText = '⛔ SHUT DOWN';
-      } else if (activeRobot.status === 'CHARGING') {
+      } else if (activeRobot.state === 'CHARGING') {
         statusEl.className = 'px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-bold animate-pulse border border-cyan-500/40';
         statusEl.innerText = '⚡ CHARGING';
       } else if (bat <= 20) {
         statusEl.className = 'px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold animate-pulse border border-amber-500/40';
         statusEl.innerText = '⚠️ LOW BATTERY';
-      } else if (activeRobot.status === 'WAITING') {
+      } else if (activeRobot.state === 'WAITING') {
         statusEl.className = 'px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold';
         statusEl.innerText = 'ACTIVE (WAITING)';
       } else {
         statusEl.className = 'px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold';
-        statusEl.innerText = activeRobot.status === 'MOVING' ? 'ACTIVE (MOVING)' : 'ACTIVE (IDLE)';
+        statusEl.innerText = activeRobot.state === 'MOVING' ? 'ACTIVE (MOVING)' : 'ACTIVE (IDLE)';
       }
 
       document.getElementById('hudPose').innerText = `(${activeRobot.position[0].toFixed(1)}, ${activeRobot.position[1].toFixed(1)})`;
@@ -1460,7 +1460,7 @@
       
       const batEl = document.getElementById('hudBattery');
       if (batEl) {
-        if (activeRobot.status === 'CHARGING') {
+        if (activeRobot.state === 'CHARGING') {
           batEl.className = 'text-right text-cyan-400 font-bold animate-pulse';
           batEl.innerText = `⚡ ${bat}% (Charging)`;
         } else if (bat <= 20) {
@@ -1472,7 +1472,7 @@
         }
       }
       document.getElementById('hudCargo').innerText = activeRobot.has_cargo ? 'Carrying Crate' : 'Empty Tray';
-      document.getElementById('hudTask').innerText = activeRobot.current_task_id ? activeRobot.current_task_id.substring(0, 11) : (activeRobot.status === 'CHARGING' ? 'RECHARGING' : 'STANDBY');
+      document.getElementById('hudTask').innerText = activeRobot.current_task_id ? activeRobot.current_task_id.substring(0, 11) : (activeRobot.state === 'CHARGING' ? 'RECHARGING' : 'STANDBY');
     }
 
     async function switchScenario(scen) {
@@ -1492,9 +1492,9 @@
     function updateUsdSceneDisplay(scen) {
       const pathEl = document.getElementById('activeUsdPath');
       const titleEl = document.getElementById('hudStageTitle');
-      const usdFile = SCENARIO_USD_MAP[scen] || 'scenarios/S1 normal warehouse.usd';
-      if (pathEl) pathEl.innerText = usdFile;
-      if (titleEl) titleEl.innerText = usdFile;
+      const label = SCENARIO_LABELS[scen] || 'S1 · Normal Warehouse';
+      if (pathEl) pathEl.innerText = label;
+      if (titleEl) titleEl.innerText = label;
     }
 
     async function setSimSpeed(rate, btn) {
@@ -1518,10 +1518,10 @@
       if (!fleetContainer || !robots) return;
 
       // 4 mutually exclusive fleet status categories
-      const shutdownRobots = robots.filter(r => r.status === 'OFFLINE');
-      const chargingRobots = robots.filter(r => r.status === 'CHARGING');
-      const lowBattRobots  = robots.filter(r => r.status !== 'OFFLINE' && r.status !== 'CHARGING' && (r.battery !== undefined && r.battery <= 20.0));
-      const activeRobots   = robots.filter(r => r.status !== 'OFFLINE' && r.status !== 'CHARGING' && (r.battery === undefined || r.battery > 20.0));
+      const shutdownRobots = robots.filter(r => r.state === 'OFFLINE');
+      const chargingRobots = robots.filter(r => r.state === 'CHARGING');
+      const lowBattRobots  = robots.filter(r => r.state !== 'OFFLINE' && r.state !== 'CHARGING' && (r.battery_pct !== undefined && r.battery_pct <= 20.0));
+      const activeRobots   = robots.filter(r => r.state !== 'OFFLINE' && r.state !== 'CHARGING' && (r.battery_pct === undefined || r.battery_pct > 20.0));
 
       const activeCount = activeRobots.length;
       const chargingCount = chargingRobots.length;
@@ -1601,9 +1601,9 @@
 
       // Filter robots based on selected tab
       const displayRobots = robots.filter(r => {
-        const isOffline = r.status === 'OFFLINE';
-        const isCharging = r.status === 'CHARGING';
-        const isLowBatt = !isOffline && !isCharging && (r.battery !== undefined && r.battery <= 20.0);
+        const isOffline = r.state === 'OFFLINE';
+        const isCharging = r.state === 'CHARGING';
+        const isLowBatt = !isOffline && !isCharging && (r.battery_pct !== undefined && r.battery_pct <= 20.0);
 
         if (fleetFilter === 'active') return !isOffline && !isCharging && !isLowBatt;
         if (fleetFilter === 'charging') return isCharging;
@@ -1636,12 +1636,12 @@
       displayRobots.forEach(r => {
         const rawId = r.robot_id || r.id;
         const rId = rawId.replace('robot-', 'AMR-');
-        const bat = Math.round(r.battery !== undefined ? r.battery : (r.battery_pct || 95));
-        const isOffline = r.status === 'OFFLINE';
-        const isCharging = r.status === 'CHARGING';
+        const bat = Math.round(r.battery_pct !== undefined ? r.battery_pct : (r.battery_pct_pct || 95));
+        const isOffline = r.state === 'OFFLINE';
+        const isCharging = r.state === 'CHARGING';
         const isLowBatt = !isOffline && !isCharging && (bat <= 20);
-        const isMoving = r.status === 'MOVING' || r.status === 'BUSY';
-        const isWaiting = r.status === 'WAITING';
+        const isMoving = r.state === 'MOVING' || r.state === 'BUSY';
+        const isWaiting = r.state === 'WAITING';
 
         let batColor = 'bg-emerald-500';
         let batLabel = `${bat}%`;
