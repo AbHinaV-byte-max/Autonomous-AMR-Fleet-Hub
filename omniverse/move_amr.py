@@ -61,7 +61,7 @@ def move_amr(usd_path, prim_path, new_translation):
     print("Stage saved.")
 
 if __name__ == "__main__":
-    usd_file = r"C:\Users\goruv\Downloads\assets/omniverse/simulation5.usd"
+    usd_file = r"C:\Users\goruv\Downloads\assets/omniverse/assets/omniverse/simulation5.usd"
     prim = "/World/P_DYNEX_Depot/Robots/AMR_01"
     # Moving it by +5 in X
     new_pos = Gf.Vec3d(-15.0, 16.0, 0.035)
