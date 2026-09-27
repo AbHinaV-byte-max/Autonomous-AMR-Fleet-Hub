@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 
 from sim.simulator import Simulator
 from experiments.runner import SCENARIOS
-from models import RobotStatus
+from models import RobotStatus, Task, TaskStatus
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,7 +36,9 @@ app.add_middleware(
 
 RUNNING = True
 LIVE_SCENARIO = "S1_Normal"
-SIM_TICK_RATE = 0.8  # Slower, realistic pace (~1.25 ticks/sec)
+SIM_TICK_RATE = 0.8  # Seconds between simulation ticks.
+SIM_PAUSED = False
+SIM_STEP_REQUEST = False
 
 # Shared telemetry bus — injected by the simulation process on startup
 _bus: TelemetryBus = TelemetryBus()
@@ -78,6 +80,13 @@ def live_simulation_loop(bus):
                 switched = True
                 break
                 
+            global SIM_PAUSED, SIM_STEP_REQUEST
+            while SIM_PAUSED and not SIM_STEP_REQUEST and RUNNING and current_scen == LIVE_SCENARIO:
+                time.sleep(0.05)
+            if not RUNNING or current_scen != LIVE_SCENARIO:
+                switched = True
+                break
+
             # Apply scenario-specific dynamic events
             if current_scen == "S4_Blocked" and tick == 40:
                 sim.block_cell(5, 2)
@@ -85,6 +94,8 @@ def live_simulation_loop(bus):
                 sim.kill_robot("robot-0")
                 
             sim.tick()
+            if SIM_STEP_REQUEST:
+                SIM_STEP_REQUEST = False
             time.sleep(SIM_TICK_RATE)  # Smooth, observable pace
             
         if not switched and RUNNING:
@@ -229,13 +240,67 @@ async def get_live_metrics():
         snap = _latest_snapshot
         m = snap.get("metrics", {})
         return {
-            "total_collisions": m.get("COLLISION_COUNT", 0),
-            "efficiency_improvement_pct": 31.2,
-            "makespan": m.get("MAKESPAN", 0),
-            "throughput": m.get("THROUGHPUT", 0),
-            "replan_count": m.get("REPLAN_COUNT", 0),
-            "waiting_time": m.get("WAITING_TIME", 0)
+            "collision_count": m.get("COLLISION_COUNT", m.get("collision_count", 0)),
+            "makespan": m.get("MAKESPAN", m.get("makespan", 0)),
+            "throughput": m.get("THROUGHPUT", m.get("throughput", 0)),
+            "replan_count": m.get("REPLAN_COUNT", m.get("replan_count", 0)),
+            "waiting_time": m.get("WAITING_TIME", m.get("waiting_time", 0))
         }
+
+@app.post("/api/simulation/pause")
+async def pause_simulation():
+    global SIM_PAUSED
+    SIM_PAUSED = True
+    return {"is_running": False}
+
+
+@app.post("/api/simulation/start")
+async def start_simulation():
+    global SIM_PAUSED, SIM_STEP_REQUEST
+    SIM_PAUSED = False
+    SIM_STEP_REQUEST = False
+    return {"is_running": True}
+
+
+@app.post("/api/simulation/step")
+async def step_simulation():
+    global SIM_PAUSED, SIM_STEP_REQUEST
+    SIM_PAUSED = True
+    SIM_STEP_REQUEST = True
+    return {"is_running": False, "step_requested": True}
+
+
+@app.post("/api/tasks/submit")
+async def submit_task(request: dict):
+    global CURRENT_SIM
+    if CURRENT_SIM is None:
+        return {"status": "error", "message": "Simulation not running"}
+
+    required = ("pickup_x", "pickup_y", "dropoff_x", "dropoff_y")
+    if any(key not in request for key in required):
+        return {"status": "error", "message": "pickup/dropoff coordinates are required"}
+
+    pickup = (int(request["pickup_x"]), int(request["pickup_y"]))
+    dropoff = (int(request["dropoff_x"]), int(request["dropoff_y"]))
+    for point, name in ((pickup, "pickup"), (dropoff, "dropoff")):
+        if CURRENT_SIM.grid_map.get_cell(*point) == "#":
+            return {"status": "error", "message": f"{name} cell is blocked"}
+
+    task_id = f"TASK-{int(time.time() * 1000)}"
+    priority = int(request.get("priority", 1))
+    task = Task(task_id=task_id, pickup_cell=pickup, dropoff_cell=dropoff,
+                priority=priority, status=TaskStatus.QUEUED,
+                created_at=float(CURRENT_SIM.tick_count))
+    CURRENT_SIM.tasks.append(task)
+    CURRENT_SIM._allocate()
+
+    if CURRENT_SIM.telemetry_bus is not None:
+        CURRENT_SIM.telemetry_bus.publish(CURRENT_SIM._build_snapshot())
+
+    return {"status": "ok", "task_id": task_id,
+            "pickup": list(pickup), "dropoff": list(dropoff),
+            "priority": priority}
+
 
 @app.post("/api/benchmark")
 async def trigger_benchmark(request: dict = None):
