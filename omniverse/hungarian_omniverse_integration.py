@@ -11,7 +11,7 @@ import math
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-REPO_ROOT = os.path.abspath(os.path.dirname(__file__))
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 SIH_ROOT = os.path.join(REPO_ROOT, "ref_sih_amr")
 
 if REPO_ROOT not in sys.path:
