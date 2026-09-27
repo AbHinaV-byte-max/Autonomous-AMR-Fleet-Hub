@@ -42,18 +42,26 @@
     };
   </script>
   <style>
-    body { background-color: #fafafa; }
+    body {
+      background:
+        radial-gradient(circle at 15% 10%, rgba(255, 255, 255, 0.055) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 85% 75%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1.5px),
+        linear-gradient(135deg, #0f1113 0%, #171a1d 48%, #101214 100%);
+      background-size: 24px 24px, 31px 31px, 100% 100%;
+      color: #f3f4f6;
+    }
     .glass-panel {
-      background: rgba(255, 255, 255, 0.68);
+      background: rgba(255, 255, 255, 0.90);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
       border: 1px solid rgba(255, 255, 255, 0.75);
-      box-shadow: 0 10px 35px rgba(31, 38, 135, 0.06);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
     }
     .glass-header {
-      background: rgba(255, 255, 255, 0.75);
+      background: rgba(255, 255, 255, 0.94);
       backdrop-filter: blur(24px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.20);
     }
     .viewport-3d-box {
       background: #060911;
@@ -126,11 +134,21 @@
 </head>
 <body class="font-body text-gray-900 antialiased min-h-screen relative overflow-x-hidden selection:bg-indigo-600 selection:text-white">
 
-  <!-- Warm Ambient Background -->
-  <div class="fixed inset-0 z-[-1] pointer-events-none overflow-hidden mix-blend-multiply opacity-60">
-    <div class="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] rounded-full bg-amber-300 blur-[140px] animate-blob"></div>
-    <div class="absolute top-[10%] -right-[10%] w-[50%] h-[50%] rounded-full bg-orange-400 blur-[150px] animate-blob" style="animation-delay: 5s"></div>
-    <div class="absolute -bottom-[20%] left-[20%] w-[70%] h-[70%] rounded-full bg-rose-300 blur-[140px] animate-blob" style="animation-delay: 10s"></div>
+  <!-- Charcoal / White Texture Background -->
+  <div class="fixed inset-0 z-[-1] pointer-events-none overflow-hidden">
+    <div class="absolute inset-0 opacity-70"
+         style="background:
+           radial-gradient(circle at 18% 18%, rgba(255,255,255,0.10), transparent 28%),
+           radial-gradient(circle at 82% 72%, rgba(255,255,255,0.075), transparent 30%),
+           linear-gradient(115deg, transparent 0 46%, rgba(255,255,255,0.025) 50%, transparent 54%);">
+    </div>
+    <div class="absolute inset-0 opacity-20"
+         style="background-image:
+           radial-gradient(rgba(255,255,255,0.85) 0.7px, transparent 0.7px),
+           radial-gradient(rgba(255,255,255,0.45) 0.55px, transparent 0.55px);
+           background-size: 18px 18px, 29px 29px;
+           background-position: 0 0, 9px 11px;">
+    </div>
   </div>
 
   <!-- Header / Navigation Bar -->
