@@ -459,10 +459,25 @@ class LocalTaskManager:
                 else:
                     self._replan()
                 
-        elif current_int == self.current_task.dropoff_cell and self.current_task.status == TaskStatus.IN_PROGRESS:
+        elif (
+            current_int == self.current_task.dropoff_cell
+            and self.current_task.status == TaskStatus.IN_PROGRESS
+        ):
             self.current_task.status = TaskStatus.COMPLETED
+
+            # The robot remains physically present at the drop-off cell after
+            # completing its task. Treat that cell as occupied for future ticks so
+            # another robot cannot enter it merely because the task is complete.
             self.state.status = RobotStatus.IDLE
             self.state.current_task_id = None
             self.current_task = None
             self.target_cell = None
-            self.reservation_table.commit(self.state.robot_id, [current_int] * 200, self.state.timestamp)
+            self.state.planned_path = []
+
+            # Persistent physical occupancy reservation.
+            # Start at the current simulation time and hold the cell for a horizon.
+            self.reservation_table.commit(
+                self.state.robot_id,
+                [current_int] * 200,
+                self.state.timestamp,
+            )

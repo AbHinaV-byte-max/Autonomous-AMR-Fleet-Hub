@@ -429,6 +429,25 @@ class Simulator:
         if new_tasks or self.tick_count % REALLOC_INTERVAL == 0:
             self._allocate()
 
+        # 3. Resolve robots that are already sitting on their target
+        # before allowing any robot to move during this tick.
+        #
+        # This prevents sequential execution from allowing robot A to enter
+        # a cell that robot B already occupies but has not yet processed its
+        # arrival/completion state.
+        for m in self.robot_managers:
+            if m.state.status in (RobotStatus.OFFLINE, RobotStatus.CHARGING):
+                continue
+
+            if not m.state.planned_path and m.target_cell:
+                current_cell = (
+                    int(m.state.position[0]),
+                    int(m.state.position[1]),
+                )
+
+                if current_cell == m.target_cell:
+                    m._handle_arrival()
+
         # 3. Tick each robot manager
         if self.strategy == "B0":
             active_robots = [m for m in self.robot_managers if m.state.status == RobotStatus.MOVING and m.state.planned_path]

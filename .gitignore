@@ -40,3 +40,12 @@ deps/**/user.toml
 # Database files
 *.db
 *.sqlite3
+
+# Python caches and test artifacts.
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+**/.pytest_cache/
+
+# Local validation/evidence output.
+_phase1_validation_logs/
