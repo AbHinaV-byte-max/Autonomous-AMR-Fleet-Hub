@@ -105,6 +105,8 @@ The dashboard backend starts the simulator and streams live fleet telemetry to t
 
 ## 🧪 Validation & benchmarking
 
+Validation records are maintained under [`docs/validation/`](docs/validation/).
+
 Run the regression suite:
 
 ```powershell
