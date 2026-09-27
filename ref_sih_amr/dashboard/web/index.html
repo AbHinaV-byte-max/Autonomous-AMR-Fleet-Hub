@@ -244,6 +244,272 @@
       border-radius: 4px;
     }
   </style>
+<style id="ui-refresh-theme">
+/* SIH 2026 UI refresh: reference-inspired visual system.
+   IMPORTANT: simulation viewport markup/styles are intentionally untouched. */
+:root {
+  --ui-bg: #070a0e;
+  --ui-panel: #0e141b;
+  --ui-card: #121922;
+  --ui-border: #1c2633;
+  --ui-border-soft: rgba(148,163,184,.14);
+  --ui-text: #e2e8f0;
+  --ui-muted: #94a3b8;
+  --ui-cyan: #00f2fe;
+  --ui-cyan-2: #06b6d4;
+  --ui-emerald: #10b981;
+  --ui-amber: #f59e0b;
+  --ui-rose: #f43f5e;
+  --ui-purple: #8b5cf6;
+}
+body {
+  background:
+    radial-gradient(circle at 12% 4%, rgba(6,182,212,.075), transparent 24%),
+    radial-gradient(circle at 88% 82%, rgba(139,92,246,.055), transparent 28%),
+    linear-gradient(135deg, #070a0e 0%, #0b1118 48%, #070a0e 100%) !important;
+  color: var(--ui-text) !important;
+}
+.ui-refresh-header {
+  background: linear-gradient(180deg, rgba(18,25,34,.98), rgba(8,12,16,.96)) !important;
+  border-bottom: 1px solid rgba(56,189,248,.14) !important;
+  box-shadow: 0 12px 36px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06) !important;
+}
+.ui-refresh-header .brand-logo {
+  width: 120px !important;
+  height: 48px !important;
+}
+.ui-refresh-header .glass-panel {
+  background: linear-gradient(145deg, rgba(14,22,32,.9), rgba(9,14,20,.95)) !important;
+  border-color: rgba(255,255,255,.09) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 6px 18px rgba(0,0,0,.25) !important;
+}
+.ui-refresh-header .text-gray-900,
+.ui-refresh-header .text-gray-800 { color:#f8fafc !important; }
+.ui-refresh-header .text-gray-600,
+.ui-refresh-header .text-gray-500 { color:#94a3b8 !important; }
+.ui-refresh-header .text-indigo-600 { color:#67e8f9 !important; }
+.ui-refresh-header .bg-indigo-600 {
+  background: linear-gradient(90deg,#2563eb,#4f46e5) !important;
+}
+.ui-refresh-header .border-indigo-200 { border-color:rgba(56,189,248,.25) !important; }
+
+.ui-refresh-benchmark {
+  background: linear-gradient(145deg, rgba(16,23,34,.98), rgba(10,16,23,.98)) !important;
+  border-color: rgba(34,211,238,.28) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 18px 44px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05) !important;
+  color:var(--ui-text) !important;
+}
+.ui-refresh-benchmark .text-gray-900 { color:#f8fafc !important; }
+.ui-refresh-benchmark .text-gray-800 { color:#e2e8f0 !important; }
+.ui-refresh-benchmark .text-gray-700 { color:#cbd5e1 !important; }
+.ui-refresh-benchmark .text-gray-600,
+.ui-refresh-benchmark .text-gray-500 { color:#94a3b8 !important; }
+.ui-refresh-benchmark .text-indigo-600 { color:#67e8f9 !important; }
+.ui-refresh-benchmark .text-emerald-700,
+.ui-refresh-benchmark .text-emerald-800 { color:#6ee7b7 !important; }
+.ui-refresh-benchmark .bg-emerald-100 {
+  background:rgba(16,185,129,.12) !important;
+  border:1px solid rgba(16,185,129,.28);
+}
+.ui-refresh-benchmark .bg-white\/60,
+.ui-refresh-benchmark .bg-white\/50,
+.ui-refresh-benchmark .bg-white\/40 {
+  background:rgba(10,17,24,.82) !important;
+}
+.ui-refresh-benchmark .bg-emerald-50\/70,
+.ui-refresh-benchmark .bg-emerald-100\/60 {
+  background:rgba(16,185,129,.10) !important;
+}
+.ui-refresh-benchmark table {
+  border-color:#233346 !important;
+}
+.ui-refresh-benchmark thead {
+  background:#141e2a !important;
+  color:#cbd5e1 !important;
+}
+.ui-refresh-benchmark tbody {
+  color:#cbd5e1 !important;
+}
+.ui-refresh-benchmark tbody tr {
+  border-color:#172230 !important;
+}
+.ui-refresh-benchmark tbody tr:last-child {
+  background:rgba(6,78,59,.32) !important;
+}
+.ui-refresh-benchmark .border-gray-200\/80,
+.ui-refresh-benchmark .border-gray-200\/60,
+.ui-refresh-benchmark .border-white\/60 {
+  border-color:rgba(56,189,248,.12) !important;
+}
+.ui-refresh-benchmark #bench-safety-container {
+  background:rgba(6,32,24,.75) !important;
+  border-color:rgba(16,185,129,.3) !important;
+}
+
+.ui-refresh-kpi {
+  background:linear-gradient(145deg, rgba(17,24,34,.98), rgba(10,16,23,.98)) !important;
+  border-color:#223244 !important;
+  border-radius:16px !important;
+  box-shadow:0 12px 30px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.04) !important;
+  color:var(--ui-text) !important;
+  transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease !important;
+}
+.ui-refresh-kpi:hover {
+  transform:translateY(-2px);
+  border-color:rgba(56,189,248,.35) !important;
+  box-shadow:0 16px 36px rgba(0,0,0,.48), 0 0 18px rgba(6,182,212,.08) !important;
+}
+.ui-refresh-kpi .text-gray-900 { color:#f8fafc !important; }
+.ui-refresh-kpi .text-gray-800 { color:#e2e8f0 !important; }
+.ui-refresh-kpi .text-gray-700 { color:#cbd5e1 !important; }
+.ui-refresh-kpi .text-gray-600,
+.ui-refresh-kpi .text-gray-500 { color:#94a3b8 !important; }
+.ui-refresh-kpi .border-gray-100\/80 { border-color:rgba(148,163,184,.12) !important; }
+.ui-refresh-kpi .bg-emerald-100 {
+  background:rgba(16,185,129,.12) !important;
+  color:#6ee7b7 !important;
+  border:1px solid rgba(16,185,129,.25);
+}
+.ui-refresh-kpi .text-indigo-600 { color:#67e8f9 !important; }
+.ui-refresh-kpi .text-amber-600 { color:#fbbf24 !important; }
+.ui-refresh-kpi .text-emerald-600 { color:#34d399 !important; }
+
+.ui-refresh-operations {
+  background:linear-gradient(145deg, rgba(14,22,32,.98), rgba(9,14,20,.98)) !important;
+  border-color:#223244 !important;
+  border-radius:16px !important;
+  box-shadow:0 18px 44px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04) !important;
+  color:var(--ui-text) !important;
+}
+.ui-refresh-operations .text-gray-900 { color:#f8fafc !important; }
+.ui-refresh-operations .text-gray-800 { color:#e2e8f0 !important; }
+.ui-refresh-operations .text-gray-700 { color:#cbd5e1 !important; }
+.ui-refresh-operations .text-gray-600,
+.ui-refresh-operations .text-gray-500,
+.ui-refresh-operations .text-gray-400 { color:#94a3b8 !important; }
+.ui-refresh-operations .text-indigo-600 { color:#67e8f9 !important; }
+.ui-refresh-operations .bg-white\/40,
+.ui-refresh-operations .bg-gray-100\/70,
+.ui-refresh-operations .bg-gray-100\/90 {
+  background:rgba(10,17,24,.82) !important;
+}
+.ui-refresh-operations .border-gray-200\/80,
+.ui-refresh-operations .border-gray-200\/70,
+.ui-refresh-operations .border-gray-200\/60 {
+  border-color:#233346 !important;
+}
+.ui-refresh-operations thead {
+  background:#121c27 !important;
+  color:#cbd5e1 !important;
+}
+.ui-refresh-operations tbody {
+  color:#cbd5e1 !important;
+}
+.ui-refresh-operations tbody tr {
+  border-color:#182332 !important;
+}
+.ui-refresh-operations tbody tr:hover {
+  background:#15202c !important;
+}
+.ui-refresh-operations .bg-emerald-50\/90 {
+  background:rgba(6,32,24,.82) !important;
+  border-color:rgba(16,185,129,.3) !important;
+}
+.ui-refresh-operations .bg-cyan-50\/90 {
+  background:rgba(8,26,38,.82) !important;
+  border-color:rgba(6,182,212,.3) !important;
+}
+.ui-refresh-operations .bg-amber-50\/90 {
+  background:rgba(45,31,8,.72) !important;
+  border-color:rgba(245,158,11,.3) !important;
+}
+.ui-refresh-operations .bg-rose-50\/90 {
+  background:rgba(45,15,23,.72) !important;
+  border-color:rgba(244,63,94,.3) !important;
+}
+.ui-refresh-operations .text-emerald-700 { color:#34d399 !important; }
+.ui-refresh-operations .text-cyan-700 { color:#22d3ee !important; }
+.ui-refresh-operations .text-amber-700 { color:#fbbf24 !important; }
+.ui-refresh-operations .text-rose-700 { color:#fb7185 !important; }
+.ui-refresh-operations .text-emerald-950,
+.ui-refresh-operations .text-cyan-950,
+.ui-refresh-operations .text-amber-950,
+.ui-refresh-operations .text-rose-950 { color:#e2e8f0 !important; }
+
+.ui-refresh-operations .robot-card {
+  background:linear-gradient(145deg, rgba(17,24,34,.96), rgba(10,17,24,.96)) !important;
+  border:1px solid #223244 !important;
+  border-radius:12px !important;
+  box-shadow:0 6px 18px rgba(0,0,0,.28) !important;
+}
+.ui-refresh-operations .robot-card:hover {
+  border-color:rgba(34,211,238,.45) !important;
+  box-shadow:0 8px 24px rgba(0,0,0,.4), 0 0 14px rgba(6,182,212,.08) !important;
+}
+.ui-refresh-operations .robot-id-badge { color:#e2e8f0 !important; }
+.ui-refresh-operations .robot-type-label { color:#64748b !important; }
+.ui-refresh-operations .stat-lbl { color:#64748b !important; }
+.ui-refresh-operations .stat-val { color:#cbd5e1 !important; }
+.ui-refresh-operations .battery-bar { background:#182332 !important; }
+.ui-refresh-operations .robot-state-pill {
+  border-radius:999px !important;
+}
+.ui-refresh-operations .bg-gray-100\/90 {
+  border:1px solid #223244 !important;
+}
+.ui-refresh-operations #tabFilterAll {
+  background:#1c2a38 !important;
+  color:#67e8f9 !important;
+  border-color:rgba(34,211,238,.35) !important;
+  box-shadow:0 0 10px rgba(6,182,212,.08) !important;
+}
+.ui-refresh-operations #tabFilterActive,
+.ui-refresh-operations #tabFilterCharging,
+.ui-refresh-operations #tabFilterLowBatt,
+.ui-refresh-operations #tabFilterShutdown {
+  color:#94a3b8 !important;
+}
+.ui-refresh-operations #tabFilterActive:hover,
+.ui-refresh-operations #tabFilterCharging:hover,
+.ui-refresh-operations #tabFilterLowBatt:hover,
+.ui-refresh-operations #tabFilterShutdown:hover {
+  color:#f8fafc !important;
+  background:#182433 !important;
+}
+
+.ui-refresh-modal {
+  background:linear-gradient(145deg, rgba(18,25,34,.98), rgba(8,12,16,.98)) !important;
+  border:1px solid rgba(56,189,248,.28) !important;
+  border-radius:16px !important;
+  color:#e2e8f0 !important;
+  box-shadow:0 24px 70px rgba(0,0,0,.7), 0 0 30px rgba(6,182,212,.08) !important;
+}
+.ui-refresh-modal .text-gray-900,
+.ui-refresh-modal .text-gray-800 { color:#f8fafc !important; }
+.ui-refresh-modal .text-gray-700,
+.ui-refresh-modal .text-gray-600 { color:#cbd5e1 !important; }
+.ui-refresh-modal .border-gray-200 { border-color:#223244 !important; }
+.ui-refresh-modal select,
+.ui-refresh-modal input {
+  background:#111822 !important;
+  color:#f8fafc !important;
+  border-color:#233346 !important;
+  color-scheme:dark;
+}
+.ui-refresh-modal .bg-indigo-50\/60 {
+  background:rgba(6,182,212,.08) !important;
+  border-color:rgba(6,182,212,.22) !important;
+  color:#a5f3fc !important;
+}
+.ui-refresh-modal .bg-indigo-600 {
+  background:linear-gradient(90deg,#06b6d4,#2563eb) !important;
+}
+.ui-refresh-modal .hover\:bg-gray-100:hover {
+  background:#182433 !important;
+  color:#f8fafc !important;
+}
+</style>
 </head>
 <body class="font-body text-gray-900 antialiased min-h-screen relative overflow-x-hidden selection:bg-indigo-600 selection:text-white">
 
@@ -265,7 +531,7 @@
   </div>
 
   <!-- Header / Navigation Bar -->
-  <header class="fixed top-0 left-0 right-0 z-50 glass-header h-20">
+  <header class="fixed top-0 left-0 right-0 z-50 glass-header h-20 ui-refresh-header">
     <div class="max-w-[1680px] mx-auto px-6 h-full flex items-center justify-between">
       <div class="flex items-center gap-4">
         <img
@@ -485,7 +751,7 @@
         <div class="lg:col-span-4 flex flex-col gap-6">
           
           <!-- Enhanced Multi-Strategy Performance Benchmark Card -->
-          <div class="glass-panel dashboard-block p-6 rounded-3xl flex flex-col justify-between shadow-xl border border-emerald-500/20 relative overflow-hidden h-full">
+          <div class="glass-panel dashboard-block ui-refresh-benchmark p-6 rounded-3xl flex flex-col justify-between shadow-xl border border-emerald-500/20 relative overflow-hidden h-full">
             <div class="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-emerald-400/20 blur-2xl pointer-events-none"></div>
             <div>
               <div class="flex items-center justify-between mb-3">
@@ -580,7 +846,7 @@
 
       <!-- MIDDLE SECTION: 4 Glassmorphic KPI Cards -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="glass-panel dashboard-block p-5 rounded-3xl shadow-lg border border-white/60 transition-all duration-300" id="kpi-safety-card">
+        <div class="glass-panel dashboard-block ui-refresh-kpi p-5 rounded-3xl shadow-lg border border-white/60 transition-all duration-300" id="kpi-safety-card">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Safety Integrity</span>
             <span class="material-symbols-outlined text-emerald-600 text-[22px] transition-all" id="kpi-safety-icon">shield</span>
@@ -595,7 +861,7 @@
           </div>
         </div>
 
-        <div class="glass-panel dashboard-block p-5 rounded-3xl shadow-lg border border-white/60">
+        <div class="glass-panel dashboard-block ui-refresh-kpi p-5 rounded-3xl shadow-lg border border-white/60">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Fleet Efficiency</span>
             <span class="material-symbols-outlined text-indigo-600 text-[20px]">trending_up</span>
@@ -606,7 +872,7 @@
           </div>
         </div>
 
-        <div class="glass-panel dashboard-block p-5 rounded-3xl shadow-lg border border-white/60">
+        <div class="glass-panel dashboard-block ui-refresh-kpi p-5 rounded-3xl shadow-lg border border-white/60">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Order Pipeline</span>
             <span class="material-symbols-outlined text-amber-600 text-[20px]">inventory_2</span>
@@ -617,7 +883,7 @@
           </div>
         </div>
 
-        <div class="glass-panel dashboard-block p-5 rounded-3xl shadow-lg border border-white/60">
+        <div class="glass-panel dashboard-block ui-refresh-kpi p-5 rounded-3xl shadow-lg border border-white/60">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Fleet Power &amp; Status</span>
             <span class="material-symbols-outlined text-emerald-600 text-[20px]">battery_charging_full</span>
@@ -640,7 +906,7 @@
         
         <!-- Left (8 Cols): Order Pipeline Table -->
         <div class="lg:col-span-8">
-          <div class="glass-panel dashboard-block p-6 rounded-3xl h-full shadow-xl">
+          <div class="glass-panel dashboard-block ui-refresh-operations p-6 rounded-3xl h-full shadow-xl">
             <div class="flex items-center justify-between mb-4">
               <h2 class="font-heading font-bold text-base text-gray-900 flex items-center gap-2">
                 <span class="material-symbols-outlined text-indigo-600 text-[20px]">conveyor_belt</span>
@@ -684,7 +950,7 @@
 
         <!-- Right (4 Cols): Live Swarm Fleet List -->
         <div class="lg:col-span-4">
-          <div class="glass-panel dashboard-block p-6 rounded-3xl h-full shadow-xl flex flex-col">
+          <div class="glass-panel dashboard-block ui-refresh-operations p-6 rounded-3xl h-full shadow-xl flex flex-col">
             <div class="flex items-center justify-between mb-3">
               <h2 class="font-heading font-bold text-base text-gray-900 flex items-center gap-2">
                 <span class="material-symbols-outlined text-indigo-600 text-[20px]">smart_toy</span>
@@ -743,7 +1009,7 @@
 
   <!-- Dispatch Order Modal -->
   <div id="dispatchModal" class="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm hidden flex items-center justify-center p-4">
-    <div class="glass-panel bg-white/95 p-6 rounded-3xl max-w-md w-full shadow-2xl border border-white/80">
+    <div class="glass-panel ui-refresh-modal bg-white/95 p-6 rounded-3xl max-w-md w-full shadow-2xl border border-white/80">
       <div class="flex items-center justify-between mb-4 border-b border-gray-200 pb-3">
         <h3 class="font-heading font-bold text-lg text-gray-900 flex items-center gap-2">
           <span class="material-symbols-outlined text-indigo-600">add_box</span>
