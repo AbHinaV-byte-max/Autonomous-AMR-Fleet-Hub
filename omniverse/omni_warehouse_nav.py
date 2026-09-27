@@ -1,6 +1,6 @@
 """
 Omniverse Warehouse World & Navigation Mapping Layer
-Directly extracts 3D geometry from simulation5.usd to construct a continuous-to-discrete
+Directly extracts 3D geometry from assets/omniverse/simulation5.usd to construct a continuous-to-discrete
 occupancy and navigation costmap along verified warehouse corridors and aisles.
 Compatible with ref_sih_amr AStarPlanner and HungarianAllocator.
 
@@ -41,7 +41,7 @@ class OmniWarehouseNavMap:
     def __init__(self, stage=None, usd_path=None, cell_size=0.5, margin=0.3):
         self.cell_size = float(cell_size)
         self.margin = float(margin)
-        self.usd_path = usd_path or os.path.join(REPO_ROOT, "simulation5.usd")
+        self.usd_path = usd_path or os.path.join(REPO_ROOT, "assets/omniverse/simulation5.usd")
         self.stage = stage
         
         if self.stage is None and USD_AVAILABLE and os.path.exists(self.usd_path):
@@ -93,7 +93,7 @@ class OmniWarehouseNavMap:
     # ------------------------------------------------------------------
 
     def _extract_geometry_and_build_grid(self):
-        """Inspects simulation5.usd for racks, piles, and obstacle prims."""
+        """Inspects assets/omniverse/simulation5.usd for racks, piles, and obstacle prims."""
         if self.stage is not None:
             for prim in self.stage.Traverse():
                 path = str(prim.GetPath())
