@@ -76,8 +76,22 @@ The **deterministic safety and coordination layer remains authoritative** over h
 
 ### Requirements
 
-- Python environment with the project dependencies installed
+- Python 3.12
 - Windows for the provided `.bat` launcher
+
+### Install runtime dependencies
+
+```powershell
+python -m pip install -r requirements.txt
+```
+
+The root `requirements.txt` contains only the dependencies needed by the live FastAPI dashboard and simulator. This keeps serverless deployments within function bundle limits.
+
+For full local validation, benchmark analysis, and optional ONNX training/inference:
+
+```powershell
+python -m pip install -r requirements-dev.txt
+```
 
 ### Start
 
@@ -163,6 +177,8 @@ SIH/
 ├── mcp_fleet/                   # MCP integration
 ├── docs/validation/             # Validation records
 ├── start_dashboard.bat          # Canonical dashboard launcher
+├── requirements.txt             # Minimal live-runtime dependencies
+├── requirements-dev.txt         # Full validation/benchmark/ML dependencies
 ├── .gitignore
 ├── LICENSE
 ├── SECURITY.md
