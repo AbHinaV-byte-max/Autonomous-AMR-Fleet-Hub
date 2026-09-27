@@ -350,32 +350,30 @@ function updateDashboard(snapshot) {
     
     // Collisions
     const collEl = document.getElementById('valCollisions');
-    if (collEl) collEl.innerText = m.total_collisions;
+    if (collEl) collEl.innerText = m.collision_count;
     const badgeCollisions = document.getElementById('badgeCollisions');
     if (badgeCollisions) {
-      if (m.total_collisions === 0) {
+      if (m.collision_count === 0) {
         if (collEl) collEl.className = 'kpi-big-value text-emerald';
         badgeCollisions.innerText = '100% Collision-Free Record';
         badgeCollisions.className = 'footer-badge safe';
       } else {
         if (collEl) collEl.className = 'kpi-big-value text-amber';
-        badgeCollisions.innerText = `${m.total_collisions} Safety Incident(s)`;
+        badgeCollisions.innerText = `${m.collision_count} Safety Incident(s)`;
         badgeCollisions.className = 'footer-badge amber';
       }
     }
 
-    // Efficiency Gain
+    // Benchmark efficiency is intentionally not treated as live telemetry.
+    // It is populated only when a benchmark result explicitly provides it.
     const effEl = document.getElementById('valImprovement');
-    if (effEl) effEl.innerText = `+${m.efficiency_improvement_pct}%`;
     const targetBadge = document.getElementById('badgeEfficiency');
-    if (targetBadge) {
-      if (m.efficiency_improvement_pct >= 20.0) {
-        targetBadge.innerText = `Target Achieved (+${m.efficiency_improvement_pct}% faster)`;
-        targetBadge.className = 'footer-badge cyan';
-      } else {
-        targetBadge.innerText = 'Calibrating Optimization...';
-        targetBadge.className = 'footer-badge amber';
-      }
+    if (effEl && !Object.prototype.hasOwnProperty.call(m, 'efficiency_improvement_pct')) {
+      effEl.innerText = '—';
+    }
+    if (targetBadge && !Object.prototype.hasOwnProperty.call(m, 'efficiency_improvement_pct')) {
+      targetBadge.innerText = 'Awaiting benchmark';
+      targetBadge.className = 'footer-badge amber';
     }
 
     // Tasks Count
