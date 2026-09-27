@@ -1,125 +1,34 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "New Template",
+            "label": "Start SIH Dashboard",
             "type": "shell",
-            "command": "${workspaceRoot}${/}repo.sh",
+            "command": "${workspaceFolder}/start_dashboard.bat",
             "windows": {
-                "command": "${workspaceRoot}${/}repo.bat"
+                "command": "${workspaceFolder}\\start_dashboard.bat"
             },
-            "args": [
-                "template",
-                "new"
-            ],
-            "group": "none",
-            "presentation": {
-                "reveal": "always",
-                "focus": true
-            }
-        },
-        {
-            "label": "Build",
-            "type": "shell",
-            "command": "${workspaceRoot}${/}repo.sh",
-            "windows": {
-                "command": "${workspaceRoot}${/}repo.bat"
-            },
-            "args": [
-                "build"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "presentation": {
-                "reveal": "always",
-                "focus": false
-            },
+            "group": "build",
+            "presentation": {"reveal": "always", "focus": true},
             "problemMatcher": []
         },
         {
-            "label": "Launch",
+            "label": "Run SIH Tests",
             "type": "shell",
-            "command": "${workspaceRoot}${/}repo.sh",
-            "windows": {
-                "command": "${workspaceRoot}${/}repo.bat"
-            },
-            "args": [
-                "launch"
-            ],
-            "group": "none",
-            "presentation": {
-                "reveal": "always",
-                "focus": true
-            }
+            "command": "python",
+            "args": ["-m", "pytest", "ref_sih_amr/tests", "-q"],
+            "group": "test",
+            "presentation": {"reveal": "always", "focus": false},
+            "problemMatcher": []
         },
         {
-            "label": "Launch (Developer Mode)",
+            "label": "Run Dashboard Backend",
             "type": "shell",
-            "command": "${workspaceRoot}${/}repo.sh",
-            "windows": {
-                "command": "${workspaceRoot}${/}repo.bat"
-            },
-            "args": [
-                "launch",
-                "-d"
-            ],
-            "group": "none",
-            "presentation": {
-                "reveal": "always",
-                "focus": true
-            }
-        },
-        {
-            "label": "Run Unit Tests",
-            "type": "shell",
-            "command": "${workspaceRoot}${/}repo.sh",
-            "windows": {
-                "command": "${workspaceRoot}${/}repo.bat"
-            },
-            "args": [
-                "test",
-            ],
-            "group": "none",
-            "presentation": {
-                "reveal": "always",
-                "focus": false
-            }
-        },
-        {
-            "label": "Package",
-            "type": "shell",
-            "command": "${workspaceRoot}${/}repo.sh",
-            "windows": {
-                "command": "${workspaceRoot}${/}repo.bat"
-            },
-            "args": [
-                "package"
-            ],
-            "group": "none",
-            "presentation": {
-                "reveal": "always",
-                "focus": false
-            }
-        },
-        {
-            "label": "Build All Templates",
-            "type": "shell",
-            "command": "${workspaceRoot}${/}tools${/}packman${/}python.sh",
-            "windows": {
-                "command": "${workspaceRoot}${/}tools${/}packman${/}python.bat"
-            },
-            "args": [
-                "${workspaceRoot}${/}.vscode${/}template_builder.py",
-            ],
-            "group": "none",
-            "presentation": {
-                "reveal": "always",
-                "focus": false
-            }
+            "command": "python",
+            "args": ["-m", "uvicorn", "ref_sih_amr.dashboard.backend.main:app", "--host", "0.0.0.0", "--port", "8000"],
+            "group": "build",
+            "presentation": {"reveal": "always", "focus": false},
+            "problemMatcher": []
         }
     ]
 }
