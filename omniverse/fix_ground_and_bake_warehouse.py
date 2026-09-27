@@ -30,8 +30,8 @@ from pxr import Usd, UsdGeom, UsdPhysics, Gf, Sdf  # type: ignore
 
 def fix_and_bake_all():
     usd_paths = [
-        os.path.join(REPO_ROOT, "assets/omniverse/simulation5.usd"),
-        r"C:\Users\goruv\Downloads\assets/omniverse/simulation5.usd"
+        os.path.join(REPO_ROOT, "assets/omniverse/assets/omniverse/simulation5.usd"),
+        r"C:\Users\goruv\Downloads\assets/omniverse/assets/omniverse/simulation5.usd"
     ]
 
     for usd_path in usd_paths:
