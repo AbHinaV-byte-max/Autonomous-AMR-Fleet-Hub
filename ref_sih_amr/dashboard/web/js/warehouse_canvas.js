@@ -321,7 +321,7 @@ class WarehouseCanvas {
       this.ttHeaderEl.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <span>🤖 <strong>${r.id}</strong></span>
-          <span style="font-size:10px;color:var(--text-muted);font-weight:600;">${(r.type || 'AMR').replace('_', ' ')}</span>
+          <span style="font-size:10px;color:var(--text-muted);font-weight:600;">${'AMR'}</span>
         </div>
       `;
 
@@ -332,7 +332,7 @@ class WarehouseCanvas {
       else if (r.state === 'WAITING') { stateText = '⏳ WAITING (Corridor)'; stateColor = 'var(--accent-rose)'; }
       else if (r.state === 'MOVING') { stateText = '▶ CRUISING (Active)'; stateColor = 'var(--accent-emerald-light)'; }
 
-      const speedMs = p ? (p.speed * 0.8).toFixed(2) : '0.00';
+      const speedMs = Number(r.velocity || 0).toFixed(2);
       const battery = Math.round(r.battery_pct || 98);
 
       this.ttBodyEl.innerHTML = `
@@ -341,7 +341,6 @@ class WarehouseCanvas {
           <div>Speed: <strong style="color:var(--text-main);">${speedMs} m/s</strong></div>
           <div>Battery: <strong style="color:${battery > 40 ? 'var(--accent-emerald-light)' : 'var(--accent-amber-light)'};">${battery}%</strong></div>
           <div>Grid Pose: <strong style="color:var(--text-main);">(${r.position[0]}, ${r.position[1]})</strong></div>
-          <div>Odometer: <strong style="color:var(--text-main);">${Math.round(r.odometer_meters || 0)}m</strong></div>
         </div>
         ${r.current_task_id ? `<div style="color:#fbbf24;font-size:10.5px;padding-top:3px;border-top:1px solid var(--border-subtle);">Payload Order: <strong>${r.current_task_id.replace('TASK-', '#')}</strong></div>` : '<div style="color:var(--text-muted);font-size:10px;padding-top:3px;border-top:1px solid var(--border-subtle);">Turntable: Empty Pallet Deck</div>'}
         ${isFaulted ? '<div style="color:#fca5a5;font-weight:700;font-size:10.5px;margin-top:4px;padding:3px 6px;background:rgba(239,68,68,0.2);border-radius:4px;border:1px solid var(--border-hazard);">🚨 Recoil Shudder &amp; Interlock Active</div>' : ''}
@@ -1702,7 +1701,7 @@ class WarehouseCanvas {
 
   // Forward Intent Paths (Trajectory Ribbons)
   drawIsoIntentPath(ctx, r) {
-    if (!r.intent || r.intent.length === 0) return;
+    if (!r.planned_path || r.planned_path.length === 0) return;
     const p = this.robotPhysics[r.id];
     const currPt = this.toIso(p ? p.x : r.position[0], p ? p.y : r.position[1]);
     const th = this.isoTileH;
@@ -1710,7 +1709,7 @@ class WarehouseCanvas {
     ctx.beginPath();
     ctx.moveTo(currPt.x, currPt.y + th * 0.5);
 
-    r.intent.forEach(cell => {
+    r.planned_path.forEach(cell => {
       const pt = this.toIso(cell[0], cell[1]);
       ctx.lineTo(pt.x, pt.y + th * 0.5);
     });
@@ -2130,7 +2129,7 @@ class WarehouseCanvas {
     if (!robots) return;
 
     Object.values(robots).forEach(r => {
-      if (!r.intent || r.intent.length === 0) return;
+      if (!r.planned_path || r.planned_path.length === 0) return;
       const p = this.robotPhysics[r.id];
       const startX = ox + ((p ? p.x : r.position[0]) + 0.5) * c;
       const startY = oy + ((p ? p.y : r.position[1]) + 0.5) * c;
@@ -2148,7 +2147,7 @@ class WarehouseCanvas {
       // Smooth path ribbon
       ctx.beginPath();
       ctx.moveTo(startX, startY);
-      r.intent.forEach(pt => {
+      r.planned_path.forEach(pt => {
         ctx.lineTo(ox + (pt[0] + 0.5) * c, oy + (pt[1] + 0.5) * c);
       });
       ctx.strokeStyle = pathColor;
@@ -2158,7 +2157,7 @@ class WarehouseCanvas {
       ctx.setLineDash([]);
 
       // Destination target ring with glowing core
-      const dest = r.intent[r.intent.length - 1];
+      const dest = r.planned_path[r.planned_path.length - 1];
       const destX = ox + (dest[0] + 0.5) * c;
       const destY = oy + (dest[1] + 0.5) * c;
 

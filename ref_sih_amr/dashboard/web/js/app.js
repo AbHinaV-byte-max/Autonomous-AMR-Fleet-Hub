@@ -169,11 +169,14 @@ function setupControls() {
     btnBenchmark.disabled = true;
     btnBenchmark.innerHTML = '<span class="btn-icon">⏳</span> Benchmarking...';
     try {
-      const res = await fetch('/api/simulation/benchmark', { method: 'POST' });
+      const res = await fetch('/api/benchmark', { method: 'POST' });
       const data = await res.json();
-      btnBenchmark.innerHTML = `<span class="btn-icon">⚡</span> Benchmark (+${data.improvement_pct}%)`;
+      btnBenchmark.innerHTML = '<span class="btn-icon">⚡</span> Benchmark Complete';
+      if (data.results) {
+        console.info('Benchmark results:', data.results);
+      }
     } catch (e) {
-      btnBenchmark.innerHTML = '<span class="btn-icon">⚡</span> Benchmark (+85.5%)';
+      btnBenchmark.innerHTML = '<span class="btn-icon">⚠</span> Benchmark Failed';
     } finally {
       btnBenchmark.disabled = false;
     }
@@ -237,7 +240,6 @@ function setupControls() {
       pickup_y: parseInt(document.getElementById('pickupY').value, 10),
       dropoff_x: parseInt(document.getElementById('dropoffX').value, 10),
       dropoff_y: parseInt(document.getElementById('dropoffY').value, 10),
-      payload_weight_kg: parseFloat(document.getElementById('payloadKg').value),
       priority: parseInt(document.getElementById('priorityLevel').value, 10),
     };
 
@@ -350,32 +352,30 @@ function updateDashboard(snapshot) {
     
     // Collisions
     const collEl = document.getElementById('valCollisions');
-    if (collEl) collEl.innerText = m.total_collisions;
+    if (collEl) collEl.innerText = m.collision_count;
     const badgeCollisions = document.getElementById('badgeCollisions');
     if (badgeCollisions) {
-      if (m.total_collisions === 0) {
+      if (m.collision_count === 0) {
         if (collEl) collEl.className = 'kpi-big-value text-emerald';
         badgeCollisions.innerText = '100% Collision-Free Record';
         badgeCollisions.className = 'footer-badge safe';
       } else {
         if (collEl) collEl.className = 'kpi-big-value text-amber';
-        badgeCollisions.innerText = `${m.total_collisions} Safety Incident(s)`;
+        badgeCollisions.innerText = `${m.collision_count} Safety Incident(s)`;
         badgeCollisions.className = 'footer-badge amber';
       }
     }
 
-    // Efficiency Gain
+    // Benchmark efficiency is intentionally not treated as live telemetry.
+    // It is populated only when a benchmark result explicitly provides it.
     const effEl = document.getElementById('valImprovement');
-    if (effEl) effEl.innerText = `+${m.efficiency_improvement_pct}%`;
     const targetBadge = document.getElementById('badgeEfficiency');
-    if (targetBadge) {
-      if (m.efficiency_improvement_pct >= 20.0) {
-        targetBadge.innerText = `Target Achieved (+${m.efficiency_improvement_pct}% faster)`;
-        targetBadge.className = 'footer-badge cyan';
-      } else {
-        targetBadge.innerText = 'Calibrating Optimization...';
-        targetBadge.className = 'footer-badge amber';
-      }
+    if (effEl && !Object.prototype.hasOwnProperty.call(m, 'efficiency_improvement_pct')) {
+      effEl.innerText = '—';
+    }
+    if (targetBadge && !Object.prototype.hasOwnProperty.call(m, 'efficiency_improvement_pct')) {
+      targetBadge.innerText = 'Awaiting benchmark';
+      targetBadge.className = 'footer-badge amber';
     }
 
     // Tasks Count
@@ -447,10 +447,10 @@ function updateDashboard(snapshot) {
           stateIcon = '⏹';
         }
 
-        const batPct = Math.round(r.battery_pct || 98);
+        const batPct = Math.round(r.battery_pct ?? 0);
         const batColor = batPct > 50 ? 'var(--accent-emerald)' : batPct > 20 ? 'var(--accent-amber)' : 'var(--accent-rose)';
         const p = canvasRenderer.robotPhysics[r.id];
-        const currentSpeed = p ? (p.speed * 0.8).toFixed(2) : (r.speed || 1.0).toFixed(2);
+        const currentSpeed = p ? (p.speed * 0.8).toFixed(2) : (r.velocity || 0.0).toFixed(2);
 
         card.innerHTML = `
           <div class="robot-card-top">
@@ -458,7 +458,7 @@ function updateDashboard(snapshot) {
               <div class="robot-id-badge">
                 <span style="color:#d97706;">🤖</span> <strong>${r.id}</strong>
               </div>
-              <div class="robot-type-label">${(r.type || 'AMR').replace('_', ' ')} &bull; ${currentSpeed} m/s</div>
+              <div class="robot-type-label">${'AMR'} &bull; ${currentSpeed} m/s</div>
             </div>
             <span class="robot-state-pill ${stateClass}">
               ${stateIcon} ${displayState}
@@ -475,8 +475,8 @@ function updateDashboard(snapshot) {
               <span class="stat-val" style="color:${r.current_task_id ? 'var(--accent-amber-light)' : 'var(--text-muted)'};">${r.current_task_id ? r.current_task_id.replace('TASK-', '#') : 'Idle'}</span>
             </div>
             <div class="stat-item">
-              <span class="stat-lbl">Distance</span>
-              <span class="stat-val">${Math.round(r.odometer_meters || 0)}m</span>
+              <span class="stat-lbl">Heading</span>
+              <span class="stat-val">${Math.round(r.heading || 0)}°</span>
             </div>
           </div>
 
@@ -547,8 +547,8 @@ function updateDashboard(snapshot) {
 
         tr.innerHTML = `
           <td><strong>${t.id.replace('TASK-', '#')}</strong></td>
-          <td>(${t.pickup_pos[0]}, ${t.pickup_pos[1]}) &rarr; (${t.dropoff_pos[0]}, ${t.dropoff_pos[1]})</td>
-          <td>${t.payload_weight_kg}kg</td>
+          <td>(${t.pickup[0]}, ${t.pickup[1]}) &rarr; (${t.dropoff[0]}, ${t.dropoff[1]})</td>
+          <td>Priority ${t.priority}</td>
           <td><strong>${t.assigned_robot_id || '<span style="color:var(--text-muted)">Matching...</span>'}</strong></td>
           <td>${statusBadge}</td>
         `;

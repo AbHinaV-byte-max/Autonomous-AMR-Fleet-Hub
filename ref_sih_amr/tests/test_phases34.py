@@ -9,14 +9,14 @@ from models import TaskStatus, RobotStatus
 # ---------------------------------------------------------------------------
 
 INTERSECTION_MAP = """\
-#########
-#.......#
-#.#####.#
-#...I...#
-#.#####.#
-#.......#
-#########
-""".replace("I", ".")   # I marks intersection cell (3,3) — just a free cell
+#######
+#R...R#
+#.....#
+#..P..#
+#.....#
+#..D..#
+#######
+"""
 
 # Tight corridor map: two robots meet head-on at column 4
 HEAD_ON_MAP = """\
@@ -67,8 +67,6 @@ def test_scenario_a_intersection():
 
         if any(m.state.status == RobotStatus.WAITING for m in sim.robot_managers):
             any_yielded = True
-
-        sim.comms.clear()
 
     assert collision_count == 0, f"Vertex collisions detected: {collision_count}"
     assert any_yielded, "No robot ever yielded — conflict resolution not triggered"
@@ -131,7 +129,7 @@ def test_s4_blocked_aisle():
 
     collisions_after = int(sim.metric_values["COLLISION_COUNT"])
     assert collisions_after == collisions_before, (
-        f"New collisions after block: {collisions_after - collisions_before}")
+        f"New collisions after block: {collisions_after}")
     print(f"S4 passed — no new collisions after blocking cell (5,2)")
 
 

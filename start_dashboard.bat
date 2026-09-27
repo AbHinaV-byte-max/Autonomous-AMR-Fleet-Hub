@@ -1,7 +1,7 @@
 @echo off
 echo ====================================================
 echo Starting Bharat Electronics Limited (BEL)
-echo Autonomous Fleet Hub & Digital Twin Command Center
+echo Autonomous Fleet Hub ^& Digital Twin Command Center
 echo Dashboard URL: http://localhost:8000
 echo ====================================================
 

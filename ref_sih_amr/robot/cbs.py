@@ -354,5 +354,13 @@ class CBSPlanner:
                         heapq.heappush(heap, (total_cost(new_sol), _nid, new_cs, new_sol))
                         _nid += 1
 
-        # Budget exhausted — return best partially-resolved solution
-        return best_solution
+        # Budget exhausted — never return a known-conflicting solution.
+        if detect_first_conflict(
+            best_solution,
+            start_times,
+            self.PLAN_HORIZON,
+        ) is None:
+            return best_solution
+
+        # No collision-free joint plan was found.
+        return {}

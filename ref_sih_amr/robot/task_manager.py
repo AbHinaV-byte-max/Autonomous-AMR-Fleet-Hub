@@ -167,9 +167,13 @@ class LocalTaskManager:
         # Check static obstacles (Phase 4 Blocked Aisles)
         if self.costmap.get_cell(next_cell[0], next_cell[1]) == '#':
             if self.cbs_mode:
-                # Blocked aisle: clear path, signal simulator to rerun CBS
+                # Blocked aisle: invalidate the stale route and request a
+                # simulator-level CBS replan. Do not let an empty path fall
+                # through to _handle_arrival(), because the robot has not
+                # reached its goal.
                 self.state.planned_path = []
-                self.checkpoint_reached = True  # reuse flag to signal replan needed
+                self.checkpoint_reached = True
+                self.state.status = RobotStatus.REROUTING
             else:
                 self._replan()
             return False
@@ -200,6 +204,10 @@ class LocalTaskManager:
                 self.waiting_on = physical_block
                 return False
 
+            # CBS paths are already jointly conflict-free for the planning
+            # horizon. The execution-time physical occupancy check above is
+            # authoritative; reservation-table claims are used for planning
+            # and must not be reinterpreted as a second instantaneous blocker.
             if self.state.status == RobotStatus.WAITING:
                 self.state.status = RobotStatus.MOVING
             return True
@@ -451,10 +459,25 @@ class LocalTaskManager:
                 else:
                     self._replan()
                 
-        elif current_int == self.current_task.dropoff_cell and self.current_task.status == TaskStatus.IN_PROGRESS:
+        elif (
+            current_int == self.current_task.dropoff_cell
+            and self.current_task.status == TaskStatus.IN_PROGRESS
+        ):
             self.current_task.status = TaskStatus.COMPLETED
+
+            # The robot remains physically present at the drop-off cell after
+            # completing its task. Treat that cell as occupied for future ticks so
+            # another robot cannot enter it merely because the task is complete.
             self.state.status = RobotStatus.IDLE
             self.state.current_task_id = None
             self.current_task = None
             self.target_cell = None
-            self.reservation_table.commit(self.state.robot_id, [current_int] * 200, self.state.timestamp)
+            self.state.planned_path = []
+
+            # Persistent physical occupancy reservation.
+            # Start at the current simulation time and hold the cell for a horizon.
+            self.reservation_table.commit(
+                self.state.robot_id,
+                [current_int] * 200,
+                self.state.timestamp,
+            )
