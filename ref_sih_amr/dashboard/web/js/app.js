@@ -171,9 +171,12 @@ function setupControls() {
     try {
       const res = await fetch('/api/benchmark', { method: 'POST' });
       const data = await res.json();
-      btnBenchmark.innerHTML = `<span class="btn-icon">⚡</span> Benchmark (+${data.improvement_pct}%)`;
+      btnBenchmark.innerHTML = '<span class="btn-icon">⚡</span> Benchmark Complete';
+      if (data.results) {
+        console.info('Benchmark results:', data.results);
+      }
     } catch (e) {
-      btnBenchmark.innerHTML = '<span class="btn-icon">⚡</span> Benchmark (+85.5%)';
+      btnBenchmark.innerHTML = '<span class="btn-icon">⚠</span> Benchmark Failed';
     } finally {
       btnBenchmark.disabled = false;
     }
