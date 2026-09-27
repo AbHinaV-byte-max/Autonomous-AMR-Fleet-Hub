@@ -1,5 +1,5 @@
 """
-SIH-AMR Scenario Suite for NVIDIA Omniverse (simulation5.usd)
+SIH-AMR Scenario Suite for NVIDIA Omniverse (assets/omniverse/simulation5.usd)
 Implements all key operational scenarios from the SIH specification:
 - S1: Multi-Task Hungarian Allocation (Continuous Pick & Delivery Cycle)
 - S2: Crossing Priority & Intersection Yielding
@@ -257,7 +257,7 @@ def _make_s6_callback():
 def run_scenario(scenario_name: str = "multi_task_hungarian",
                  duration_sec: float = 25.0, fps: float = 60.0):
     """
-    Runs the selected scenario, executing decentralized coordination and baking to simulation5.usd.
+    Runs the selected scenario, executing decentralized coordination and baking to assets/omniverse/simulation5.usd.
 
     F3: This function now calls engine.step() on every frame ? the ONLY tick path.
     Scenario-specific events are passed as an event_callback so engine.step() injects
@@ -331,7 +331,7 @@ def run_scenario(scenario_name: str = "multi_task_hungarian",
         print(f"\n[SCENARIO RUNNER] ? Saved {total_frames} keyframes to {engine.usd_path}")
 
         # Synchronize to Downloads if present
-        downloads_usd = r"C:\Users\goruv\Downloads\simulation5.usd"
+        downloads_usd = r"C:\Users\goruv\Downloads\assets/omniverse/simulation5.usd"
         if os.path.exists(downloads_usd):
             try:
                 from omni_usd_env import Usd, UsdGeom
