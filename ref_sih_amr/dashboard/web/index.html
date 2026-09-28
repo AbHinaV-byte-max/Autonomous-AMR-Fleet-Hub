@@ -3016,14 +3016,14 @@ body {
 
     function resolveDispatchCoordinates(sourceLabel, targetLabel) {
       const grid = state.grid;
-      if (!Array.isArray(grid) || !grid.length || !Array.isArray(grid[0])) {
+      if (!Array.isArray(grid) || !grid.length || typeof grid[0] !== 'string') {
         throw new Error('Warehouse telemetry is not ready yet. Please wait for the map to load.');
       }
 
       const height = grid.length;
       const width = grid[0].length;
-      const sourceIndex = Math.max(0, Math.min(2, Number((sourceLabel.match(/PK-(\\d+)/) || [1, 1])[1]) - 1));
-      const targetIndex = Math.max(0, Math.min(2, Number((targetLabel.match(/DD-(\\d+)/) || [1, 1])[1]) - 1));
+      const sourceIndex = Math.max(0, Math.min(2, Number((sourceLabel.match(/PK-(\d+)/) || [1, 1])[1]) - 1));
+      const targetIndex = Math.max(0, Math.min(2, Number((targetLabel.match(/DD-(\d+)/) || [1, 1])[1]) - 1));
 
       // Pick-up cells are rack cells that the simulator itself considers valid
       // pickup targets. Group connected interior rack blocks so station choices
