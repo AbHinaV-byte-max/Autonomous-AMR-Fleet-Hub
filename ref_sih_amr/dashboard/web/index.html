@@ -1612,6 +1612,9 @@ body {
     let pathLines = {};   // rid -> THREE.Line
     let raycaster, mouse;
     let ws = null;
+    // Metadata that exists only in the dashboard UI (payload/station labels).
+    // The simulator remains the source of truth for task state and assignment.
+    const manualOrderMeta = new Map();
 
     window.addEventListener('DOMContentLoaded', () => {
       initThreeScene();
@@ -2343,9 +2346,10 @@ body {
         updateScenarioDisplay(snap.scenario);
       }
 
-      if ((snap.warehouse ? snap.warehouse.grid : []) && (!state.grid.length || (snap.warehouse ? snap.warehouse.grid : []).length !== state.grid.length)) {
-        state.grid = (snap.warehouse ? snap.warehouse.grid : []);
-        build3DEnvironment((snap.warehouse ? snap.warehouse.grid : []));
+      const incomingGrid = snap.warehouse ? snap.warehouse.grid : [];
+      if (incomingGrid && JSON.stringify(incomingGrid) !== JSON.stringify(state.grid)) {
+        state.grid = incomingGrid;
+        build3DEnvironment(incomingGrid);
       }
 
       if (snap.robots) {
@@ -2355,7 +2359,13 @@ body {
       }
 
       if (snap.tasks) {
-        state.tasks = Array.isArray(snap.tasks) ? snap.tasks : Object.values(snap.tasks);
+        const telemetryTasks = Array.isArray(snap.tasks) ? snap.tasks : Object.values(snap.tasks);
+        // Re-attach UI-only metadata after every telemetry refresh so a manual
+        // order keeps its payload/station labels while the backend owns status.
+        state.tasks = telemetryTasks.map(task => ({
+          ...task,
+          ...(manualOrderMeta.get(task.task_id || task.id) || {})
+        }));
         updateOrderPipeline(state.tasks);
         updateOrderCounters(state.tasks);
       }
@@ -3004,20 +3014,143 @@ body {
       document.getElementById('dispatchModal').classList.add('hidden');
     }
 
-    function submitDispatchOrder() {
-      const payload = document.getElementById('modalPayload').value;
-      const newId = `#ORD-${Math.floor(100 + Math.random() * 900)}`;
-      state.tasks.unshift({
-        task_id: newId,
-        assigned_robot_id: 'AMR-0' + (1 + Math.floor(Math.random() * 9)),
-        pickup_cell: [2, 0],
-        dropoff_cell: [28, 18],
-        payload: payload,
-        status: 'IN_PROGRESS'
+    function resolveDispatchCoordinates(sourceLabel, targetLabel) {
+      const grid = state.grid;
+      if (!Array.isArray(grid) || !grid.length || !Array.isArray(grid[0])) {
+        throw new Error('Warehouse telemetry is not ready yet. Please wait for the map to load.');
+      }
+
+      const height = grid.length;
+      const width = grid[0].length;
+      const sourceIndex = Math.max(0, Math.min(2, Number((sourceLabel.match(/PK-(\\d+)/) || [1, 1])[1]) - 1));
+      const targetIndex = Math.max(0, Math.min(2, Number((targetLabel.match(/DD-(\\d+)/) || [1, 1])[1]) - 1));
+
+      // Pick-up cells are rack cells that the simulator itself considers valid
+      // pickup targets. Group connected interior rack blocks so station choices
+      // remain meaningful when the scenario changes.
+      const seen = new Set();
+      const rackGroups = [];
+      const key = (x, y) => `${x},${y}`;
+      const neighbours = [[1,0],[-1,0],[0,1],[0,-1]];
+
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          if (grid[y][x] !== '#' || seen.has(key(x, y))) continue;
+          const queue = [[x, y]];
+          const group = [];
+          seen.add(key(x, y));
+
+          while (queue.length) {
+            const [cx, cy] = queue.pop();
+            group.push([cx, cy]);
+            for (const [dx, dy] of neighbours) {
+              const nx = cx + dx;
+              const ny = cy + dy;
+              if (nx <= 0 || ny <= 0 || nx >= width - 1 || ny >= height - 1) continue;
+              const k = key(nx, ny);
+              if (grid[ny][nx] === '#' && !seen.has(k)) {
+                seen.add(k);
+                queue.push([nx, ny]);
+              }
+            }
+          }
+
+          const minX = Math.min(...group.map(([gx]) => gx));
+          const minY = Math.min(...group.map(([, gy]) => gy));
+          const maxX = Math.max(...group.map(([gx]) => gx));
+          const maxY = Math.max(...group.map(([, gy]) => gy));
+          if (group.length >= 6 && minX > 1 && minY > 1 && maxX < width - 2 && maxY < height - 2) {
+            rackGroups.push(group);
+          }
+        }
+      }
+
+      rackGroups.sort((a, b) => {
+        const ay = Math.min(...a.map(([, y]) => y));
+        const by = Math.min(...b.map(([, y]) => y));
+        const ax = Math.min(...a.map(([x]) => x));
+        const bx = Math.min(...b.map(([x]) => x));
+        return ay - by || ax - bx;
       });
-      updateOrderPipeline(state.tasks);
-      updateOrderCounters(state.tasks);
-      closeDispatchModal();
+
+      const pickupCandidates = rackGroups.slice(0, 3).map(group => {
+        const valid = group.filter(([x, y]) => neighbours.some(([dx, dy]) => grid[y + dy]?.[x + dx] === '.'));
+        const cells = valid.length ? valid : group;
+        return cells[Math.floor(cells.length / 2)];
+      }).filter(Boolean);
+
+      if (!pickupCandidates.length) {
+        throw new Error('No valid pickup stations are available in the current warehouse scenario.');
+      }
+
+      const dropoffCells = [];
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          if (grid[y][x] === 'D') dropoffCells.push([x, y]);
+        }
+      }
+      dropoffCells.sort(([ax, ay], [bx, by]) => ay - by || ax - bx);
+      if (!dropoffCells.length) {
+        throw new Error('No delivery dock is available in the current warehouse scenario.');
+      }
+
+      const dockIndexes = [0, Math.floor((dropoffCells.length - 1) / 2), dropoffCells.length - 1];
+      return {
+        pickup: pickupCandidates[Math.min(sourceIndex, pickupCandidates.length - 1)],
+        dropoff: dropoffCells[dockIndexes[targetIndex]]
+      };
+    }
+
+    async function submitDispatchOrder() {
+      const payload = document.getElementById('modalPayload').value;
+      const source = document.getElementById('modalSource').value;
+      const target = document.getElementById('modalTarget').value;
+      const button = document.querySelector('#dispatchModal button[onclick="submitDispatchOrder()"]');
+      const originalLabel = button ? button.innerText : '';
+
+      try {
+        const { pickup, dropoff } = resolveDispatchCoordinates(source, target);
+        if (button) {
+          button.disabled = true;
+          button.innerText = 'Dispatching...';
+        }
+
+        const res = await fetch('/api/tasks/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pickup_x: pickup[0],
+            pickup_y: pickup[1],
+            dropoff_x: dropoff[0],
+            dropoff_y: dropoff[1],
+            priority: 1
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.status !== 'ok') {
+          throw new Error(data.message || `Dispatch failed (HTTP ${res.status}).`);
+        }
+
+        manualOrderMeta.set(data.task_id, {
+          payload,
+          source_station: source,
+          target_dock: target
+        });
+
+        // The backend has already inserted and allocated the real task. Refresh
+        // immediately, then let the WebSocket continue owning live task state.
+        await fetchInitialState();
+        closeDispatchModal();
+      } catch (err) {
+        console.error('Dispatch order failed:', err);
+        window.alert(err.message || 'Unable to dispatch the order.');
+      } finally {
+        if (button) {
+          button.disabled = false;
+          button.innerText = originalLabel || 'Confirm Dispatch';
+        }
+      }
     }
   </script>
 </body>
