@@ -2780,8 +2780,10 @@ body {
         if (data.status === 'ok') {
           const bot = state.robots.find(r => (r.robot_id || r.id) === robotId);
           if (bot) {
-            bot.status = data.new_status;
-            if (data.battery !== undefined) bot.battery = data.battery;
+            // Keep the optimistic UI update on the same canonical fields used
+            // by telemetry rendering: state + battery_pct.
+            if (data.new_status !== undefined) bot.state = data.new_status;
+            if (data.battery !== undefined) bot.battery_pct = Number(data.battery);
           }
           if (btn) delete btn.dataset.busy;
           updateFleetList(state.robots);
@@ -2816,8 +2818,9 @@ body {
         if (data.status === 'ok') {
           const bot = state.robots.find(r => (r.robot_id || r.id) === robotId);
           if (bot) {
-            bot.battery = data.battery;
-            if (data.new_status) bot.status = data.new_status;
+            // Keep battery/status updates aligned with the telemetry schema.
+            if (data.battery !== undefined) bot.battery_pct = Number(data.battery);
+            if (data.new_status) bot.state = data.new_status;
           }
           if (btn) delete btn.dataset.busy;
           updateFleetList(state.robots);
