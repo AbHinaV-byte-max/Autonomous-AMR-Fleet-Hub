@@ -2,7 +2,7 @@ import sys, os
 import multiprocessing
 import time
 import json
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from sim.simulator import Simulator
 from data.warehouse_benchmark import REAL_SCENARIOS, WAREHOUSE_SAMPLES
