@@ -2470,6 +2470,7 @@ body {
 
         state.currentScenario = data.scenario;
         updateScenarioDisplay(data.scenario);
+        await fetchInitialState();
       } catch (e) {
         console.error('Scenario switch failed:', e);
         if (select) select.value = previousScenario;
