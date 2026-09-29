@@ -397,13 +397,42 @@ class Simulator:
             event_logger=self.event_log, tick=self.tick_count
         )
 
+        # A failed CBS solve must never leave robots executing a stale route.
+        # A stale route was planned for an earlier occupancy/obstacle state and
+        # may now be unsafe. Stop affected robots in a recoverable REROUTING
+        # state and release their future reservations; the next rolling-horizon
+        # pass will attempt a fresh plan.
+        active_ids = set(goals)
+        if not paths:
+            for m in self.robot_managers:
+                if m.state.robot_id not in active_ids:
+                    continue
+                m.state.planned_path = []
+                m.state.status = RobotStatus.REROUTING
+                m.reservation_table.expire(m.state.robot_id)
+            self.event_log.log_conflict(
+                "SYSTEM", "CBS", "CBS_NO_SOLUTION",
+                "SAFE_STOP_AND_RETRY", self.tick_count
+            )
+            return
+
         injected = 0
         for m in self.robot_managers:
             rid = m.state.robot_id
-            if rid in paths and paths[rid]:
-                goal = goals[rid]
-                m.inject_path(paths[rid], goal)
+            if rid not in active_ids:
+                continue
+            path = paths.get(rid)
+            if path:
+                m.inject_path(path, goals[rid])
                 injected += 1
+            else:
+                # CBS can only be considered authoritative when every active
+                # robot received a route. Do not keep a stale route for a robot
+                # omitted from a partial result.
+                m.state.planned_path = []
+                m.state.status = RobotStatus.REROUTING
+                m.reservation_table.expire(rid)
+
         if injected:
             self.metric_values[metrics.REPLAN_COUNT] += 1  # count CBS runs, not individual paths
 
