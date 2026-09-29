@@ -1269,7 +1269,7 @@ body {
                   </div>
                   <div>
                     <h2 class="font-heading font-bold text-base text-gray-900">Performance Benchmark</h2>
-                    <span class="text-[10px] uppercase font-bold text-emerald-700 tracking-wider">Target &gt;20% Improvement</span>
+                    <span class="text-[10px] uppercase font-bold text-emerald-700 tracking-wider">Live simulator results</span>
                   </div>
                 </div>
                 <div class="flex items-center gap-2"><span id="benchmark-run-status" class="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-black font-mono">PHASE 5 EVIDENCE</span><button id="btnRunBenchmark" onclick="runDashboardBenchmark()" class="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold font-mono transition-all">Run Live Benchmark</button></div>
@@ -1281,8 +1281,8 @@ body {
 
               <!-- Evidence summary -->
               <div class="bg-gradient-to-r from-slate-900 to-[#0e1620] border-2 border-amber-500/60 rounded-xl p-3.5 mb-3 flex items-center justify-between relative overflow-hidden">
-                <div><span class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-amber-300">3-AMR Makespan</span><div id="bench-hero-value" class="text-3xl font-extrabold font-mono-code text-amber-300 tracking-tight">28.27s <span id="bench-hero-detail" class="text-xs font-normal text-slate-300 font-sans">documented</span></div></div>
-                <span id="bench-hero-badge" class="px-2.5 py-1 rounded text-xs font-mono-code font-extrabold bg-amber-400 text-black">DOCUMENTED</span>
+                <div><span class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-amber-300">P1 Makespan</span><div id="bench-hero-value" class="text-3xl font-extrabold font-mono-code text-amber-300 tracking-tight">— <span id="bench-hero-detail" class="text-xs font-normal text-slate-300 font-sans">run live benchmark</span></div></div>
+                <span id="bench-hero-badge" class="px-2.5 py-1 rounded text-xs font-mono-code font-extrabold bg-amber-400 text-black">LIVE API</span>
               </div>
 
               <!-- Documented comparison -->
@@ -1313,9 +1313,9 @@ body {
                   <tbody class="divide-y divide-gray-200/60 font-mono text-[11px]">
                     <tr class="text-gray-600">
                       <td class="px-3 py-2 font-bold font-sans">B0 Stop &amp; Wait</td>
-                      <td id="bench-B0-makespan" class="px-3 py-2">17.40s</td>
-                      <td id="bench-B0-collisions" class="px-3 py-2">0</td>
-                      <td id="bench-B0-status" class="px-3 py-2 text-gray-400">Documented</td>
+                      <td id="bench-B0-makespan" class="px-3 py-2">—</td>
+                      <td id="bench-B0-collisions" class="px-3 py-2">—</td>
+                      <td id="bench-B0-status" class="px-3 py-2 text-gray-400">Awaiting live run</td>
                     </tr>
                     <tr class="text-gray-600">
                       <td class="px-3 py-2 font-bold font-sans">B1 Priority Token</td>
@@ -1331,9 +1331,9 @@ body {
                     </tr>
                     <tr class="bg-cyan-100/40 text-slate-900 font-bold">
                       <td class="px-3 py-2 font-bold font-sans">P1 BEL Swarm</td>
-                      <td id="bench-P1-makespan" class="px-3 py-2">28.27s</td>
-                      <td id="bench-P1-collisions" class="px-3 py-2">0</td>
-                      <td id="bench-P1-status" class="px-3 py-2 text-cyan-700 font-black">Documented</td>
+                      <td id="bench-P1-makespan" class="px-3 py-2">—</td>
+                      <td id="bench-P1-collisions" class="px-3 py-2">—</td>
+                      <td id="bench-P1-status" class="px-3 py-2 text-cyan-700 font-black">Awaiting live run</td>
                     </tr>
                   </tbody>
                 </table>
@@ -3129,9 +3129,9 @@ body {
     /* -------------------------------------------------------------
        LIVE BENCHMARK
        ------------------------------------------------------------- */
-    function formatBenchmarkSeconds(value) {
+    function formatBenchmarkTicks(value) {
       const n = Number(value);
-      return Number.isFinite(n) ? n.toFixed(2) + 's' : '—';
+      return Number.isFinite(n) ? n.toFixed(0) + ' ticks' : '—';
     }
 
     function updateBenchmarkResults(data) {
@@ -3142,7 +3142,7 @@ body {
         const makeEl = document.getElementById(`bench-${strategy}-makespan`);
         const collEl = document.getElementById(`bench-${strategy}-collisions`);
         const statusEl = document.getElementById(`bench-${strategy}-status`);
-        if (makeEl) makeEl.innerText = formatBenchmarkSeconds(result.makespan);
+        if (makeEl) makeEl.innerText = formatBenchmarkTicks(result.makespan);
         if (collEl) collEl.innerText = Number(result.collisions || 0).toFixed(0);
         if (statusEl) statusEl.innerText = 'Live × 2 trials';
       });
@@ -3151,8 +3151,8 @@ body {
         const hero = document.getElementById('bench-hero-value');
         const detail = document.getElementById('bench-hero-detail');
         const badge = document.getElementById('bench-hero-badge');
-        if (hero) hero.firstChild.textContent = formatBenchmarkSeconds(coordinated.makespan) + ' ';
-        if (detail) detail.innerText = 'live P1 result';
+        if (hero) hero.firstChild.textContent = formatBenchmarkTicks(coordinated.makespan) + ' ';
+        if (detail) detail.innerText = 'live P1 result · simulator ticks';
         if (badge) badge.innerText = Number(coordinated.collisions || 0).toFixed(0) + ' collisions';
       }
       const status = document.getElementById('benchmark-run-status');
