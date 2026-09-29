@@ -44,11 +44,12 @@ class EventLog:
 
 class Simulator:
     def __init__(self, ascii_map: str, headless: bool = True,
-                 telemetry_bus=None, strategy: str = "P1"):
+                 telemetry_bus=None, strategy: str = "P1", benchmark_pairs=None):
         self.grid_map = load_map(ascii_map)
         self.headless = headless
         self.telemetry_bus = telemetry_bus   # Phase 5 — write-only publish, never reads back
         self.strategy = strategy
+        self.benchmark_pairs = list(benchmark_pairs or [])
 
         self.pickup_cells = []
         for x, y in self.grid_map.find_all('#'):
@@ -133,8 +134,23 @@ class Simulator:
                 if peer_id != manager.state.robot_id
             }
 
-        # Seed initial tasks so ALL robots have active paths and targets at tick 0
-        if self.pickup_cells and self.dropoff_cells:
+        # Seed MovingAI benchmark tasks when a start/goal workload is supplied.
+        # The benchmark start is the robot spawn and task pickup; the goal is
+        # the task dropoff. This reuses the existing Task/Allocator lifecycle.
+        if self.benchmark_pairs:
+            for i, (pickup, dropoff) in enumerate(self.benchmark_pairs):
+                t = Task(
+                    task_id=f"BENCH_TASK_{i+1}",
+                    pickup_cell=pickup,
+                    dropoff_cell=dropoff,
+                    priority=i + 1,
+                    status=TaskStatus.QUEUED,
+                    created_at=0.0
+                )
+                self.tasks.append(t)
+                self.task_generator.queue.append(t)
+            self._allocate()
+        elif self.pickup_cells and self.dropoff_cells:
             for i in range(num_robots):
                 pickup = self.pickup_cells[i % len(self.pickup_cells)]
                 dropoff = self.dropoff_cells[i % len(self.dropoff_cells)]
