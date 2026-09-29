@@ -1980,6 +1980,38 @@ body {
       const mapW = state.grid.length ? state.grid[0].length : 30;
       const mapH = state.grid.length ? state.grid.length : 20;
 
+      const liveRobotIds = new Set(robots.map(r => r.robot_id || r.id));
+
+      // Remove robot meshes that disappeared from the latest telemetry snapshot.
+      Object.keys(robotMeshes).forEach(rid => {
+        if (liveRobotIds.has(rid)) return;
+
+        const mesh = robotMeshes[rid];
+        if (mesh) {
+          disposeThreeObjectResources(mesh);
+          robotGroup.remove(mesh);
+        }
+        delete robotMeshes[rid];
+
+        if (state.selectedRobotId === rid) {
+          state.selectedRobotId = null;
+          state.cameraMode = 'overview';
+          lastTrackedBotPos = null;
+        }
+      });
+
+      // Remove path lines for robots that disappeared from telemetry.
+      Object.keys(pathLines).forEach(rid => {
+        if (liveRobotIds.has(rid)) return;
+
+        const line = pathLines[rid];
+        if (line) {
+          disposeThreeObjectResources(line);
+          pathGroup.remove(line);
+        }
+        delete pathLines[rid];
+      });
+
       robots.forEach((r, idx) => {
         const rid = r.robot_id || r.id;
         let mesh = robotMeshes[rid];
@@ -2041,6 +2073,7 @@ body {
         const rid = r.robot_id || r.id;
         if (!r.planned_path || r.planned_path.length === 0) {
           if (pathLines[rid]) {
+            disposeThreeObjectResources(pathLines[rid]);
             pathGroup.remove(pathLines[rid]);
             delete pathLines[rid];
           }
