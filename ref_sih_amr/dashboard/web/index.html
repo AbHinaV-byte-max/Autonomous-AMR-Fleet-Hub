@@ -2603,6 +2603,21 @@ body {
       }
     }
 
+    function maintenanceUi(maintenance) {
+      const m = maintenance || {};
+      const status = String(m.maintenance_status || 'UNMAPPED').toUpperCase();
+      const colors = {
+        HIGH: 'bg-rose-100 text-rose-700 border-rose-200',
+        WATCH: 'bg-amber-100 text-amber-700 border-amber-200',
+        LOW: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        UNMAPPED: 'bg-gray-100 text-gray-600 border-gray-200'
+      };
+      const pct = Number.isFinite(Number(m.degradation_index)) ? Math.round(Number(m.degradation_index) * 100) : null;
+      const label = status === 'UNMAPPED' ? 'MAINT DATA N/A' : 'MAINT ' + status;
+      const detail = pct === null ? 'profile unavailable' : 'dataset degradation ' + pct + '%';
+      return { status, label, detail, cls: colors[status] || colors.UNMAPPED };
+    }
+
     function updateFleetList(robots) {
       const fleetContainer = document.getElementById('live-fleet-list');
       if (!fleetContainer || !robots) return;
@@ -2803,7 +2818,11 @@ body {
 
             <div class="mt-2 text-[10px] text-gray-500 font-mono flex items-center justify-between">
               <span id="task-${rawId}" class="${r.current_task_id ? 'text-indigo-700 font-semibold' : ''}">TASK: ${taskText}</span>
-              <span id="temp-${rawId}">${(27 + (bat % 7)).toFixed(1)}&deg;C</span>
+              <span id="temp-${rawId}">SIM TEMP N/A</span>
+            </div>
+            <div id="maint-${rawId}" class="mt-2 px-2 py-1 rounded-lg border text-[9px] font-bold tracking-wide flex items-center justify-between ${maintenanceUi(r.maintenance).cls}">
+              <span>${maintenanceUi(r.maintenance).label}</span>
+              <span class="font-mono">${maintenanceUi(r.maintenance).detail}</span>
             </div>
 
             <!-- Interactive Action Triggers for Failover & Battery Demo -->
@@ -2849,7 +2868,14 @@ body {
           }
 
           const tmpEl = document.getElementById(`temp-${rawId}`);
-          if (tmpEl) tmpEl.innerHTML = `${(27 + (bat % 7)).toFixed(1)}&deg;C`;
+          if (tmpEl) tmpEl.innerText = 'SIM TEMP N/A';
+
+          const maintEl = document.getElementById(`maint-${rawId}`);
+          if (maintEl) {
+            const maint = maintenanceUi(r.maintenance);
+            maintEl.className = `mt-2 px-2 py-1 rounded-lg border text-[9px] font-bold tracking-wide flex items-center justify-between ${maint.cls}`;
+            maintEl.innerHTML = `<span>${maint.label}</span><span class="font-mono">${maint.detail}</span>`;
+          }
 
           // Power Button (only update if not currently undergoing a click transition)
           const btnP = document.getElementById(`btn-power-${rawId}`);
