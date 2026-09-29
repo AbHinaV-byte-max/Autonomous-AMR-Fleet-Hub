@@ -117,14 +117,33 @@ async def _on_startup():
 
 @app.post("/api/scenario")
 async def set_scenario(request: dict):
-    """Switches the live simulation scenario map."""
+    """Switch the live simulation scenario and wait for the new sim to become authoritative."""
     global LIVE_SCENARIO
-    if request and "scenario" in request:
-        scen = request["scenario"]
-        if scen in SCENARIOS:
-            LIVE_SCENARIO = scen
-            return {"status": "ok", "scenario": LIVE_SCENARIO}
-    return {"status": "error", "message": "Invalid scenario"}
+    if not request or "scenario" not in request:
+        return {"status": "error", "message": "Scenario is required"}
+
+    scen = request["scenario"]
+    if scen not in SCENARIOS:
+        return {"status": "error", "message": "Invalid scenario"}
+
+    LIVE_SCENARIO = scen
+
+    # The simulation loop owns Simulator creation. Wait briefly until it has
+    # replaced the old instance so subsequent robot/task commands cannot
+    # accidentally target the previous scenario.
+    deadline = time.monotonic() + 3.0
+    while time.monotonic() < deadline:
+        sim = CURRENT_SIM
+        if sim is not None and getattr(sim, "scenario_name", None) == scen:
+            return {"status": "ok", "scenario": scen, "ready": True}
+        await asyncio.sleep(0.05)
+
+    return {
+        "status": "ok",
+        "scenario": scen,
+        "ready": False,
+        "message": "Scenario requested; simulation is still transitioning."
+    }
 
 
 @app.get("/api/scenario")
