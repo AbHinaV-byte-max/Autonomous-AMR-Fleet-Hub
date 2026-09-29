@@ -2,70 +2,12 @@ import sys, os
 import multiprocessing
 import time
 import json
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 from sim.simulator import Simulator
-from config import GridMap
+from data.warehouse_benchmark import REAL_SCENARIOS, WAREHOUSE_SAMPLES
 
-SCENARIOS = {
-    # S1: Baseline large distribution center (Universal live dashboard map)
-    "S1_Normal": """\
-##############################
-#R.##......R........R......###
-#..##......................###
-#..####..####....####..####..#
-#..####..####....####..####..#
-#R..........................R#
-#..####..####....####..####..#
-#..####..####....####..####..#
-#R..........................R#
-#..####..####....####..####..#
-#..####..####....####..####..#
-#R..........................R#
-#..####..####....####..####..#
-#..####..####....####..####..#
-#............................#
-#..####..####....####..####..#
-#..####..####....####..####..#
-#..DD......................DD#
-#..DD......................DD#
-##############################
-""",
-
-    # S2: Cross-docking terminal with orthogonal intersecting avenues (4-way crossing stress)
-    "S2_Crossing": """\
-########################
-#....DD...R............#
-#..######......######..#
-#..######......######..#
-#..######......######..#
-#......................#
-#R....................D#
-#D....................R#
-#......................#
-#..######......######..#
-#..######......######..#
-#..######......######..#
-#............R..DD.....#
-########################
-""",
-
-    # S3: VNA (Very Narrow Aisle) high-density warehouse (1-cell wide corridor contention)
-    "S3_Narrow": """\
-########################
-#R....................R#
-#.####################.#
-#R....................R#
-#.##########..########.#
-#......................#
-#.##########..########.#
-#...........##.........#
-#.####################.#
-#..DD..............DD..#
-#......................#
-########################
-""",
-
+SCENARIOS = dict(REAL_SCENARIOS)
     # S4: High-throughput warehouse with dynamic blockage at (5, 2) forcing bypass routing
     "S4_Blocked": """\
 ########################
@@ -158,8 +100,14 @@ MAX_TICKS = 1000
 def run_trial(args):
     scenario_name, strategy, trial_idx = args
     ascii_map = SCENARIOS[scenario_name]
-    
-    sim = Simulator(ascii_map=ascii_map, headless=True, strategy=strategy)
+    benchmark_pairs = WAREHOUSE_SAMPLES.get(scenario_name)
+
+    sim = Simulator(
+        ascii_map=ascii_map,
+        headless=True,
+        strategy=strategy,
+        benchmark_pairs=benchmark_pairs,
+    )
     
     # Specific scenario injections
     if scenario_name == "S4_Blocked":
