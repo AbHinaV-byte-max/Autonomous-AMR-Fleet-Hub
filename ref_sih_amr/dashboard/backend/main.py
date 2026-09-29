@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 
 from sim.simulator import Simulator
 from experiments.runner import SCENARIOS
+from data.warehouse_benchmark import WAREHOUSE_SAMPLES
 from models import RobotStatus, Task, TaskStatus
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -88,7 +89,7 @@ def live_simulation_loop(bus):
     global LIVE_SCENARIO, CURRENT_SIM
     while RUNNING:
         current_scen = LIVE_SCENARIO
-        sim = Simulator(ascii_map=SCENARIOS[current_scen], headless=True, telemetry_bus=bus, strategy="P1")
+        sim = Simulator(\n            ascii_map=SCENARIOS[current_scen],\n            headless=True,\n            telemetry_bus=bus,\n            strategy="P1",\n            benchmark_pairs=WAREHOUSE_SAMPLES.get(current_scen),\n        )
         sim.scenario_name = current_scen
         CURRENT_SIM = sim
         
