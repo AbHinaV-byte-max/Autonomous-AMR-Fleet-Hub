@@ -135,6 +135,8 @@ async def set_scenario(request: dict):
     while time.monotonic() < deadline:
         sim = CURRENT_SIM
         if sim is not None and getattr(sim, "scenario_name", None) == scen:
+            if sim.telemetry_bus is not None:
+                sim.telemetry_bus.publish(sim._build_snapshot())
             return {"status": "ok", "scenario": scen, "ready": True}
         await asyncio.sleep(0.05)
 
