@@ -16,6 +16,7 @@ from robot.cbs import CBSPlanner, ObstacleCostmap
 from robot.task_manager import LocalTaskManager
 from robot.coordination import detect_deadlock, PriorityCalculator
 from comms.channel import PubSubChannel
+from data.industrial_robot_profiles import maintenance_profile
 import metrics
 
 HEARTBEAT_TIMEOUT   = 10  # ticks without a heartbeat before robot is OFFLINE
@@ -110,6 +111,7 @@ class Simulator:
                 status=RobotStatus.IDLE
             )
             manager = LocalTaskManager(state, self.planner, self.comms, self.grid_map, strategy=self.strategy, event_logger=self.event_log)
+            manager.maintenance_profile = maintenance_profile(f"item_{i}")
 
             # OVERRIDE the local table with the global one so robots instantly see each other's paths
             # during sequential allocation, solving the simultaneous-planning collision bug.
@@ -613,6 +615,7 @@ class Simulator:
                     and m.current_task.status == TaskStatus.IN_PROGRESS
                 ),
                 "target_cell": list(m.target_cell) if m.target_cell is not None else None,
+                "maintenance": getattr(m, "maintenance_profile", {}),
             }
             robots[state.robot_id] = robot
 
