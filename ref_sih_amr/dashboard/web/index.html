@@ -2937,7 +2937,7 @@ body {
         }
         if (benchColl) {
           benchColl.className = 'font-bold text-emerald-700 font-mono transition-colors';
-          benchColl.innerText = '0 (Safe & Deadlock Free)';
+          benchColl.innerText = '0 collision events';
         }
         if (benchIcon) {
           benchIcon.className = 'material-symbols-outlined text-emerald-600 text-[18px] transition-all';
@@ -3007,7 +3007,11 @@ body {
         const result = results[strategy];
         if (!result) return;
         const makeEl = document.getElementById(`bench-${strategy}-makespan`);
+        const collEl = document.getElementById(`bench-${strategy}-collisions`);
+        const statusEl = document.getElementById(`bench-${strategy}-status`);
         if (makeEl) makeEl.innerText = formatBenchmarkSeconds(result.makespan);
+        if (collEl) collEl.innerText = Number(result.collisions || 0).toFixed(0);
+        if (statusEl) statusEl.innerText = 'Live × 2 trials';
       });
       const coordinated = results.P1;
       if (coordinated) {
