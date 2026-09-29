@@ -1301,41 +1301,35 @@ body {
                   <thead class="bg-gray-100/80 text-gray-600 font-bold uppercase tracking-wider text-[9px] border-b border-gray-200/80">
                     <tr>
                       <th class="px-3 py-2">Strategy</th>
-                      <th class="px-3 py-2">3-AMR Mean</th>
+                      <th class="px-3 py-2">Makespan</th>
                       <th class="px-3 py-2">Collisions</th>
-                      <th class="px-3 py-2">Evidence</th>
+                      <th class="px-3 py-2">Status</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-200/60 font-mono text-[11px]">
                     <tr class="text-gray-600">
-                      <td class="px-3 py-2 font-bold font-sans">Baseline Stop &amp; Wait</td>
+                      <td class="px-3 py-2 font-bold font-sans">B0 Stop &amp; Wait</td>
                       <td id="bench-B0-makespan" class="px-3 py-2">17.40s</td>
-                      <td class="px-3 py-2">0</td>
-                      <td class="px-3 py-2 text-gray-400">Reference</td>
-                    </tr>
-                    <tr class="bg-amber-100/60 text-amber-950 font-bold">
-                      <td class="px-3 py-2 font-bold font-sans text-amber-900">Strategy A (Current)</td>
-                      <td class="px-3 py-2 text-amber-700">28.27s</td>
-                      <td class="px-3 py-2 text-amber-700">0</td>
-                      <td class="px-3 py-2 text-amber-700 font-black">−62.47%</td>
+                      <td id="bench-B0-collisions" class="px-3 py-2">0</td>
+                      <td id="bench-B0-status" class="px-3 py-2 text-gray-400">Documented</td>
                     </tr>
                     <tr class="text-gray-600">
-                      <td class="px-3 py-2 font-bold font-sans">Strategy B / Wait-First</td>
-                      <td id="bench-B1-makespan" class="px-3 py-2">20.57s</td>
-                      <td class="px-3 py-2">1</td>
-                      <td class="px-3 py-2 text-gray-400">Rejected</td>
+                      <td class="px-3 py-2 font-bold font-sans">B1 Priority Token</td>
+                      <td id="bench-B1-makespan" class="px-3 py-2">—</td>
+                      <td id="bench-B1-collisions" class="px-3 py-2">—</td>
+                      <td id="bench-B1-status" class="px-3 py-2 text-gray-400">Awaiting live run</td>
                     </tr>
                     <tr class="text-gray-600">
-                      <td class="px-3 py-2 font-bold font-sans">Strategy C / Res-Aware</td>
-                      <td id="bench-B2-makespan" class="px-3 py-2">31.77s</td>
-                      <td class="px-3 py-2">1</td>
-                      <td class="px-3 py-2 text-gray-400">Rejected</td>
+                      <td class="px-3 py-2 font-bold font-sans">B2 Local RVO2</td>
+                      <td id="bench-B2-makespan" class="px-3 py-2">—</td>
+                      <td id="bench-B2-collisions" class="px-3 py-2">—</td>
+                      <td id="bench-B2-status" class="px-3 py-2 text-gray-400">Awaiting live run</td>
                     </tr>
-                    <tr class="text-gray-600">
-                      <td class="px-3 py-2 font-bold font-sans">Strategy D / CBS</td>
-                      <td id="bench-P1-makespan" class="px-3 py-2">27.90s</td>
-                      <td class="px-3 py-2">0</td>
-                      <td class="px-3 py-2 text-gray-400">6-AMR rejected</td>
+                    <tr class="bg-cyan-100/40 text-slate-900 font-bold">
+                      <td class="px-3 py-2 font-bold font-sans">P1 BEL Swarm</td>
+                      <td id="bench-P1-makespan" class="px-3 py-2">28.27s</td>
+                      <td id="bench-P1-collisions" class="px-3 py-2">0</td>
+                      <td id="bench-P1-status" class="px-3 py-2 text-cyan-700 font-black">Documented</td>
                     </tr>
                   </tbody>
                 </table>
