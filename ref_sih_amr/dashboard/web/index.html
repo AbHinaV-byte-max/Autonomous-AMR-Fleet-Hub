@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="description" content="Live autonomous mobile robot fleet monitoring, simulation control, and benchmark dashboard."/>
   <title>Autonomous Fleet Hub | Bharat Electronics Limited (BEL)</title>
   
   <!-- Google Fonts & Material Symbols -->
@@ -24,6 +25,7 @@
             'body': ['Inter', 'sans-serif'],
             'heading': ['Plus Jakarta Sans', 'sans-serif'],
             'mono': ['JetBrains Mono', 'monospace'],
+            'mono-code': ['JetBrains Mono', 'monospace'],
           },
           animation: {
             'blob': 'blob 20s infinite alternate',
@@ -42,7 +44,7 @@
     };
   </script>
   <style>
-    body {
+body {
       background:
         radial-gradient(circle at 15% 10%, rgba(255, 255, 255, 0.055) 0 1px, transparent 1.5px),
         radial-gradient(circle at 85% 75%, rgba(255, 255, 255, 0.045) 0 1px, transparent 1.5px),
@@ -243,8 +245,7 @@
       background: rgba(100, 116, 139, 0.25);
       border-radius: 4px;
     }
-  </style>
-<style id="ui-refresh-theme">
+
 /* SIH 2026 UI refresh: reference-inspired visual system.
    IMPORTANT: simulation viewport markup/styles are intentionally untouched. */
 :root {
@@ -509,9 +510,7 @@ body {
   background:#182433 !important;
   color:#f8fafc !important;
 }
-</style>
 
-<style id="reference-ui-polish">
 /* Reference UI polish — intentionally scoped to non-simulation dashboard surfaces. */
 :root {
   --ref-bg: #070a0e;
@@ -810,10 +809,7 @@ body {
   .dashboard-surface > div { gap: 18px !important; }
   .ui-refresh-kpi { min-height: 0; }
 }
-</style>
 
-
-<style id="codex-ui-theme">
 /* Codex UI alignment: layout/typography/surfaces only. The Three.js viewport itself is not restyled. */
 :root {
   --codex-bg:#070a0e;
@@ -1012,7 +1008,7 @@ body {
   .dashboard-surface { padding-top:86px !important; }
   .dashboard-surface > div { padding-left:14px !important; padding-right:14px !important; }
 }
-</style>
+  </style>
 
 </head>
 <body class="font-body text-gray-900 antialiased min-h-screen relative overflow-x-hidden selection:bg-indigo-600 selection:text-white">
@@ -2465,10 +2461,8 @@ body {
     }
 
     function updateScenarioDisplay(scen) {
-      const pathEl = document.getElementById('activeUsdPath');
       const titleEl = document.getElementById('hudStageTitle');
       const label = SCENARIO_LABELS[scen] || 'S1 · Normal Warehouse';
-      if (pathEl) pathEl.innerText = label;
       if (titleEl) titleEl.innerText = label;
     }
 
@@ -2981,15 +2975,6 @@ body {
           benchCont.className = 'mt-3 bg-rose-50/80 p-2.5 rounded-xl border border-rose-300 flex items-center justify-between text-xs transition-all duration-300 ring-1 ring-rose-400/30';
         }
       }
-
-      const makespanEl = document.getElementById('live-makespan');
-      if (makespanEl) makespanEl.innerText = Number(m.makespan ?? m.MAKESPAN ?? 0).toFixed(1);
-      const throughputEl = document.getElementById('live-throughput');
-      if (throughputEl) throughputEl.innerText = Number(m.throughput ?? m.THROUGHPUT ?? 0).toFixed(3);
-      const waitingEl = document.getElementById('live-waiting');
-      if (waitingEl) waitingEl.innerText = Number(m.waiting_time ?? m.WAITING_TIME ?? 0).toFixed(1);
-      const replansEl = document.getElementById('live-replans');
-      if (replansEl) replansEl.innerText = Number(m.replan_count ?? m.REPLAN_COUNT ?? 0);
 
     }
 
