@@ -2472,6 +2472,7 @@ body {
     /* -------------------------------------------------------------
        UI CONTROLLERS & DATA UPDATES
        ------------------------------------------------------------- */
+    let benchmarkHasRun = false;
     let fleetFilter = 'all';
 
     function setFleetFilter(f) {
@@ -3050,6 +3051,7 @@ body {
       const safetyLabel = document.getElementById('kpi-safety-label');
       const safetySub = document.getElementById('kpi-safety-sub');
       const safetyBadge = document.getElementById('kpi-safety-badge');
+      if (benchmarkHasRun) return;
       const benchColl = document.getElementById('bench-collisions-status');
       const benchIcon = document.getElementById('bench-safety-icon');
       const benchCont = document.getElementById('bench-safety-container');
@@ -3136,6 +3138,7 @@ body {
 
     function updateBenchmarkResults(data) {
       const results = data && data.results ? data.results : {};
+      benchmarkHasRun = true;
       ['B0', 'B1', 'B2', 'P1'].forEach((strategy) => {
         const result = results[strategy];
         if (!result) return;
@@ -3144,7 +3147,7 @@ body {
         const statusEl = document.getElementById(`bench-${strategy}-status`);
         if (makeEl) makeEl.innerText = Number(result.completed || 0).toFixed(0);
         if (collEl) collEl.innerText = Number(result.collisions || 0).toFixed(0);
-        if (statusEl) statusEl.innerText = 'Live × 2 trials';
+        if (statusEl) statusEl.innerText = 'Live × ' + (data.trial_count || 0) + ' trials';
       });
       const coordinated = results.P1;
       if (coordinated) {
@@ -3154,6 +3157,8 @@ body {
         if (hero) hero.firstChild.textContent = Number(coordinated.completed || 0).toFixed(0) + ' ';
         if (detail) detail.innerText = 'live P1 result · 2-trial average';
         if (badge) badge.innerText = Number(coordinated.collisions || 0).toFixed(0) + ' collisions';
+        const benchColl = document.getElementById('bench-collisions-status');
+        if (benchColl) benchColl.innerText = Number(coordinated.collisions || 0).toFixed(0) + ' collision events · live P1 result';
       }
       const status = document.getElementById('benchmark-run-status');
       if (status) status.innerText = 'LIVE · ' + (data.scenario || 'S1_Normal') + ' · ' + (data.trial_count || 0) + ' trials';
