@@ -3022,8 +3022,8 @@ body {
 
       const height = grid.length;
       const width = grid[0].length;
-      const sourceIndex = Math.max(0, Math.min(2, Number((sourceLabel.match(/PK-(\\d+)/) || [1, 1])[1]) - 1));
-      const targetIndex = Math.max(0, Math.min(2, Number((targetLabel.match(/DD-(\\d+)/) || [1, 1])[1]) - 1));
+      const sourceIndex = Math.max(0, Math.min(2, Number((sourceLabel.match(/PK-(\d+)/) || [1, 1])[1]) - 1));
+      const targetIndex = Math.max(0, Math.min(2, Number((targetLabel.match(/DD-(\d+)/) || [1, 1])[1]) - 1));
       const neighbours = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
       // The simulator represents pickup stations as valid rack cells (#) that
