@@ -1071,10 +1071,12 @@ body {
           <span class="text-xs font-bold text-emerald-800" id="conn-label">Telemetry Connected</span>
         </div>
 
-        <!-- Telemetry Badge -->
-        <div class="hidden md:flex glass-panel px-3.5 py-1.5 rounded-full items-center gap-2 border border-green-500/30 bg-green-50/50">
-          <span class="material-symbols-outlined text-[16px] text-green-700">view_in_ar</span>
-          <span class="text-xs font-bold text-green-800" id="hdr-omni-status">USD Stage Synced (60 FPS)</span>
+        <!-- USD / Omniverse status: the dashboard uses its own Three.js viewport.
+             No live USD stage connection is exposed by the dashboard backend. -->
+        <div class="hidden md:flex glass-panel px-3.5 py-1.5 rounded-full items-center gap-2 border border-amber-500/30 bg-amber-50/50"
+             title="The dashboard viewport is rendered with Three.js. No live USD/Omniverse connection is exposed by this dashboard.">
+          <span class="material-symbols-outlined text-[16px] text-amber-700">cloud_off</span>
+          <span class="text-xs font-bold text-amber-800" id="hdr-omni-status">USD Stage: External / Not Connected</span>
         </div>
 
         <!-- Dispatch Order Button -->
