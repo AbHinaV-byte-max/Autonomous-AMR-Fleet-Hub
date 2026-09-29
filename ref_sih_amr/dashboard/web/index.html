@@ -2282,13 +2282,27 @@ body {
     /* -------------------------------------------------------------
        WEBSOCKET TELEMETRY & SNAPSHOT STREAM
        ------------------------------------------------------------- */
+    async function apiRequest(url, options = {}) {
+      const res = await fetch(url, options);
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (_) {
+        // Keep the original HTTP error if the server did not return JSON.
+      }
+
+      if (!res.ok) {
+        const message = data?.detail || data?.message || `Request failed (${res.status})`;
+        throw new Error(message);
+      }
+
+      return data;
+    }
+
     async function fetchInitialState() {
       try {
-        const res = await fetch('/api/fleet/status');
-        if (res.ok) {
-          const snap = await res.json();
-          handleSnapshot(snap);
-        }
+        const snap = await apiRequest('/api/fleet/status');
+        handleSnapshot(snap);
       } catch (e) {
         console.warn('Initial fetch fallback:', e);
       }
@@ -2454,7 +2468,7 @@ body {
       state.currentScenario = scen;
       updateScenarioDisplay(scen);
       try {
-        await fetch('/api/scenario', {
+        await apiRequest('/api/scenario', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ scenario: scen })
@@ -2478,7 +2492,7 @@ body {
       if (btn) btn.classList.add('speed-active');
 
       try {
-        await fetch('/api/speed', {
+        await apiRequest('/api/speed', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ rate })
@@ -2775,8 +2789,7 @@ body {
       }
 
       try {
-        const res = await fetch(`/api/robot/${robotId}/toggle-power`, { method: 'POST' });
-        const data = await res.json();
+        const data = await apiRequest(`/api/robot/${robotId}/toggle-power`, { method: 'POST' });
         if (data.status === 'ok') {
           const bot = state.robots.find(r => (r.robot_id || r.id) === robotId);
           if (bot) {
@@ -2807,12 +2820,11 @@ body {
       }
 
       try {
-        const res = await fetch(`/api/robot/${robotId}/force-battery`, {
+        const data = await apiRequest(`/api/robot/${robotId}/force-battery`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ battery: battLevel })
         });
-        const data = await res.json();
         if (data.status === 'ok') {
           const bot = state.robots.find(r => (r.robot_id || r.id) === robotId);
           if (bot) {
