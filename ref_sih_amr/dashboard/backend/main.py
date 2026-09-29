@@ -22,7 +22,7 @@ from sim.simulator import Simulator
 from experiments.runner import SCENARIOS
 from models import RobotStatus, Task, TaskStatus
 
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -146,7 +146,7 @@ async def set_scenario(request: dict):
 
     scen = request["scenario"]
     if scen not in SCENARIOS:
-        return {"status": "error", "message": "Invalid scenario"}
+        raise HTTPException(status_code=400, detail="Invalid scenario")
 
     LIVE_SCENARIO = scen
 
@@ -179,8 +179,15 @@ async def get_scenario():
 async def set_speed(request: dict):
     """Adjusts live simulation tick rate (seconds per tick)."""
     global SIM_TICK_RATE
-    if request and "rate" in request:
-        SIM_TICK_RATE = max(0.2, min(3.0, float(request["rate"])))
+    if not request or "rate" not in request:
+        raise HTTPException(status_code=400, detail="Missing simulation rate")
+    try:
+        rate = float(request["rate"])
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Simulation rate must be numeric")
+    if not 0.2 <= rate <= 3.0:
+        raise HTTPException(status_code=400, detail="Simulation rate must be between 0.2 and 3.0")
+    SIM_TICK_RATE = rate
     return {"rate": SIM_TICK_RATE}
 
 
@@ -189,10 +196,10 @@ async def toggle_robot_power(robot_id: str):
     """Shuts down an active robot (triggering task handover) or revives an offline robot."""
     global CURRENT_SIM
     if not CURRENT_SIM:
-        return {"status": "error", "message": "Simulation not running"}
+        raise HTTPException(status_code=503, detail="Simulation not running")
     manager = next((m for m in CURRENT_SIM.robot_managers if m.state.robot_id == robot_id), None)
     if not manager:
-        return {"status": "error", "message": f"Robot {robot_id} not found"}
+        raise HTTPException(status_code=404, detail=f"Robot {robot_id} not found")
     
     is_offline = (manager.state.status == RobotStatus.OFFLINE) or (str(manager.state.status).upper().endswith("OFFLINE"))
     if is_offline:
@@ -214,14 +221,19 @@ async def force_robot_battery(robot_id: str, request: dict = None):
     """Sets a robot's battery level (e.g. 18% to trigger auto-shedding or 95% to charge)."""
     global CURRENT_SIM
     if not CURRENT_SIM:
-        return {"status": "error", "message": "Simulation not running"}
+        raise HTTPException(status_code=503, detail="Simulation not running")
     manager = next((m for m in CURRENT_SIM.robot_managers if m.state.robot_id == robot_id), None)
     if not manager:
-        return {"status": "error", "message": f"Robot {robot_id} not found"}
+        raise HTTPException(status_code=404, detail=f"Robot {robot_id} not found")
     
     target_batt = 18.0
     if request and "battery" in request:
-        target_batt = float(request["battery"])
+        try:
+            target_batt = float(request["battery"])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Battery level must be numeric")
+    if not 0 <= target_batt <= 100:
+        raise HTTPException(status_code=400, detail="Battery level must be between 0 and 100")
     
     manager.state.battery = target_batt
 
@@ -359,9 +371,10 @@ async def trigger_benchmark(request: dict = None):
     scenario = "S1_Normal"
     if request and "scenario" in request:
         scenario = request["scenario"]
-        if scenario in SCENARIOS:
-            global LIVE_SCENARIO
-            LIVE_SCENARIO = scenario
+        if scenario not in SCENARIOS:
+            raise HTTPException(status_code=400, detail="Invalid scenario")
+        global LIVE_SCENARIO
+        LIVE_SCENARIO = scenario
         
     tasks = []
     for strategy in ["B0", "B1", "B2", "P1"]:
