@@ -363,11 +363,9 @@ async def submit_task(request: dict):
 
 @app.post("/api/benchmark")
 async def trigger_benchmark(request: dict = None):
-    """Triggers a mini-benchmark (2 trials x 100 ticks) for the dashboard."""
-    import multiprocessing
-    import sys, os
-    from experiments.runner import run_trial
-    
+    """Run the dashboard benchmark in-process so it also works on serverless hosts."""
+    import experiments.runner
+
     scenario = "S1_Normal"
     if request and "scenario" in request:
         scenario = request["scenario"]
@@ -375,19 +373,29 @@ async def trigger_benchmark(request: dict = None):
             raise HTTPException(status_code=400, detail="Invalid scenario")
         global LIVE_SCENARIO
         LIVE_SCENARIO = scenario
-        
-    tasks = []
-    for strategy in ["B0", "B1", "B2", "P1"]:
-        for trial in range(2):
-            tasks.append((scenario, strategy, trial))
-            
-    import concurrent.futures
-    import experiments.runner
+
+    # The dashboard intentionally runs a small, deterministic sample: two
+    # trials per strategy and 100 simulation ticks per trial. Do not use a
+    # ProcessPool here: serverless Python runtimes commonly do not support
+    # child-process workers reliably, which previously surfaced to the UI as
+    # a generic "BENCHMARK FAILED".
+    previous_max_ticks = experiments.runner.MAX_TICKS
     experiments.runner.MAX_TICKS = 100
-    
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        results = list(executor.map(run_trial, tasks))
-        
+
+    try:
+        results = []
+        for strategy in ["B0", "B1", "B2", "P1"]:
+            for trial in range(2):
+                results.append(experiments.runner.run_trial((scenario, strategy, trial)))
+    except Exception as exc:
+        # Keep the API failure actionable instead of hiding the actual cause.
+        raise HTTPException(
+            status_code=500,
+            detail=f"Benchmark execution failed: {type(exc).__name__}: {exc}",
+        ) from exc
+    finally:
+        experiments.runner.MAX_TICKS = previous_max_ticks
+
     summary = {}
     for r in results:
         strat = r["strategy"]
@@ -410,13 +418,18 @@ async def trigger_benchmark(request: dict = None):
         summary[strat]["deadlocks"] += r.get("DEADLOCK_COUNT", r.get("deadlock_count", 0))
         summary[strat]["replans"] += r.get("REPLAN_COUNT", r.get("replan_count", 0))
         summary[strat]["count"] += 1
-        
+
     for strat in summary:
-        c = summary[strat]["count"]
+        count = summary[strat]["count"]
         for key in ("completed", "wait", "collisions", "makespan", "throughput", "deadlocks", "replans"):
-            summary[strat][key] /= c
-        
-    return {"scenario": scenario, "trial_count": 2, "results": summary}
+            summary[strat][key] /= count
+
+    return {
+        "scenario": scenario,
+        "trial_count": 2,
+        "ticks_per_trial": 100,
+        "results": summary,
+    }
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
