@@ -25,12 +25,12 @@ WAREHOUSE_SAMPLES: Dict[str, List[Pair]] = {
         ((57, 7), (147, 37)),
         ((120, 43), (58, 36)),
     ],
-    "S2_HighTraffic": [
+    "S2_Crossing": [
         ((153, 23), (59, 37)),
         ((124, 8), (51, 22)),
         ((153, 16), (31, 16)),
     ],
-    "S3_LongRoutes": [
+    "S3_Narrow": [
         ((13, 30), (38, 43)),
         ((13, 3), (13, 7)),
         ((157, 61), (12, 25)),
@@ -39,8 +39,8 @@ WAREHOUSE_SAMPLES: Dict[str, List[Pair]] = {
 
 WAREHOUSE_METADATA = {
     "S1_Normal": {"map": "warehouse-10-20-10-2-1.map", "source": "warehouse-10-20-10-2-1-even-1.scen", "source_instances": 450},
-    "S2_HighTraffic": {"map": "warehouse-10-20-10-2-1.map", "source": "warehouse-10-20-10-2-1-even-2.scen", "source_instances": 450},
-    "S3_LongRoutes": {"map": "warehouse-10-20-10-2-1.map", "source": "warehouse-10-20-10-2-1-even-3.scen", "source_instances": 430},
+    "S2_Crossing": {"map": "warehouse-10-20-10-2-1.map", "source": "warehouse-10-20-10-2-1-even-2.scen", "source_instances": 450},
+    "S3_Narrow": {"map": "warehouse-10-20-10-2-1.map", "source": "warehouse-10-20-10-2-1-even-3.scen", "source_instances": 430},
 }
 
 def load_movingai_map(path: Path) -> str:
