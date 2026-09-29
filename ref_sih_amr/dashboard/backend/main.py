@@ -22,7 +22,7 @@ from sim.simulator import Simulator
 from experiments.runner import SCENARIOS
 from models import RobotStatus, Task, TaskStatus
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -31,12 +31,34 @@ from dashboard.backend.telemetry import TelemetryBus
 from dashboard.backend.db import init_db, persist_snapshot
 
 app = FastAPI(title="AMR Dashboard API")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
-)
+
+# The dashboard is normally served by this same FastAPI app, so cross-origin
+# access is disabled by default. Explicit origins can be supplied for a
+# separate frontend deployment without reopening the API to every origin.
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv("DASHBOARD_CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type"],
+    )
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Permissions-Policy",
+        "camera=(), microphone=(), geolocation=()",
+    )
+    return response
 
 RUNNING = True
 LIVE_SCENARIO = "S1_Normal"
