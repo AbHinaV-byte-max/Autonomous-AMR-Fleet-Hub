@@ -2553,21 +2553,23 @@ body {
       if (select) select.disabled = true;
 
       try {
-        const res = await apiRequest('/api/scenario', {
+        const data = await apiRequest('/api/scenario', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ scenario: scen })
         });
-        if (!res.ok) throw new Error(`Scenario switch failed (${res.status})`);
 
-        const data = await res.json();
-        if (data.status !== 'ok' || data.ready !== true) {
-          throw new Error(data.message || 'Scenario is still transitioning.');
+        if (data.status !== 'ok') {
+          throw new Error(data.message || 'Scenario switch failed.');
         }
 
-        state.currentScenario = data.scenario;
-        updateScenarioDisplay(data.scenario);
+        state.currentScenario = data.scenario || scen;
+        updateScenarioDisplay(state.currentScenario);
         await fetchInitialState();
+
+        if (data.ready !== true) {
+          console.warn(data.message || 'Scenario is still transitioning.');
+        }
       } catch (e) {
         console.error('Scenario switch failed:', e);
         if (select) select.value = previousScenario;
@@ -3163,20 +3165,88 @@ body {
       document.getElementById('dispatchModal').classList.add('hidden');
     }
 
-    function submitDispatchOrder() {
-      const payload = document.getElementById('modalPayload').value;
-      const newId = `#ORD-${Math.floor(100 + Math.random() * 900)}`;
-      state.tasks.unshift({
-        task_id: newId,
-        assigned_robot_id: 'AMR-0' + (1 + Math.floor(Math.random() * 9)),
-        pickup_cell: [2, 0],
-        dropoff_cell: [28, 18],
-        payload: payload,
-        status: 'IN_PROGRESS'
+    function resolveDispatchCell(role, index, avoidCell = null) {
+      const grid = state.grid || [];
+      const height = grid.length;
+      const width = height && Array.isArray(grid[0]) ? grid[0].length : 0;
+      if (!width || !height) throw new Error('Live warehouse map is not ready yet.');
+
+      const candidates = [];
+      for (let y = 0; y < height; y++) {
+        const row = Array.isArray(grid[y]) ? grid[y] : String(grid[y]).split('');
+        for (let x = 0; x < width; x++) {
+          const cell = row[x];
+          if (cell === '#' || cell === 'R') continue;
+          candidates.push({ x, y, cell });
+        }
+      }
+
+      if (!candidates.length) throw new Error('No traversable dispatch cells are available.');
+
+      const preferredX = role === 'pickup'
+        ? [0.18, 0.50, 0.82][index] ?? 0.50
+        : [0.18, 0.50, 0.82][index] ?? 0.50;
+      const preferredY = role === 'pickup' ? 0.25 : 0.80;
+
+      const preferDock = role === 'dropoff';
+      const dockCandidates = preferDock ? candidates.filter(c => c.cell === 'D') : [];
+      const pool = dockCandidates.length ? dockCandidates : candidates;
+
+      pool.sort((a, b) => {
+        const da = Math.hypot(a.x - preferredX * (width - 1), a.y - preferredY * (height - 1));
+        const db = Math.hypot(b.x - preferredX * (width - 1), b.y - preferredY * (height - 1));
+        return da - db;
       });
-      updateOrderPipeline(state.tasks);
-      updateOrderCounters(state.tasks);
-      closeDispatchModal();
+
+      const selected = pool.find(c => !avoidCell || c.x !== avoidCell[0] || c.y !== avoidCell[1]);
+      if (!selected) throw new Error('Unable to find distinct pickup and drop-off cells.');
+
+      return [selected.x, selected.y];
+    }
+
+    async function submitDispatchOrder() {
+      const confirmButton = document.querySelector('#dispatchModal button[onclick="submitDispatchOrder()"]');
+      if (confirmButton) {
+        confirmButton.disabled = true;
+        confirmButton.innerText = 'Dispatching…';
+      }
+
+      try {
+        const payload = document.getElementById('modalPayload').value;
+        const sourceIndex = document.getElementById('modalSource').selectedIndex;
+        const targetIndex = document.getElementById('modalTarget').selectedIndex;
+
+        const pickup = resolveDispatchCell('pickup', sourceIndex);
+        const dropoff = resolveDispatchCell('dropoff', targetIndex, pickup);
+
+        const data = await apiRequest('/api/tasks/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pickup_x: pickup[0],
+            pickup_y: pickup[1],
+            dropoff_x: dropoff[0],
+            dropoff_y: dropoff[1],
+            priority: 1,
+            payload
+          })
+        });
+
+        if (data.status !== 'ok' || !data.task_id) {
+          throw new Error(data.message || 'Dispatch request was not accepted.');
+        }
+
+        closeDispatchModal();
+        await fetchInitialState();
+      } catch (e) {
+        console.error('Dispatch order failed:', e);
+        window.alert(e.message || 'Unable to dispatch order.');
+      } finally {
+        if (confirmButton) {
+          confirmButton.disabled = false;
+          confirmButton.innerText = 'Confirm Dispatch';
+        }
+      }
     }
   </script>
 </body>
