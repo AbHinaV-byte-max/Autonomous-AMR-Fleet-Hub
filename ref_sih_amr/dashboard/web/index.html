@@ -1268,30 +1268,30 @@ body {
                     <span class="text-[10px] uppercase font-bold text-emerald-700 tracking-wider">Target &gt;20% Improvement</span>
                   </div>
                 </div>
-                <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-black font-mono">+31.2% FASTER</span>
+                <div class="flex items-center gap-2"><span id="benchmark-run-status" class="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-black font-mono">PHASE 5 EVIDENCE</span><button id="btnRunBenchmark" onclick="runDashboardBenchmark()" class="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold font-mono transition-all">Run Live Benchmark</button></div>
               </div>
 
               <p class="text-gray-600 text-xs mt-2 leading-relaxed">
-                Decentralized conflict resolution with Hungarian allocation &amp; space-time CBS vs stop-and-wait baseline.
+                Documented deterministic benchmark evidence comparing the decentralized strategy with the Stop-and-Wait baseline.
               </p>
 
-              <!-- Codex hero metric -->
-              <div class="bg-gradient-to-r from-emerald-950/70 to-[#0e1620] border-2 border-emerald-500/60 rounded-xl p-3.5 mb-3 flex items-center justify-between relative overflow-hidden" style="box-shadow:0 0 24px rgba(16,185,129,.16),inset 0 1px 0 rgba(255,255,255,.08);">
-                <div><span class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-emerald-300">Swarm Throughput Advantage</span><div class="text-3xl font-extrabold font-mono-code text-emerald-300 tracking-tight">+31.2% <span class="text-xs font-normal text-slate-300 font-sans">Makespan Reduction</span></div></div>
-                <span class="px-2.5 py-1 rounded text-xs font-mono-code font-extrabold bg-emerald-400 text-black">VERIFIED ✓</span>
+              <!-- Evidence summary -->
+              <div class="bg-gradient-to-r from-slate-900 to-[#0e1620] border-2 border-amber-500/60 rounded-xl p-3.5 mb-3 flex items-center justify-between relative overflow-hidden">
+                <div><span class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-amber-300">3-AMR Makespan</span><div id="bench-hero-value" class="text-3xl font-extrabold font-mono-code text-amber-300 tracking-tight">28.27s <span id="bench-hero-detail" class="text-xs font-normal text-slate-300 font-sans">documented</span></div></div>
+                <span id="bench-hero-badge" class="px-2.5 py-1 rounded text-xs font-mono-code font-extrabold bg-amber-400 text-black">DOCUMENTED</span>
               </div>
 
-              <!-- Comparison Stats -->
+              <!-- Documented comparison -->
               <div class="grid grid-cols-2 gap-3 mt-4">
                 <div class="bg-white/60 p-3 rounded-2xl border border-gray-200/80">
-                  <span class="text-[10px] uppercase font-bold text-gray-500 tracking-wider block">Stop &amp; Wait</span>
-                  <span class="font-mono text-base font-bold text-rose-600">17.40s</span>
-                  <span class="text-[10px] text-gray-500 block mt-0.5">Average Makespan</span>
+                  <span class="text-[10px] uppercase font-bold text-gray-500 tracking-wider block">3-AMR Baseline</span>
+                  <span class="font-mono text-base font-bold text-gray-900">17.40s</span>
+                  <span class="text-[10px] text-gray-500 block mt-0.5">Stop-and-Wait</span>
                 </div>
-                <div class="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-300/80">
-                  <span class="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">BEL Swarm</span>
-                  <span class="font-mono text-base font-bold text-emerald-700">11.97s</span>
-                  <span class="text-[10px] text-emerald-700 font-medium block mt-0.5">&minus;31.2% Latency</span>
+                <div class="bg-amber-50/70 p-3 rounded-2xl border border-amber-300/80">
+                  <span class="text-[10px] uppercase font-bold text-amber-800 tracking-wider block">6-AMR</span>
+                  <span class="font-mono text-base font-bold text-amber-700">31.77s / 31.77s</span>
+                  <span class="text-[10px] text-amber-700 font-medium block mt-0.5">baseline / coordinated</span>
                 </div>
               </div>
 
@@ -1303,33 +1303,33 @@ body {
                       <th class="px-3 py-2">Strategy</th>
                       <th class="px-3 py-2">Makespan</th>
                       <th class="px-3 py-2">Collisions</th>
-                      <th class="px-3 py-2">Gain</th>
+                      <th class="px-3 py-2">Status</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-200/60 font-mono text-[11px]">
                     <tr class="text-gray-600">
                       <td class="px-3 py-2 font-bold font-sans">B0 Stop &amp; Wait</td>
-                      <td class="px-3 py-2 text-rose-600">17.40s</td>
-                      <td class="px-3 py-2">0</td>
-                      <td class="px-3 py-2 text-gray-400">Baseline</td>
+                      <td id="bench-B0-makespan" class="px-3 py-2">17.40s</td>
+                      <td id="bench-B0-collisions" class="px-3 py-2">0</td>
+                      <td id="bench-B0-status" class="px-3 py-2 text-gray-400">Documented</td>
                     </tr>
                     <tr class="text-gray-600">
                       <td class="px-3 py-2 font-bold font-sans">B1 Priority Token</td>
-                      <td class="px-3 py-2">15.82s</td>
-                      <td class="px-3 py-2">0</td>
-                      <td class="px-3 py-2 text-indigo-600">+9.1%</td>
+                      <td id="bench-B1-makespan" class="px-3 py-2">—</td>
+                      <td id="bench-B1-collisions" class="px-3 py-2">—</td>
+                      <td id="bench-B1-status" class="px-3 py-2 text-gray-400">Awaiting live run</td>
                     </tr>
                     <tr class="text-gray-600">
                       <td class="px-3 py-2 font-bold font-sans">B2 Local RVO2</td>
-                      <td class="px-3 py-2">14.10s</td>
-                      <td class="px-3 py-2">0</td>
-                      <td class="px-3 py-2 text-indigo-600">+19.0%</td>
+                      <td id="bench-B2-makespan" class="px-3 py-2">—</td>
+                      <td id="bench-B2-collisions" class="px-3 py-2">—</td>
+                      <td id="bench-B2-status" class="px-3 py-2 text-gray-400">Awaiting live run</td>
                     </tr>
-                    <tr class="bg-emerald-100/60 text-emerald-950 font-bold">
-                      <td class="px-3 py-2 font-bold font-sans text-emerald-900">P1 BEL Swarm</td>
-                      <td class="px-3 py-2 text-emerald-700">11.97s</td>
-                      <td class="px-3 py-2 text-emerald-700">0</td>
-                      <td class="px-3 py-2 text-emerald-700 font-black">+31.2% &#x2713;</td>
+                    <tr class="bg-cyan-100/40 text-slate-900 font-bold">
+                      <td class="px-3 py-2 font-bold font-sans">P1 BEL Swarm</td>
+                      <td id="bench-P1-makespan" class="px-3 py-2">28.27s</td>
+                      <td id="bench-P1-collisions" class="px-3 py-2">0</td>
+                      <td id="bench-P1-status" class="px-3 py-2 text-cyan-700 font-black">Documented</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1340,13 +1340,13 @@ body {
                 <span class="text-gray-600 font-medium flex items-center gap-1.5" id="bench-safety-title">
                   <span class="material-symbols-outlined text-emerald-600 text-[18px] transition-all" id="bench-safety-icon">verified</span> Collisions:
                 </span>
-                <span class="font-bold text-emerald-700 font-mono transition-colors" id="bench-collisions-status">0 (Safe &amp; Deadlock Free)</span>
+                <span class="font-bold text-emerald-700 font-mono transition-colors" id="bench-collisions-status">0 collision events (documented)</span>
               </div>
             </div>
 
             <div class="mt-4 pt-3 border-t border-gray-200/50 flex items-center justify-between text-[11px] text-gray-500">
-              <span>Benchmark: <strong class="text-gray-700">6 Scenarios Verified</strong></span>
-              <span class="text-emerald-700 font-semibold">&gt;20% Goal Exceeded</span>
+              <span>Source: <strong class="text-gray-700">Phase 5 Acceptance Report</strong></span>
+              <span class="text-amber-700 font-semibold">≥20% target not demonstrated</span>
             </div>
           </div>
         </div>
@@ -1377,8 +1377,8 @@ body {
             <span class="material-symbols-outlined text-indigo-600 text-[20px]">trending_up</span>
           </div>
           <div class="mt-2 flex items-baseline gap-2">
-            <span class="text-3xl font-heading font-black text-gray-900" id="kpi-efficiency">+31.2%</span>
-            <span class="text-xs font-bold text-indigo-600">vs Stop-and-Wait</span>
+            <span class="text-3xl font-heading font-black text-gray-900" id="kpi-efficiency">−62.47%</span>
+            <span class="text-xs font-bold text-indigo-600">3-AMR vs Stop-and-Wait</span>
           </div>
         </div>
 
@@ -2937,7 +2937,7 @@ body {
         }
         if (benchColl) {
           benchColl.className = 'font-bold text-emerald-700 font-mono transition-colors';
-          benchColl.innerText = '0 (Safe & Deadlock Free)';
+          benchColl.innerText = '0 collision events';
         }
         if (benchIcon) {
           benchIcon.className = 'material-symbols-outlined text-emerald-600 text-[18px] transition-all';
@@ -2993,6 +2993,60 @@ body {
 
     }
 
+    /* -------------------------------------------------------------
+       LIVE BENCHMARK
+       ------------------------------------------------------------- */
+    function formatBenchmarkSeconds(value) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n.toFixed(2) + 's' : '—';
+    }
+
+    function updateBenchmarkResults(data) {
+      const results = data && data.results ? data.results : {};
+      ['B0', 'B1', 'B2', 'P1'].forEach((strategy) => {
+        const result = results[strategy];
+        if (!result) return;
+        const makeEl = document.getElementById(`bench-${strategy}-makespan`);
+        const collEl = document.getElementById(`bench-${strategy}-collisions`);
+        const statusEl = document.getElementById(`bench-${strategy}-status`);
+        if (makeEl) makeEl.innerText = formatBenchmarkSeconds(result.makespan);
+        if (collEl) collEl.innerText = Number(result.collisions || 0).toFixed(0);
+        if (statusEl) statusEl.innerText = 'Live × 2 trials';
+      });
+      const coordinated = results.P1;
+      if (coordinated) {
+        const hero = document.getElementById('bench-hero-value');
+        const detail = document.getElementById('bench-hero-detail');
+        const badge = document.getElementById('bench-hero-badge');
+        if (hero) hero.firstChild.textContent = formatBenchmarkSeconds(coordinated.makespan) + ' ';
+        if (detail) detail.innerText = 'live P1 result';
+        if (badge) badge.innerText = Number(coordinated.collisions || 0).toFixed(0) + ' collisions';
+      }
+      const status = document.getElementById('benchmark-run-status');
+      if (status) status.innerText = 'LIVE · ' + (data.scenario || 'S1_Normal');
+      const source = document.querySelector('.ui-refresh-benchmark strong');
+      if (source) source.innerText = 'Live API benchmark';
+    }
+
+    async function runDashboardBenchmark() {
+      const button = document.getElementById('btnRunBenchmark');
+      const status = document.getElementById('benchmark-run-status');
+      if (button) { button.disabled = true; button.innerText = 'Running…'; button.classList.add('opacity-60', 'cursor-wait'); }
+      if (status) status.innerText = 'RUNNING · 2 trials/strategy';
+      try {
+        const res = await fetch('/api/benchmark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scenario: state.currentScenario || 'S1_Normal' }) });
+        if (!res.ok) throw new Error('Benchmark request failed (' + res.status + ')');
+        const data = await res.json();
+        if (!data.results) throw new Error('Benchmark response did not contain results.');
+        updateBenchmarkResults(data);
+      } catch (err) {
+        console.error('Benchmark run failed:', err);
+        if (status) status.innerText = 'BENCHMARK FAILED';
+        window.alert(err.message || 'Benchmark failed. Check the backend logs.');
+      } finally {
+        if (button) { button.disabled = false; button.innerText = 'Run Live Benchmark'; button.classList.remove('opacity-60', 'cursor-wait'); }
+      }
+    }
     /* -------------------------------------------------------------
        DISPATCH ORDER MODAL & OMNIVERSE BRIDGE ACTION
        ------------------------------------------------------------- */
