@@ -1,4 +1,5 @@
 import sys, os
+import random
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from sim.simulator import Simulator
@@ -150,6 +151,10 @@ def test_s5_robot_failure_task_recovery():
     S5: Kill robot-0 mid-task, assert its task becomes RECOVERABLE
     and is completed by another robot within 600 ticks.
     """
+    # Keep the workload deterministic; the simulator's task generator uses
+    # Python's process-global RNG, and this recovery test is about failover,
+    # not random workload selection.
+    random.seed(2026)
     sim = Simulator(ascii_map=FAILURE_MAP, headless=True)
     sim.run(max_ticks=80)          # let task assignment happen
     sim.kill_robot("robot-0")      # hard kill
