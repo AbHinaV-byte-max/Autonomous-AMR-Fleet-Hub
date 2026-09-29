@@ -1805,14 +1805,59 @@ body {
       return { x: wx, z: wz };
     }
 
+    function disposeThreeObjectResources(object, seenGeometries = new Set(), seenMaterials = new Set(), seenTextures = new Set()) {
+      if (!object) return;
+
+      if (object.geometry && !seenGeometries.has(object.geometry)) {
+        seenGeometries.add(object.geometry);
+        object.geometry.dispose();
+      }
+
+      const materials = Array.isArray(object.material) ? object.material : (object.material ? [object.material] : []);
+      materials.forEach(material => {
+        if (!material || seenMaterials.has(material)) return;
+        seenMaterials.add(material);
+
+        Object.keys(material).forEach(key => {
+          const value = material[key];
+          if (value && value.isTexture && !seenTextures.has(value)) {
+            seenTextures.add(value);
+            value.dispose();
+          }
+        });
+
+        material.dispose();
+      });
+
+      object.children?.slice().forEach(child => {
+        disposeThreeObjectResources(child, seenGeometries, seenMaterials, seenTextures);
+      });
+    }
+
+    function disposeThreeGroupChildren(group) {
+      if (!group) return;
+
+      const seenGeometries = new Set();
+      const seenMaterials = new Set();
+      const seenTextures = new Set();
+
+      while (group.children.length > 0) {
+        const child = group.children[0];
+        disposeThreeObjectResources(child, seenGeometries, seenMaterials, seenTextures);
+        group.remove(child);
+      }
+    }
+
     function build3DEnvironment(grid) {
       if (!grid || !grid.length) return;
       const mapH = grid.length;
       const mapW = grid[0].length;
 
-      // Clear previous racks and docks
-      while (rackGroup.children.length > 0) rackGroup.remove(rackGroup.children[0]);
-      while (dockGroup.children.length > 0) dockGroup.remove(dockGroup.children[0]);
+      // Dispose the previous warehouse meshes before removing them.
+      // Rebuilds happen when the scenario/grid changes, so simply detaching
+      // children would leave their GPU geometries/materials allocated.
+      disposeThreeGroupChildren(rackGroup);
+      disposeThreeGroupChildren(dockGroup);
 
       // Reusable materials
       const frameMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.7 });
