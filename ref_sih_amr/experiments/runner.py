@@ -8,6 +8,7 @@ from sim.simulator import Simulator
 from data.warehouse_benchmark import REAL_SCENARIOS, WAREHOUSE_SAMPLES
 
 SCENARIOS = dict(REAL_SCENARIOS)
+SCENARIOS.update({
     # S4: High-throughput warehouse with dynamic blockage at (5, 2) forcing bypass routing
     "S4_Blocked": """\
 ########################
@@ -91,7 +92,7 @@ SCENARIOS = dict(REAL_SCENARIOS)
 #..DD..............DD....#
 ##########################
 """
-}
+})
 
 STRATEGIES = ["B0", "B1", "B2", "P1"]
 TRIALS = 20
