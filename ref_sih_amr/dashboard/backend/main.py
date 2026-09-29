@@ -336,19 +336,31 @@ async def trigger_benchmark(request: dict = None):
     for r in results:
         strat = r["strategy"]
         if strat not in summary:
-            summary[strat] = {"completed": 0, "wait": 0, "collisions": 0, "count": 0}
-        summary[strat]["completed"] += r["completed_tasks"]
-        summary[strat]["wait"] += r["WAITING_TIME"]
-        summary[strat]["collisions"] += r["COLLISION_COUNT"]
+            summary[strat] = {
+                "completed": 0,
+                "wait": 0,
+                "collisions": 0,
+                "makespan": 0,
+                "throughput": 0,
+                "deadlocks": 0,
+                "replans": 0,
+                "count": 0,
+            }
+        summary[strat]["completed"] += r.get("completed_tasks", 0)
+        summary[strat]["wait"] += r.get("WAITING_TIME", r.get("waiting_time", 0))
+        summary[strat]["collisions"] += r.get("COLLISION_COUNT", r.get("collision_count", 0))
+        summary[strat]["makespan"] += r.get("MAKESPAN", r.get("makespan", 0))
+        summary[strat]["throughput"] += r.get("THROUGHPUT", r.get("throughput", 0))
+        summary[strat]["deadlocks"] += r.get("DEADLOCK_COUNT", r.get("deadlock_count", 0))
+        summary[strat]["replans"] += r.get("REPLAN_COUNT", r.get("replan_count", 0))
         summary[strat]["count"] += 1
         
     for strat in summary:
         c = summary[strat]["count"]
-        summary[strat]["completed"] /= c
-        summary[strat]["wait"] /= c
-        summary[strat]["collisions"] /= c
+        for key in ("completed", "wait", "collisions", "makespan", "throughput", "deadlocks", "replans"):
+            summary[strat][key] /= c
         
-    return {"scenario": scenario, "results": summary}
+    return {"scenario": scenario, "trial_count": 2, "results": summary}
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
