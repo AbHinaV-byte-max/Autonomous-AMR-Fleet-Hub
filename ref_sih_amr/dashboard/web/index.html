@@ -2484,16 +2484,34 @@ body {
     }
 
     async function switchScenario(scen) {
-      state.currentScenario = scen;
-      updateScenarioDisplay(scen);
+      const previousScenario = state.currentScenario;
+      const select = document.getElementById('scenarioSelect');
+      if (select) select.disabled = true;
+
       try {
-        await fetch('/api/scenario', {
+        const res = await fetch('/api/scenario', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ scenario: scen })
         });
+        if (!res.ok) throw new Error(`Scenario switch failed (${res.status})`);
+
+        const data = await res.json();
+        if (data.status !== 'ok' || data.ready !== true) {
+          throw new Error(data.message || 'Scenario is still transitioning.');
+        }
+
+        state.currentScenario = data.scenario;
+        updateScenarioDisplay(data.scenario);
+        await fetchInitialState();
       } catch (e) {
         console.error('Scenario switch failed:', e);
+        if (select) select.value = previousScenario;
+        state.currentScenario = previousScenario;
+        updateScenarioDisplay(previousScenario);
+        window.alert(e.message || 'Unable to switch scenario.');
+      } finally {
+        if (select) select.disabled = false;
       }
     }
 
