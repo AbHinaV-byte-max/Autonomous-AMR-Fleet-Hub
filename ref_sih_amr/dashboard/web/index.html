@@ -3034,7 +3034,7 @@ body {
       if (button) { button.disabled = true; button.innerText = 'Running…'; button.classList.add('opacity-60', 'cursor-wait'); }
       if (status) status.innerText = 'RUNNING · 2 trials/strategy';
       try {
-        const res = await fetch('/api/benchmark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scenario: state.scenario || 'S1_Normal' }) });
+        const res = await fetch('/api/benchmark', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scenario: state.currentScenario || 'S1_Normal' }) });
         if (!res.ok) throw new Error('Benchmark request failed (' + res.status + ')');
         const data = await res.json();
         if (!data.results) throw new Error('Benchmark response did not contain results.');
