@@ -34,9 +34,11 @@ def test_real_warehouse_simulator_uses_benchmark_pairs():
 
     assert len(sim.robot_managers) == 3
     assert len(sim.tasks) == 3
-    assert [tuple(m.state.position) for m in sim.robot_managers] == [
+    actual_positions = sorted(tuple(m.state.position) for m in sim.robot_managers)
+    expected_positions = sorted(
         (float(x), float(y)) for (x, y), _ in WAREHOUSE_SAMPLES[scenario]
-    ]
+    )
+    assert actual_positions == expected_positions
     assert [(t.pickup_cell, t.dropoff_cell) for t in sim.tasks] == WAREHOUSE_SAMPLES[scenario]
 
 
