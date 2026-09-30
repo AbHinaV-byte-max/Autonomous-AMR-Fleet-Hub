@@ -3039,7 +3039,7 @@ body {
     function formatAmrDisplayId(robotId) {
       if (!robotId || robotId === 'Unassigned') return 'Unassigned';
       const raw = String(robotId);
-      const match = raw.match(/^robot-(\\d+)$/i);
+      const match = raw.match(/^robot-(\d+)$/i);
       if (match) return 'AMR-' + String(Number(match[1]) + 1).padStart(2, '0');
       return raw;
     }
