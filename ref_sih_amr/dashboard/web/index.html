@@ -1240,7 +1240,8 @@ body {
             <div class="flex flex-wrap items-center justify-between text-xs text-gray-600 bg-white/50 px-4 py-2 rounded-2xl border border-white/60">
               <div class="flex items-center gap-6">
                 <span>AMRs Active: <strong id="mapStatRobots" class="text-gray-900 font-bold">9 / 9</strong></span>
-                <span>Active Tasks: <strong id="mapStatInTransit" class="text-indigo-600 font-bold">6</strong></span>
+                <span>In Transit: <strong id="mapStatInTransit" class="text-indigo-600 font-bold">0</strong></span>
+                <span>Queued: <strong id="mapStatQueued" class="text-amber-600 font-bold">0</strong></span>
                 <span>Delivered: <strong id="mapStatCompleted" class="text-emerald-600 font-bold">12</strong></span>
               </div>
               <div class="flex items-center gap-2">
@@ -1392,8 +1393,10 @@ body {
             <span class="material-symbols-outlined text-amber-600 text-[20px]">inventory_2</span>
           </div>
           <div class="mt-2 flex items-baseline gap-2">
-            <span class="text-3xl font-heading font-black text-gray-900" id="kpi-orders-count">9</span>
+            <span class="text-3xl font-heading font-black text-gray-900" id="kpi-orders-count">0</span>
             <span class="text-xs font-bold text-gray-600">Active Allocations</span>
+          </div>
+          <div class="mt-1 text-[10px] text-gray-500 font-mono">Queued backlog: <span id="kpi-orders-queued" class="text-amber-500 font-semibold">0</span>
           </div>
         </div>
 
@@ -1436,7 +1439,6 @@ body {
                     <th class="px-4 py-3">Order ID</th>
                     <th class="px-4 py-3">Assigned AMR</th>
                     <th class="px-4 py-3">Pickup &rarr; Dropoff</th>
-                    <th class="px-4 py-3">Payload</th>
                     <th class="px-4 py-3">Status</th>
                   </tr>
                 </thead>
@@ -3050,7 +3052,7 @@ body {
 
       const list = Array.isArray(tasks) ? tasks : Object.values(tasks || {});
       if (!list.length) {
-        body.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center text-gray-400 italic">No active logistics orders</td></tr>';
+        body.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400 italic">No logistics orders</td></tr>';
         return;
       }
 
@@ -3090,13 +3092,11 @@ body {
         const robot = formatAmrDisplayId(t.assigned_robot_id || 'Unassigned');
         const pickup = t.pickup || t.pickup_cell || '—';
         const dropoff = t.dropoff || t.dropoff_cell || '—';
-        const payload = t.payload ?? '—';
         const status = statusLabel(t.status);
         return `<tr class="text-gray-700">
           <td class="px-4 py-3 font-mono font-bold text-gray-900">${id}</td>
           <td class="px-4 py-3 font-mono text-indigo-700 font-semibold">${robot}</td>
           <td class="px-4 py-3 font-mono">${pickup} &rarr; ${dropoff}</td>
-          <td class="px-4 py-3">${payload}</td>
           <td class="px-4 py-3"><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-bold ${statusClass(t.status)}">${status}</span></td>
         </tr>`;
       }).join('');
@@ -3104,18 +3104,27 @@ body {
 
     function updateOrderCounters(tasks) {
       if (!tasks) return;
-      const inTransit = tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 3).length;
-      const completed = tasks.filter(t => t.status === 'COMPLETED' || t.status === 4).length;
-      const totalActive = tasks.filter(t => t.status !== 'COMPLETED' && t.status !== 4).length;
+      const isStatus = (t, ...statuses) => statuses.includes(t.status);
+      const inTransit = tasks.filter(t => isStatus(t, 'IN_PROGRESS', 3)).length;
+      const assigned = tasks.filter(t => isStatus(t, 'ASSIGNED', 2)).length;
+      const activeAllocations = inTransit + assigned;
+      const queued = tasks.filter(t => isStatus(t, 'QUEUED', 1)).length;
+      const completed = tasks.filter(t => isStatus(t, 'COMPLETED', 4)).length;
 
       const inTransitEl = document.getElementById('mapStatInTransit');
-      if (inTransitEl) inTransitEl.innerText = inTransit;
+      if (inTransitEl) inTransitEl.innerText = activeAllocations;
+
+      const queuedEl = document.getElementById('mapStatQueued');
+      if (queuedEl) queuedEl.innerText = queued;
 
       const compEl = document.getElementById('mapStatCompleted');
       if (compEl) compEl.innerText = completed;
 
       const kpiOrders = document.getElementById('kpi-orders-count');
-      if (kpiOrders) kpiOrders.innerText = totalActive;
+      if (kpiOrders) kpiOrders.innerText = activeAllocations;
+
+      const kpiQueued = document.getElementById('kpi-orders-queued');
+      if (kpiQueued) kpiQueued.innerText = queued;
     }
 
     function updateMetrics(m) {
