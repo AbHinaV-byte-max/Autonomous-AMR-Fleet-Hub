@@ -362,10 +362,33 @@ async def submit_task(request: dict):
             "priority": priority}
 
 
+_benchmark_lock = asyncio.Lock()
+
+def _run_dashboard_benchmark_trials(scenario: str):
+    """Run the bounded benchmark off the event-loop thread.
+
+    The benchmark runner is synchronous and intentionally in-process for
+    serverless compatibility. Keeping it off the FastAPI event-loop thread
+    allows the live WebSocket telemetry coroutine to continue serving the
+    dashboard while the benchmark is executing.
+    """
+    import experiments.runner
+
+    previous_max_ticks = experiments.runner.MAX_TICKS
+    experiments.runner.MAX_TICKS = 100
+    try:
+        results = []
+        for strategy in ["B0", "B1", "B2", "P1"]:
+            for trial in range(2):
+                results.append(experiments.runner.run_trial((scenario, strategy, trial)))
+        return results
+    finally:
+        experiments.runner.MAX_TICKS = previous_max_ticks
+
+
 @app.post("/api/benchmark")
 async def trigger_benchmark(request: dict = None):
-    """Run the dashboard benchmark in-process so it also works on serverless hosts."""
-    import experiments.runner
+    """Run the bounded dashboard benchmark without blocking live telemetry."""
 
     scenario = "S1_Normal"
     if request and "scenario" in request:
@@ -375,27 +398,18 @@ async def trigger_benchmark(request: dict = None):
         global LIVE_SCENARIO
         LIVE_SCENARIO = scenario
 
-    # The dashboard intentionally runs a small, deterministic sample: two
-    # trials per strategy and 100 simulation ticks per trial. Do not use a
-    # ProcessPool here: serverless Python runtimes commonly do not support
-    # child-process workers reliably, which previously surfaced to the UI as
-    # a generic "BENCHMARK FAILED".
-    previous_max_ticks = experiments.runner.MAX_TICKS
-    experiments.runner.MAX_TICKS = 100
-
-    try:
-        results = []
-        for strategy in ["B0", "B1", "B2", "P1"]:
-            for trial in range(2):
-                results.append(experiments.runner.run_trial((scenario, strategy, trial)))
-    except Exception as exc:
-        # Keep the API failure actionable instead of hiding the actual cause.
-        raise HTTPException(
-            status_code=500,
-            detail=f"Benchmark execution failed: {type(exc).__name__}: {exc}",
-        ) from exc
-    finally:
-        experiments.runner.MAX_TICKS = previous_max_ticks
+    # Serialize benchmark runs because the runner temporarily changes its
+    # module-level MAX_TICKS. asyncio.to_thread keeps the event loop free for
+    # WebSocket telemetry while the synchronous runner does its work.
+    async with _benchmark_lock:
+        try:
+            results = await asyncio.to_thread(_run_dashboard_benchmark_trials, scenario)
+        except Exception as exc:
+            # Keep the API failure actionable instead of hiding the actual cause.
+            raise HTTPException(
+                status_code=500,
+                detail=f"Benchmark execution failed: {type(exc).__name__}: {exc}",
+            ) from exc
 
     summary = {}
     for r in results:
