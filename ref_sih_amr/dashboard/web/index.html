@@ -1557,9 +1557,8 @@ body {
           <div>
             <label class="font-bold text-gray-700 block mb-1">Target Dock</label>
             <select id="modalTarget" class="w-full rounded-xl border border-gray-300 p-2 text-xs">
-              <option value="DD-1 (North Bay)">DD-1 (North Bay)</option>
-              <option value="DD-2 (Central Bay)">DD-2 (Central Bay)</option>
-              <option value="DD-3 (South Bay)">DD-3 (South Bay)</option>
+              <option value="DD-1 (Left Bay)">DD-1 (Left Bay)</option>
+              <option value="DD-2 (Right Bay)">DD-2 (Right Bay)</option>
             </select>
           </div>
         </div>
@@ -3200,43 +3199,39 @@ body {
       document.getElementById('dispatchModal').classList.add('hidden');
     }
 
-    function resolveDispatchCell(role, index, avoidCell = null) {
+    // S1_Normal has three named pickup stations and two physical delivery bays.
+    // These are fixed map cells, not heuristic "nearest" cells.
+    const S1_DISPATCH_POINTS = {
+      pickup: [
+        { label: 'PK-1 (Aisle 1)', cell: [2, 5] },
+        { label: 'PK-2 (Aisle 2)', cell: [14, 5] },
+        { label: 'PK-3 (Aisle 3)', cell: [27, 5] }
+      ],
+      dropoff: [
+        { label: 'DD-1 (Left Bay)', cell: [3, 17] },
+        { label: 'DD-2 (Right Bay)', cell: [27, 17] }
+      ]
+    };
+
+    function resolveDispatchCell(role, index) {
       const grid = state.grid || [];
       const height = grid.length;
       const width = height && Array.isArray(grid[0]) ? grid[0].length : 0;
       if (!width || !height) throw new Error('Live warehouse map is not ready yet.');
 
-      const candidates = [];
-      for (let y = 0; y < height; y++) {
-        const row = Array.isArray(grid[y]) ? grid[y] : String(grid[y]).split('');
-        for (let x = 0; x < width; x++) {
-          const cell = row[x];
-          if (cell === '#' || cell === 'R') continue;
-          candidates.push({ x, y, cell });
-        }
+      const points = S1_DISPATCH_POINTS[role] || [];
+      const selected = points[index];
+      if (!selected) throw new Error('Selected dispatch point is not configured.');
+
+      const [x, y] = selected.cell;
+      const row = Array.isArray(grid[y]) ? grid[y] : String(grid[y] || '').split('');
+      if (!row[x] || row[x] === '#') {
+        throw new Error(selected.label + ' is not available on the live warehouse map.');
       }
-
-      if (!candidates.length) throw new Error('No traversable dispatch cells are available.');
-
-      const preferredX = role === 'pickup'
-        ? [0.18, 0.50, 0.82][index] ?? 0.50
-        : [0.18, 0.50, 0.82][index] ?? 0.50;
-      const preferredY = role === 'pickup' ? 0.25 : 0.80;
-
-      const preferDock = role === 'dropoff';
-      const dockCandidates = preferDock ? candidates.filter(c => c.cell === 'D') : [];
-      const pool = dockCandidates.length ? dockCandidates : candidates;
-
-      pool.sort((a, b) => {
-        const da = Math.hypot(a.x - preferredX * (width - 1), a.y - preferredY * (height - 1));
-        const db = Math.hypot(b.x - preferredX * (width - 1), b.y - preferredY * (height - 1));
-        return da - db;
-      });
-
-      const selected = pool.find(c => !avoidCell || c.x !== avoidCell[0] || c.y !== avoidCell[1]);
-      if (!selected) throw new Error('Unable to find distinct pickup and drop-off cells.');
-
-      return [selected.x, selected.y];
+      if (role === 'dropoff' && row[x] !== 'D') {
+        throw new Error(selected.label + ' is not a configured delivery dock.');
+      }
+      return selected.cell;
     }
 
     async function submitDispatchOrder() {
@@ -3252,7 +3247,7 @@ body {
         const targetIndex = document.getElementById('modalTarget').selectedIndex;
 
         const pickup = resolveDispatchCell('pickup', sourceIndex);
-        const dropoff = resolveDispatchCell('dropoff', targetIndex, pickup);
+        const dropoff = resolveDispatchCell('dropoff', targetIndex);
 
         const data = await apiRequest('/api/tasks/submit', {
           method: 'POST',

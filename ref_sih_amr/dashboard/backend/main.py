@@ -341,9 +341,10 @@ async def submit_task(request: dict):
 
     pickup = (int(request["pickup_x"]), int(request["pickup_y"]))
     dropoff = (int(request["dropoff_x"]), int(request["dropoff_y"]))
-    for point, name in ((pickup, "pickup"), (dropoff, "dropoff")):
-        if CURRENT_SIM.grid_map.get_cell(*point) == "#":
-            return {"status": "error", "message": f"{name} cell is blocked"}
+    if CURRENT_SIM.grid_map.get_cell(*pickup) == "#":
+        return {"status": "error", "message": "pickup cell is blocked"}
+    if CURRENT_SIM.grid_map.get_cell(*dropoff) != "D":
+        return {"status": "error", "message": "dropoff must be a configured delivery dock"}
 
     task_id = f"TASK-{int(time.time() * 1000)}"
     priority = int(request.get("priority", 1))
