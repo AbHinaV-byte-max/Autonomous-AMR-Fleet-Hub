@@ -189,11 +189,14 @@ async def set_auto_task_mode(request: dict):
         raise HTTPException(status_code=400, detail="enabled is required")
     AUTO_TASKS_ENABLED = bool(request["enabled"])
     sim = CURRENT_SIM
+    cleared_auto_tasks = 0
     if sim is not None:
         sim.task_generator.enabled = AUTO_TASKS_ENABLED
+        if not AUTO_TASKS_ENABLED:
+            cleared_auto_tasks = sim.clear_queued_auto_tasks()
         if sim.telemetry_bus is not None:
             sim.telemetry_bus.publish(sim._build_snapshot())
-    return {"status": "ok", "enabled": AUTO_TASKS_ENABLED}
+    return {"status": "ok", "enabled": AUTO_TASKS_ENABLED, "cleared_auto_tasks": cleared_auto_tasks}
 
 
 @app.post("/api/speed")
@@ -371,7 +374,7 @@ async def submit_task(request: dict):
     priority = int(request.get("priority", 1))
     task = Task(task_id=task_id, pickup_cell=pickup, dropoff_cell=dropoff,
                 priority=priority, status=TaskStatus.QUEUED,
-                created_at=float(CURRENT_SIM.tick_count))
+                created_at=float(CURRENT_SIM.tick_count), source="MANUAL")
     CURRENT_SIM.tasks.append(task)
     CURRENT_SIM._allocate()
 
