@@ -381,6 +381,13 @@ class Simulator:
         for task in available_queueable:
             dropoff = tuple(task.dropoff_cell)
             if dropoff in reserved_dropoffs:
+                self.event_log.log_conflict(
+                    "SYSTEM",
+                    task.task_id,
+                    "GOAL_SLOT",
+                    "YIELD_WAIT",
+                    self.tick_count,
+                )
                 continue
             reserved_dropoffs.add(dropoff)
             unique_dropoff_tasks.append(task)
@@ -457,7 +464,7 @@ class Simulator:
                         blocked.state.robot_id,
                         slot_holder.state.robot_id,
                         "GOAL_SLOT",
-                        "CBS_RESOLVED",
+                        "YIELD_WAIT",
                         self.tick_count,
                     )
 
