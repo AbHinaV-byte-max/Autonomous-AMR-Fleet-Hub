@@ -1754,6 +1754,73 @@ body {
       window.setTimeout(onWindowResize, 50);
     });
 
+    function createDispatchLabel(text, colorHex) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(5, 11, 20, 0.88)';
+      ctx.strokeStyle = '#' + colorHex.toString(16).padStart(6, '0');
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.roundRect(8, 8, canvas.width - 16, canvas.height - 16, 20);
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = '700 54px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      const material = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false
+      });
+      const sprite = new THREE.Sprite(material);
+      sprite.scale.set(4.2, 1.05, 1);
+      sprite.renderOrder = 20;
+      sprite.userData.dispatchLabel = true;
+      return sprite;
+    }
+
+    function addDispatchPointMarkers(mapW, mapH) {
+      if (!dockGroup || !state.currentScenario || state.currentScenario !== 'S1_Normal') return;
+
+      const points = [
+        ...S1_DISPATCH_POINTS.pickup.map((p, i) => ({ ...p, type: 'pickup', color: 0x10b981, index: i })),
+        ...S1_DISPATCH_POINTS.dropoff.map((p, i) => ({ ...p, type: 'dropoff', color: 0x00d4ff, index: i }))
+      ];
+
+      points.forEach(point => {
+        const [x, y] = point.cell;
+        const pos = gridToWorld3D(x, y, mapW, mapH);
+
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(0.72, 0.95, 32),
+          new THREE.MeshBasicMaterial({
+            color: point.color,
+            transparent: true,
+            opacity: 0.75,
+            side: THREE.DoubleSide,
+            depthTest: false
+          })
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(pos.x, 0.08, pos.z);
+        ring.renderOrder = 19;
+        ring.userData.dispatchMarker = true;
+        dockGroup.add(ring);
+
+        const label = createDispatchLabel(point.label.split(' (')[0], point.color);
+        label.position.set(pos.x, 2.9, pos.z);
+        dockGroup.add(label);
+      });
+    }
+
     function buildWarehouseFloor(w, d) {
       // Concrete Base Plane
       const floorGeo = new THREE.PlaneGeometry(w + 8, d + 8);
@@ -1924,6 +1991,8 @@ body {
           }
         }
       }
+
+      addDispatchPointMarkers(mapW, mapH);
     }
 
     /* -------------------------------------------------------------
