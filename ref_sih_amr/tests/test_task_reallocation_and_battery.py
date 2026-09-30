@@ -162,3 +162,61 @@ def test_completed_robot_does_not_leave_long_future_reservation():
     assert sim.global_reservation_table.get_claimer((3, 3), 10.0) == r0.state.robot_id
     assert sim.global_reservation_table.get_claimer((3, 3), 11.0) is None
     assert sim.global_reservation_table.get_claimer((3, 3), 209.0) is None
+
+
+def test_allocator_does_not_stack_live_tasks_on_same_dropoff_slot():
+    sim = Simulator(
+        ascii_map="""\
+#########
+#R.....R#
+#..D.D..#
+#.......#
+#########
+""",
+        headless=True,
+        strategy="B0",
+    )
+    sim.tasks.clear()
+    sim.task_generator.queue.clear()
+
+    r0, r1 = sim.robot_managers[:2]
+    r0.state.status = RobotStatus.MOVING
+    active = Task(
+        "ACTIVE_DELIVERY",
+        pickup_cell=(3, 2),
+        dropoff_cell=(3, 2),
+        priority=1,
+        status=TaskStatus.IN_PROGRESS,
+        assigned_robot_id=r0.state.robot_id,
+    )
+    r0.current_task = active
+    r0.state.current_task_id = active.task_id
+    r0.target_cell = active.dropoff_cell
+
+    r1.state.status = RobotStatus.IDLE
+    r1.current_task = None
+    r1.state.current_task_id = None
+    r1.target_cell = None
+
+    same_slot = Task(
+        "SAME_SLOT",
+        pickup_cell=(4, 2),
+        dropoff_cell=(3, 2),
+        priority=1,
+        status=TaskStatus.QUEUED,
+    )
+    other_slot = Task(
+        "OTHER_SLOT",
+        pickup_cell=(4, 2),
+        dropoff_cell=(5, 2),
+        priority=1,
+        status=TaskStatus.QUEUED,
+    )
+    sim.tasks.extend([same_slot, other_slot])
+
+    sim._allocate()
+
+    assert r1.current_task is not None
+    assert r1.current_task.task_id == "OTHER_SLOT"
+    assert same_slot.status == TaskStatus.QUEUED
+    assert same_slot.assigned_robot_id is None
