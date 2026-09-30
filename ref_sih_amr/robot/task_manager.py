@@ -474,10 +474,12 @@ class LocalTaskManager:
             self.target_cell = None
             self.state.planned_path = []
 
-            # Persistent physical occupancy reservation.
-            # Start at the current simulation time and hold the cell for a horizon.
+            # Keep only the current-tick occupancy claim here. The IDLE
+            # heartbeat advertises the robot's current cell to peers, while a
+            # future 200-tick reservation would survive into the next dispatch
+            # and can make a completed robot look permanently parked.
             self.reservation_table.commit(
                 self.state.robot_id,
-                [current_int] * 200,
+                [current_int],
                 self.state.timestamp,
             )
