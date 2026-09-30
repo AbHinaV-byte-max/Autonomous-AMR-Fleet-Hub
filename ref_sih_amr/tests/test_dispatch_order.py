@@ -55,3 +55,93 @@ def test_auto_tick_keeps_moving_after_task_generation():
         sim.tick()
     after = {m.state.robot_id: tuple(m.state.position) for m in sim.robot_managers}
     assert any(before[rid] != after[rid] for rid in before), f"No AMR moved: before={before}, after={after}"
+
+
+def test_completed_amr_leaves_delivery_bay_for_staging():
+    from experiments.runner import SCENARIOS
+    from sim.simulator import Simulator
+    from models import RobotStatus
+
+    sim = Simulator(SCENARIOS["S1_Normal"], headless=True, strategy="P1")
+    robot = sim.robot_managers[0]
+
+    # Isolate a completed robot parked on a delivery bay.
+    for other in sim.robot_managers[1:]:
+        other.state.status = RobotStatus.OFFLINE
+        other.state.planned_path = []
+        other.current_task = None
+        other.target_cell = None
+        sim.global_reservation_table.expire(other.state.robot_id)
+
+    robot.current_task = None
+    robot.state.current_task_id = None
+    robot.state.status = RobotStatus.IDLE
+    robot.state.planned_path = []
+    robot.target_cell = None
+    robot.state.position = tuple(float(v) for v in sim.dropoff_cells[0])
+    sim.global_reservation_table.expire(robot.state.robot_id)
+
+    sim._stage_idle_robots()
+
+    assert robot.state.status == RobotStatus.MOVING
+    assert getattr(robot, "staging_target", None) in sim.staging_cells
+    assert tuple(robot.target_cell) != tuple(sim.dropoff_cells[0])
+
+    # Let the robot complete the return-to-staging leg.
+    for _ in range(100):
+        sim.tick()
+        if robot.state.status == RobotStatus.IDLE and getattr(robot, "staging_target", None) is None:
+            break
+
+    assert robot.state.status == RobotStatus.IDLE
+    assert tuple(robot.state.position) in sim.staging_cells
+    assert tuple(robot.state.position) not in sim.dropoff_cells
+
+
+def test_manual_dispatch_can_use_robot_after_post_delivery_staging():
+    from experiments.runner import SCENARIOS
+    from sim.simulator import Simulator
+    from models import RobotStatus, Task, TaskStatus
+
+    sim = Simulator(SCENARIOS["S1_Normal"], headless=True, strategy="P1")
+    sim.task_generator.enabled = False
+
+    # Turn one completed robot into a staged, available fleet member.
+    robot = sim.robot_managers[0]
+    for other in sim.robot_managers[1:]:
+        other.state.status = RobotStatus.OFFLINE
+        other.state.planned_path = []
+        other.current_task = None
+        other.target_cell = None
+        sim.global_reservation_table.expire(other.state.robot_id)
+
+    robot.current_task = None
+    robot.state.current_task_id = None
+    robot.state.status = RobotStatus.IDLE
+    robot.state.planned_path = []
+    robot.target_cell = None
+    robot.state.position = tuple(float(v) for v in sim.dropoff_cells[0])
+    sim.global_reservation_table.expire(robot.state.robot_id)
+    sim._stage_idle_robots()
+
+    for _ in range(100):
+        sim.tick()
+        if robot.state.status == RobotStatus.IDLE and getattr(robot, "staging_target", None) is None:
+            break
+
+    pickup = sim.pickup_cells[0]
+    dropoff = sim.dropoff_cells[-1]
+    task = Task(
+        task_id="MANUAL_STAGING_TEST",
+        pickup_cell=pickup,
+        dropoff_cell=dropoff,
+        priority=1,
+        status=TaskStatus.QUEUED,
+        source="MANUAL",
+    )
+    sim.tasks.append(task)
+    sim._allocate()
+
+    assert task.assigned_robot_id == robot.state.robot_id
+    assert task.status == TaskStatus.ASSIGNED
+    assert robot.current_task is task
