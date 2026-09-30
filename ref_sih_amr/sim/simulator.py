@@ -451,6 +451,12 @@ class Simulator:
                     m._handle_arrival()
 
         # 3. Tick each robot manager
+        # Remember which robots had an active task so a completion can trigger
+        # immediate dispatch instead of waiting for the 5-tick allocator cycle.
+        active_task_robots_before_tick = {
+            m.state.robot_id for m in self.robot_managers if m.current_task is not None
+        }
+
         if self.strategy == "B0":
             active_robots = [m for m in self.robot_managers if m.state.status == RobotStatus.MOVING and m.state.planned_path]
             if not active_robots:
@@ -466,6 +472,19 @@ class Simulator:
 
         for m in self.robot_managers:
             m.tick(t)
+
+        # A completed robot is immediately eligible for the next queued order.
+        # Without this handoff, a robot can sit at a delivery dock until the
+        # next periodic allocation pass, making normal-warehouse dispatch look
+        # like a stall.
+        completed_during_tick = any(
+            m.state.robot_id in active_task_robots_before_tick
+            and m.current_task is None
+            and m.state.status == RobotStatus.IDLE
+            for m in self.robot_managers
+        )
+        if completed_during_tick:
+            self._allocate()
 
         # 3a. Battery discharge, low-battery failover & recharge cycle
         for m in self.robot_managers:
