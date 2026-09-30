@@ -151,6 +151,11 @@ class Simulator:
                 self.tasks.append(t)
                 self.task_generator.queue.append(t)
             self._allocate()
+            # _allocate() assigns tasks; P1 robots intentionally do not build
+            # their own A* path. Seed the initial fleet through CBS immediately
+            # so the first telemetry frame already contains executable routes.
+            if self.strategy == "P1":
+                self._run_cbs_planning()
 
         # Rendering setup
         self.cell_size = 28
