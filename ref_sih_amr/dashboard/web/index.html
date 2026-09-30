@@ -3423,17 +3423,17 @@ body {
       document.getElementById('dispatchModal').classList.add('hidden');
     }
 
-    // S1_Normal has three named pickup stations and two physical delivery bays.
+    // S1_Normal models outbound picking: storage-aisle pickup points feed two outbound delivery bays.\n    // Completed AMRs are routed back to fleet staging instead of parking at the bay.
     // These are fixed map cells, not heuristic "nearest" cells.
     const S1_DISPATCH_POINTS = {
       pickup: [
-        { label: 'PK-1 (Aisle 1)', cell: [2, 5] },
-        { label: 'PK-2 (Aisle 2)', cell: [14, 5] },
-        { label: 'PK-3 (Aisle 3)', cell: [27, 5] }
+        { label: 'PK-1 (Storage Aisle 1)', cell: [2, 5] },
+        { label: 'PK-2 (Storage Aisle 2)', cell: [14, 5] },
+        { label: 'PK-3 (Storage Aisle 3)', cell: [27, 5] }
       ],
       dropoff: [
-        { label: 'DD-1 (Left Bay)', cell: [3, 17] },
-        { label: 'DD-2 (Right Bay)', cell: [27, 17] }
+        { label: 'OUT-1 (Left Outbound Bay)', cell: [3, 17] },
+        { label: 'OUT-2 (Right Outbound Bay)', cell: [27, 17] }
       ]
     };
 
