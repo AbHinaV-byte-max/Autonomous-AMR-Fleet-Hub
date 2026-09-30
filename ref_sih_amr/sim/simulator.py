@@ -59,6 +59,9 @@ class Simulator:
         self.dropoff_cells = self.grid_map.find_all('D')
         self.spawn_cells   = self.grid_map.find_all('R')
         self.free_cells    = self.grid_map.find_all('.')
+        # Spawn cells double as fleet staging/home positions. Completed AMRs
+        # must vacate outbound bays instead of remaining as physical obstacles.
+        self.staging_cells  = list(self.spawn_cells)
 
         self.task_generator = TaskGenerator(
             self.pickup_cells, self.dropoff_cells, spawn_interval=5)
@@ -346,6 +349,91 @@ class Simulator:
                 self.metric_values[metrics.COLLISION_COUNT] += 1
             else:
                 positions[pos] = m.state.robot_id
+
+    def _stage_idle_robots(self):
+        """Move completed idle AMRs away from delivery bays into fleet staging.
+
+        A completed AMR should not remain parked on a delivery slot. When no
+        new task is immediately available, send it to an unoccupied staging
+        position (the S1 R/home markers). Manual or automatic dispatch can
+        then reuse the robot without having to solve a permanently occupied
+        delivery goal.
+        """
+        occupied = {
+            (int(m.state.position[0]), int(m.state.position[1]))
+            for m in self.robot_managers
+            if m.state.status != RobotStatus.OFFLINE
+        }
+        reserved_targets = set()
+
+        for manager in self.robot_managers:
+            if manager.state.status != RobotStatus.IDLE or manager.current_task is not None:
+                continue
+            current = (int(manager.state.position[0]), int(manager.state.position[1]))
+            if current not in self.dropoff_cells:
+                continue
+
+            candidates = sorted(
+                self.staging_cells,
+                key=lambda cell: (abs(cell[0] - current[0]) + abs(cell[1] - current[1]), cell[1], cell[0])
+            )
+            for staging in candidates:
+                if staging in occupied or staging in reserved_targets:
+                    continue
+                path = self.planner.plan(
+                    start=manager.state.position,
+                    goal=staging,
+                    costmap=self.grid_map,
+                    reservation_table=self.global_reservation_table,
+                    start_time=self.tick_count,
+                    robot_id=manager.state.robot_id,
+                )
+                if path and (int(path[0][0]), int(path[0][1])) == current:
+                    path = path[1:]
+                if not path:
+                    continue
+
+                manager.staging_target = staging
+                manager.target_cell = staging
+                manager.state.planned_path = list(path)
+                manager.state.status = RobotStatus.MOVING
+                manager.wait_time = 0.0
+                manager.waiting_on = None
+                manager.reservation_table.commit(
+                    manager.state.robot_id,
+                    manager.state.planned_path,
+                    self.tick_count + 1,
+                )
+                reserved_targets.add(staging)
+                self.event_log.log_conflict(
+                    manager.state.robot_id,
+                    "SYSTEM",
+                    "POST_DELIVERY",
+                    f"Delivery complete -> staging {staging}",
+                    self.tick_count,
+                )
+                break
+
+    def _finalize_staging_arrivals(self):
+        """Convert AMRs that reached their staging target back to IDLE."""
+        for manager in self.robot_managers:
+            staging = getattr(manager, "staging_target", None)
+            if staging is None or manager.current_task is not None:
+                continue
+            current = (int(manager.state.position[0]), int(manager.state.position[1]))
+            if current == tuple(staging) and not manager.state.planned_path:
+                manager.target_cell = None
+                manager.staging_target = None
+                manager.state.status = RobotStatus.IDLE
+                manager.wait_time = 0.0
+                manager.waiting_on = None
+                self.event_log.log_conflict(
+                    manager.state.robot_id,
+                    "SYSTEM",
+                    "STAGING_ARRIVAL",
+                    f"AMR parked at staging {current} and is available",
+                    self.tick_count,
+                )
 
     def _allocate(self):
         eligible = [m.state for m in self.robot_managers
@@ -641,6 +729,11 @@ class Simulator:
         )
         if completed_during_tick:
             self._allocate()
+            # If there is no immediate next task, completed robots leave the
+            # delivery bay and park at a fleet staging/home position.
+            self._stage_idle_robots()
+
+        self._finalize_staging_arrivals()
 
         # 3a. Battery discharge, low-battery failover & recharge cycle
         for m in self.robot_managers:
