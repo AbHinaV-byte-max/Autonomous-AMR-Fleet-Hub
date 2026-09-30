@@ -349,12 +349,27 @@ class Simulator:
         if not available_queueable:
             return
 
-        # Prioritize RECOVERABLE tasks from shutdown or low-battery robots so they are taken over first
+        # Reserve each currently-free dropoff cell for at most one new assignment
+        # in this allocation pass. The Hungarian allocator sees the candidate
+        # tasks simultaneously, so filtering only already-occupied cells is not
+        # enough to prevent two queued tasks from claiming the same free slot.
+        # Keep the highest-priority candidate for each exact dropoff cell.
         available_queueable.sort(
-            key=lambda t: (0 if t.status == TaskStatus.RECOVERABLE else 1, t.priority)
+            key=lambda t: (0 if t.status == TaskStatus.RECOVERABLE else 1, t.priority, t.created_at, t.task_id)
         )
+        unique_dropoff_tasks = []
+        reserved_dropoffs = set(occupied_dropoffs)
+        for task in available_queueable:
+            dropoff = tuple(task.dropoff_cell)
+            if dropoff in reserved_dropoffs:
+                continue
+            reserved_dropoffs.add(dropoff)
+            unique_dropoff_tasks.append(task)
 
-        assignments = self.allocator.allocate(eligible, available_queueable)
+        if not unique_dropoff_tasks:
+            return
+
+        assignments = self.allocator.allocate(eligible, unique_dropoff_tasks)
         newly_assigned = []
         for robot_id, task_id in assignments.items():
             manager = next(m for m in self.robot_managers if m.state.robot_id == robot_id)

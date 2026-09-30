@@ -220,3 +220,54 @@ def test_allocator_does_not_stack_live_tasks_on_same_dropoff_slot():
     assert r1.current_task.task_id == "OTHER_SLOT"
     assert same_slot.status == TaskStatus.QUEUED
     assert same_slot.assigned_robot_id is None
+
+
+def test_allocator_does_not_assign_two_queued_tasks_to_same_free_dropoff():
+    sim = Simulator(
+        ascii_map="""\
+#########
+#R.....R#
+#..D....#
+#.......#
+#########
+""",
+        headless=True,
+        strategy="B0",
+    )
+    sim.tasks.clear()
+    sim.task_generator.queue.clear()
+
+    r0, r1 = sim.robot_managers[:2]
+    for robot in (r0, r1):
+        robot.state.status = RobotStatus.IDLE
+        robot.current_task = None
+        robot.state.current_task_id = None
+        robot.state.planned_path = []
+        robot.target_cell = None
+        robot.state.battery = 90.0
+
+    same_slot_a = Task(
+        "SAME_FREE_SLOT_A",
+        pickup_cell=(3, 2),
+        dropoff_cell=(3, 2),
+        priority=1,
+        status=TaskStatus.QUEUED,
+        created_at=1.0,
+    )
+    same_slot_b = Task(
+        "SAME_FREE_SLOT_B",
+        pickup_cell=(4, 2),
+        dropoff_cell=(3, 2),
+        priority=2,
+        status=TaskStatus.QUEUED,
+        created_at=2.0,
+    )
+    sim.tasks.extend([same_slot_a, same_slot_b])
+
+    sim._allocate()
+
+    assigned = [r.current_task for r in (r0, r1) if r.current_task is not None]
+    assert len(assigned) == 1
+    assert assigned[0].task_id == same_slot_a.task_id
+    assert same_slot_b.status == TaskStatus.QUEUED
+    assert same_slot_b.assigned_robot_id is None
