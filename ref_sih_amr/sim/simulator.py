@@ -440,7 +440,7 @@ class Simulator:
                 # already committed to this task. Then prefer the oldest task.
                 def slot_priority(manager):
                     task = manager.current_task
-                    carrying = bool(manager.state.has_cargo)
+                    carrying = (manager.current_task is not None and manager.current_task.status == TaskStatus.IN_PROGRESS)
                     created = getattr(task, "created_at", 0.0) if task else 0.0
                     task_id = getattr(task, "task_id", "") if task else ""
                     return (0 if carrying else 1, created, task_id)
