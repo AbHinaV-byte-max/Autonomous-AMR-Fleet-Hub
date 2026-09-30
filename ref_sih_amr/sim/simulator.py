@@ -423,6 +423,12 @@ class Simulator:
         self.tick_count += 1
         t = float(self.tick_count)
 
+        # Track active tasks before any arrival resolution so a completion
+        # during this tick can trigger immediate dispatch.
+        active_task_robots_before_tick = {
+            m.state.robot_id for m in self.robot_managers if m.current_task is not None
+        }
+
         # 1. Generate tasks
         new_tasks = self.task_generator.tick(t)
         self.tasks.extend(new_tasks)
@@ -466,6 +472,19 @@ class Simulator:
 
         for m in self.robot_managers:
             m.tick(t)
+
+        # A completed robot is immediately eligible for the next queued order.
+        # Without this handoff, a robot can sit at a delivery dock until the
+        # next periodic allocation pass, making normal-warehouse dispatch look
+        # like a stall.
+        completed_during_tick = any(
+            m.state.robot_id in active_task_robots_before_tick
+            and m.current_task is None
+            and m.state.status == RobotStatus.IDLE
+            for m in self.robot_managers
+        )
+        if completed_during_tick:
+            self._allocate()
 
         # 3a. Battery discharge, low-battery failover & recharge cycle
         for m in self.robot_managers:
