@@ -411,26 +411,63 @@ class Simulator:
         """
         Run CBS for all active robots and inject collision-free paths.
 
-        Collects every robot that has a goal (pickup or dropoff), calls
-        CBSPlanner.plan(), and feeds each resulting path back via inject_path().
-        Only runs when strategy == 'P1' and CBS mode is active.
-
-        Robots without a goal (IDLE, OFFLINE, CHARGING) are excluded.
+        Shared pickup/dropoff cells are physical single-occupancy slots. If
+        multiple active tasks currently target the same slot, CBS must not be
+        asked to make all of them occupy that cell at once. One robot is
+        selected for the slot (prefer a robot already carrying a load, then
+        the oldest task); the other active robots remain WAITING and keep
+        their tasks. They become eligible for CBS again after the slot holder
+        completes and leaves the cell.
         """
         goals     = {}
         positions = {}
         starts    = {}
 
+        # Group active robots by their current target so a duplicated physical
+        # pickup/dropoff slot cannot make the entire CBS problem unsatisfiable.
+        target_groups = {}
         for m in self.robot_managers:
             if m.state.status in (RobotStatus.OFFLINE, RobotStatus.IDLE, RobotStatus.CHARGING):
                 continue
             goal = m.get_current_goal()
             if goal is None:
                 continue
-            rid = m.state.robot_id
-            goals[rid]     = goal
-            positions[rid] = m.state.position
-            starts[rid]    = self.state_timestamp(m)
+            target_groups.setdefault(tuple(goal), []).append(m)
+
+        for goal_cell, managers in target_groups.items():
+            if len(managers) > 1:
+                # Carrying robots get the slot first because their cargo is
+                # already committed to this task. Then prefer the oldest task.
+                def slot_priority(manager):
+                    task = manager.current_task
+                    carrying = bool(manager.state.has_cargo)
+                    created = getattr(task, "created_at", 0.0) if task else 0.0
+                    task_id = getattr(task, "task_id", "") if task else ""
+                    return (0 if carrying else 1, created, task_id)
+
+                managers.sort(key=slot_priority)
+                slot_holder = managers[0]
+
+                for blocked in managers[1:]:
+                    blocked.state.planned_path = []
+                    blocked.state.status = RobotStatus.WAITING
+                    blocked.waiting_on = f"GOAL_SLOT:{goal_cell[0]},{goal_cell[1]}"
+                    blocked.wait_time += 1.0
+                    self.event_log.log_conflict(
+                        blocked.state.robot_id,
+                        slot_holder.state.robot_id,
+                        "GOAL_SLOT",
+                        "WAIT_SHARED_TARGET",
+                        self.tick_count,
+                    )
+
+                managers = [slot_holder]
+
+            for m in managers:
+                rid = m.state.robot_id
+                goals[rid]     = m.get_current_goal()
+                positions[rid] = m.state.position
+                starts[rid]    = self.state_timestamp(m)
 
         if not goals:
             return
@@ -464,18 +501,13 @@ class Simulator:
 
             # CBS may legitimately fail to find a route for one active robot
             # while other robots still receive valid paths. Never leave that
-            # robot advertising MOVING/IN TRANSIT with an empty route: that
-            # makes the dashboard claim motion while the AMR is physically
-            # stationary. Keep the task active, expose WAITING, and let the
-            # normal CBS retry cycle try again.
+            # robot advertising MOVING/IN TRANSIT with an empty route.
             if goal is not None:
                 current_cell = (
                     int(m.state.position[0]),
                     int(m.state.position[1]),
                 )
                 if current_cell == (int(goal[0]), int(goal[1])):
-                    # Arrival may have become true between planning and path
-                    # injection (e.g. a pickup/dropoff checkpoint).
                     m._handle_arrival()
                     if m.current_task is None or m.target_cell is None:
                         continue
