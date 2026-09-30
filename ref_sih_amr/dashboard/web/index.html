@@ -1318,13 +1318,13 @@ body {
                       <td id="bench-B0-status" class="px-3 py-2 text-gray-400">Awaiting live run</td>
                     </tr>
                     <tr class="text-gray-600">
-                      <td class="px-3 py-2 font-bold font-sans">B1 Priority Token</td>
+                      <td class="px-3 py-2 font-bold font-sans">B1 Independent A*</td>
                       <td id="bench-B1-makespan" class="px-3 py-2">—</td>
                       <td id="bench-B1-collisions" class="px-3 py-2">—</td>
                       <td id="bench-B1-status" class="px-3 py-2 text-gray-400">Awaiting live run</td>
                     </tr>
                     <tr class="text-gray-600">
-                      <td class="px-3 py-2 font-bold font-sans">B2 Local RVO2</td>
+                      <td class="px-3 py-2 font-bold font-sans">B2 Stop-and-Wait</td>
                       <td id="bench-B2-makespan" class="px-3 py-2">—</td>
                       <td id="bench-B2-collisions" class="px-3 py-2">—</td>
                       <td id="bench-B2-status" class="px-3 py-2 text-gray-400">Awaiting live run</td>
@@ -1381,8 +1381,8 @@ body {
             <span class="material-symbols-outlined text-indigo-600 text-[20px]">trending_up</span>
           </div>
           <div class="mt-2 flex items-baseline gap-2">
-            <span class="text-3xl font-heading font-black text-gray-900" id="kpi-efficiency">−62.47%</span>
-            <span class="text-xs font-bold text-indigo-600">3-AMR vs Stop-and-Wait</span>
+            <span class="text-3xl font-heading font-black text-gray-900" id="kpi-efficiency">LIVE</span>
+            <span class="text-xs font-bold text-indigo-600">Live benchmark comparison</span>
           </div>
         </div>
 
@@ -1567,7 +1567,7 @@ body {
           <label class="font-bold text-gray-700 block mb-1">Routing Strategy</label>
           <div class="p-2.5 rounded-xl bg-indigo-50/60 border border-indigo-200 text-indigo-900 font-mono text-[11px]">
             &bull; Hungarian Global Optimal Matching<br/>
-            &bull; RVO2 Dynamic Collision Avoidance
+            &bull; CBS Multi-Robot Conflict-Free Planning
           </div>
         </div>
       </div>
