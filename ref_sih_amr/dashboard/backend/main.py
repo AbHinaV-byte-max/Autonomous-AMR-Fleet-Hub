@@ -376,7 +376,7 @@ async def submit_task(request: dict):
                 priority=priority, status=TaskStatus.QUEUED,
                 created_at=float(CURRENT_SIM.tick_count), source="MANUAL")
     CURRENT_SIM.tasks.append(task)
-    CURRENT_SIM.dispatch_manual_task(task)
+    CURRENT_SIM._allocate()
 
     assigned_robot_id = task.assigned_robot_id
     task_status = task.status.value
