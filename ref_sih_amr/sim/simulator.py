@@ -457,7 +457,7 @@ class Simulator:
                         blocked.state.robot_id,
                         slot_holder.state.robot_id,
                         "GOAL_SLOT",
-                        "WAIT_SHARED_TARGET",
+                        "CBS_RESOLVED",
                         self.tick_count,
                     )
 
