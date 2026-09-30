@@ -2,7 +2,7 @@ import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from sim.simulator import Simulator
-from models import TaskStatus, RobotStatus
+from models import TaskStatus, RobotStatus, Task
 
 # ---------------------------------------------------------------------------
 # Scenario A (Section 23.1) — Perpendicular intersection conflict
