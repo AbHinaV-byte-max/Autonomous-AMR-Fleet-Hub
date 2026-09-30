@@ -1237,7 +1237,7 @@ body {
             <!-- Bottom 3D Status Strip -->
             <div class="flex flex-wrap items-center justify-between text-xs text-gray-600 bg-white/50 px-4 py-2 rounded-2xl border border-white/60">
               <div class="flex items-center gap-6">
-                <span>AMRs Active: <strong id="mapStatRobots" class="text-gray-900 font-bold">9 / 9</strong></span>
+                <span>AMRs Active: <strong id="mapStatRobots" class="text-gray-900 font-bold">8 / 8</strong></span>
                 <span>Active Orders: <strong id="mapStatInTransit" class="text-indigo-600 font-bold">0</strong></span>
                 <span>Queued: <strong id="mapStatQueued" class="text-amber-600 font-bold">0</strong></span>
                 <span>Delivered: <strong id="mapStatCompleted" class="text-emerald-600 font-bold">12</strong></span>
@@ -1404,11 +1404,11 @@ body {
             <span class="material-symbols-outlined text-emerald-600 text-[20px]">battery_charging_full</span>
           </div>
           <div class="mt-2 flex items-baseline gap-2">
-            <span class="text-3xl font-heading font-black text-gray-900" id="kpi-nodes-count">9 / 9</span>
+            <span class="text-3xl font-heading font-black text-gray-900" id="kpi-nodes-count">8 / 8</span>
             <span class="text-xs font-bold text-emerald-600" id="kpi-nodes-desc">Nodes Online</span>
           </div>
           <div class="mt-1 flex items-center gap-1.5 text-[10px] text-gray-500 font-mono">
-            <span id="kpi-active-status" class="text-emerald-700 font-bold">9 Active</span> &bull; 
+            <span id="kpi-active-status" class="text-emerald-700 font-bold">8 Active</span> &bull; 
             <span id="kpi-charging-status" class="text-cyan-700 font-bold">0 Charging</span> &bull; 
             <span id="kpi-low-status" class="text-amber-700 font-bold">0 Low</span> &bull; 
             <span id="kpi-offline-status" class="text-rose-700 font-bold">0 Off</span>
@@ -1473,7 +1473,7 @@ body {
                 <span class="material-symbols-outlined text-indigo-600 text-[20px]">smart_toy</span>
                 Live Swarm Fleet
               </h2>
-              <span id="fleetHeaderBadge" class="text-xs text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs">9 Active</span>
+              <span id="fleetHeaderBadge" class="text-xs text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs">8 Active</span>
             </div>
 
             <!-- Fleet Status & Charging Hub Counters -->
@@ -3085,9 +3085,26 @@ body {
         return;
       }
 
-      const statusLabel = (status) => {
+      const liveRobotsById = new Map(
+        (state.robots || []).map(r => [r.robot_id || r.id, r])
+      );
+
+      const statusLabel = (status, assignedRobotId) => {
+        const robot = assignedRobotId ? liveRobotsById.get(assignedRobotId) : null;
+
+        // Task status is authoritative for lifecycle, but robot execution
+        // state is authoritative for whether an IN_PROGRESS task is actually
+        // moving. This prevents a stationary CBS-waiting AMR from being shown
+        // as "IN TRANSIT".
         if (status === 'COMPLETED' || status === 4) return 'COMPLETED';
-        if (status === 'IN_PROGRESS' || status === 3) return 'IN TRANSIT';
+        if (status === 'IN_PROGRESS' || status === 3) {
+          if (!robot) return 'ROBOT MISSING';
+          if (robot.state === 'WAITING') return 'WAITING';
+          if (robot.state === 'REROUTING') return 'REROUTING';
+          if (robot.state === 'OFFLINE') return 'OFFLINE';
+          if (robot.state === 'CHARGING') return 'CHARGING';
+          return 'IN TRANSIT';
+        }
         if (status === 'ASSIGNED' || status === 2) return 'ASSIGNED';
         if (status === 'QUEUED' || status === 1) return 'QUEUED';
         if (status === 'UNAVAILABLE') return 'UNAVAILABLE';
@@ -3095,10 +3112,13 @@ body {
         return String(status ?? 'UNKNOWN');
       };
 
-      const statusClass = (status) => {
-        const label = statusLabel(status);
+      const statusClass = (status, assignedRobotId) => {
+        const label = statusLabel(status, assignedRobotId);
         if (label === 'COMPLETED') return 'bg-emerald-100 text-emerald-800';
         if (label === 'IN TRANSIT') return 'bg-indigo-100 text-indigo-800';
+        if (label === 'WAITING' || label === 'REROUTING') return 'bg-amber-100 text-amber-800';
+        if (label === 'OFFLINE' || label === 'ROBOT MISSING') return 'bg-rose-100 text-rose-800';
+        if (label === 'CHARGING') return 'bg-cyan-100 text-cyan-800';
         if (label === 'ASSIGNED') return 'bg-cyan-100 text-cyan-800';
         if (label === 'UNAVAILABLE') return 'bg-rose-100 text-rose-800';
         return 'bg-amber-100 text-amber-800';
@@ -3128,7 +3148,7 @@ body {
         const robot = displayAssignedRobot(t.assigned_robot_id);
         const pickup = t.pickup || t.pickup_cell || '—';
         const dropoff = t.dropoff || t.dropoff_cell || '—';
-        const status = statusLabel(t.status);
+        const status = statusLabel(t.status, t.assigned_robot_id);
         if (id === state.lastManualTaskId) updateManualTracking(id, t.assigned_robot_id, status);
         const isManual = id === state.lastManualTaskId;
         const rowClass = isManual ? 'text-gray-700 bg-indigo-50/80 ring-1 ring-inset ring-indigo-200' : 'text-gray-700';
@@ -3136,7 +3156,7 @@ body {
           <td class="px-4 py-3 font-mono font-bold text-gray-900">${id}${isManual ? ' <span class="ml-1 text-[9px] text-indigo-700 font-sans uppercase tracking-wider">MANUAL</span>' : ''}</td>
           <td class="px-4 py-3 font-mono text-indigo-700 font-semibold">${robot}</td>
           <td class="px-4 py-3 font-mono">${pickup} &rarr; ${dropoff}</td>
-          <td class="px-4 py-3"><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-bold ${statusClass(t.status)}">${status}</span></td>
+          <td class="px-4 py-3"><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-bold ${statusClass(t.status, t.assigned_robot_id)}">${status}</span></td>
         </tr>`;
       }).join('');
     }
