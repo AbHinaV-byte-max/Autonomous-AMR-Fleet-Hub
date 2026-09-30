@@ -168,6 +168,25 @@ class Simulator:
     # Public debug/test hooks
     # -------------------------------------------------------------------------
 
+    def clear_queued_auto_tasks(self) -> int:
+        """Remove pending automatic orders when switching to manual-only mode.
+
+        Assigned/in-transit tasks are deliberately preserved so active AMRs
+        continue their current work. Manual tasks are never removed here.
+        """
+        queued_auto_ids = {
+            t.task_id for t in self.tasks
+            if t.status == TaskStatus.QUEUED and getattr(t, "source", "AUTO") == "AUTO"
+        }
+        if not queued_auto_ids:
+            return 0
+
+        self.tasks = [t for t in self.tasks if t.task_id not in queued_auto_ids]
+        self.task_generator.queue = [
+            t for t in self.task_generator.queue if t.task_id not in queued_auto_ids
+        ]
+        return len(queued_auto_ids)
+
     def block_cell(self, x: int, y: int):
         """Mark a free cell as temporarily blocked (Phase 4 Scenario S4)."""
         self.blocked_cells.add((x, y))
