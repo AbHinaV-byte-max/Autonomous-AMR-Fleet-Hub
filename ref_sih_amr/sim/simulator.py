@@ -423,6 +423,12 @@ class Simulator:
         self.tick_count += 1
         t = float(self.tick_count)
 
+        # Track active tasks before any arrival resolution so a completion
+        # during this tick can trigger immediate dispatch.
+        active_task_robots_before_tick = {
+            m.state.robot_id for m in self.robot_managers if m.current_task is not None
+        }
+
         # 1. Generate tasks
         new_tasks = self.task_generator.tick(t)
         self.tasks.extend(new_tasks)
@@ -451,12 +457,6 @@ class Simulator:
                     m._handle_arrival()
 
         # 3. Tick each robot manager
-        # Remember which robots had an active task so a completion can trigger
-        # immediate dispatch instead of waiting for the 5-tick allocator cycle.
-        active_task_robots_before_tick = {
-            m.state.robot_id for m in self.robot_managers if m.current_task is not None
-        }
-
         if self.strategy == "B0":
             active_robots = [m for m in self.robot_managers if m.state.status == RobotStatus.MOVING and m.state.planned_path]
             if not active_robots:
