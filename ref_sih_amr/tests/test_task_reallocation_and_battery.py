@@ -81,3 +81,84 @@ def test_battery_drain_and_auto_recharge_failover():
     initial_charge = r0.state.battery
     sim.tick()
     assert r0.state.battery > initial_charge, "Battery should increase while CHARGING"
+
+
+def test_completed_robot_is_reassigned_without_waiting_for_periodic_allocator():
+    sim = Simulator(ascii_map=GRID_MAP, headless=True, strategy="B0")
+    sim.tasks.clear()
+    sim.task_generator.queue.clear()
+    sim.task_generator.spawn_interval = 999
+
+    r0 = sim.robot_managers[0]
+    r1 = sim.robot_managers[1]
+
+    # Leave only r0 eligible so the follow-up task must return to the robot
+    # that just finished its delivery.
+    r1.state.status = RobotStatus.OFFLINE
+    r1.current_task = None
+    r1.state.current_task_id = None
+    r1.state.planned_path = []
+    r1.target_cell = None
+
+    completed = Task(
+        "COMPLETED_NOW",
+        pickup_cell=(3, 2),
+        dropoff_cell=(3, 3),
+        priority=1,
+        status=TaskStatus.IN_PROGRESS,
+        assigned_robot_id=r0.state.robot_id,
+    )
+    follow_up = Task(
+        "FOLLOW_UP",
+        pickup_cell=(3, 2),
+        dropoff_cell=(3, 3),
+        priority=1,
+        status=TaskStatus.QUEUED,
+    )
+    sim.tasks.extend([completed, follow_up])
+
+    r0.current_task = completed
+    r0.state.current_task_id = completed.task_id
+    r0.state.status = RobotStatus.MOVING
+    r0.state.position = (3.0, 3.0)
+    r0.target_cell = completed.dropoff_cell
+    r0.state.planned_path = []
+
+    sim.tick()
+
+    assert completed.status == TaskStatus.COMPLETED
+    assert r0.current_task is not None
+    assert r0.current_task.task_id == follow_up.task_id
+    assert r0.state.status == RobotStatus.MOVING
+    assert follow_up.assigned_robot_id == r0.state.robot_id
+
+
+def test_completed_robot_does_not_leave_long_future_reservation():
+    sim = Simulator(ascii_map=GRID_MAP, headless=True, strategy="B0")
+    sim.tasks.clear()
+    sim.task_generator.queue.clear()
+
+    r0 = sim.robot_managers[0]
+    task = Task(
+        "DELIVERY_DONE",
+        pickup_cell=(3, 2),
+        dropoff_cell=(3, 3),
+        priority=1,
+        status=TaskStatus.IN_PROGRESS,
+        assigned_robot_id=r0.state.robot_id,
+    )
+    r0.current_task = task
+    r0.state.current_task_id = task.task_id
+    r0.state.status = RobotStatus.MOVING
+    r0.state.timestamp = 10.0
+    r0.state.position = (3.0, 3.0)
+    r0.target_cell = task.dropoff_cell
+    r0.state.planned_path = []
+
+    r0._handle_arrival()
+
+    assert task.status == TaskStatus.COMPLETED
+    assert r0.state.status == RobotStatus.IDLE
+    assert sim.global_reservation_table.get_claimer((3, 3), 10.0) == r0.state.robot_id
+    assert sim.global_reservation_table.get_claimer((3, 3), 11.0) is None
+    assert sim.global_reservation_table.get_claimer((3, 3), 209.0) is None
