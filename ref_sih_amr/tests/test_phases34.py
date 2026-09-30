@@ -179,8 +179,8 @@ def test_s5_robot_failure_task_recovery():
 
     task = Task(
         task_id="S5_FAILOVER",
-        pickup_cell=(9, 3),
-        dropoff_cell=(7, 3),
+        pickup_cell=(3, 1),
+        dropoff_cell=(7, 1),
         priority=1,
         status=TaskStatus.ASSIGNED,
         assigned_robot_id=r0.state.robot_id,
