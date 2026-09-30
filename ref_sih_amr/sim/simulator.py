@@ -350,9 +350,21 @@ class Simulator:
         preempted. This keeps the manual control path responsive without
         abandoning a physical payload.
         """
-        self._allocate()
-        if task.assigned_robot_id:
-            return task.assigned_robot_id
+        # Manual work has first claim on currently idle AMRs. Do not let a
+        # recoverable AUTO task consume the only idle robot before the
+        # operator's explicit request is considered.
+        eligible = [
+            m.state for m in self.robot_managers
+            if m.state.status == RobotStatus.IDLE and m.state.battery > 20.0
+        ]
+        if eligible:
+            assignments = self.allocator.allocate(eligible, [task])
+            for robot_id in assignments:
+                manager = next(m for m in self.robot_managers if m.state.robot_id == robot_id)
+                manager.assign_task(task)
+                if self.strategy == "P1":
+                    self._run_cbs_planning()
+                return robot_id
 
         preemptable = [
             m for m in self.robot_managers
