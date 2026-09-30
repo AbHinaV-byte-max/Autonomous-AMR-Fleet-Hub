@@ -2,7 +2,7 @@ import sys, os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from sim.simulator import Simulator
-from models import TaskStatus, RobotStatus
+from models import TaskStatus, RobotStatus, Task
 
 # ---------------------------------------------------------------------------
 # Scenario A (Section 23.1) — Perpendicular intersection conflict
@@ -153,22 +153,62 @@ FAILURE_MAP = """\
 
 def test_s5_robot_failure_task_recovery():
     """
-    S5: Kill robot-0 mid-task, assert its task becomes RECOVERABLE
-    and is completed by another robot within 600 ticks.
-    """
-    sim = Simulator(ascii_map=FAILURE_MAP, headless=True)
-    sim.run(max_ticks=80)          # let task assignment happen
-    sim.kill_robot("robot-0")      # hard kill
+    S5: Kill robot-0 mid-task, assert its task becomes RECOVERABLE,
+    is reassigned to robot-1, and is completed within 600 ticks.
 
-    completed_before = sim.completed_tasks
+    Keep the scenario deterministic: background task generation can otherwise
+    continuously occupy both robots and unrelated dropoff slots, turning this
+    into a workload/starvation test rather than a robot-failure recovery test.
+    """
+    sim = Simulator(ascii_map=FAILURE_MAP, headless=True, strategy="P1")
+
+    # Remove background workload so the test exercises only the failover path.
+    sim.tasks.clear()
+    sim.task_generator.queue.clear()
+    sim.task_generator.spawn_interval = 999
+
+    r0, r1 = sim.robot_managers[:2]
+
+    # Make robot-1 the known recovery target.
+    r1.current_task = None
+    r1.state.current_task_id = None
+    r1.state.planned_path = []
+    r1.target_cell = None
+    r1.state.status = RobotStatus.IDLE
+    r1.state.battery = 90.0
+
+    task = Task(
+        task_id="S5_FAILOVER",
+        pickup_cell=(9, 3),
+        dropoff_cell=(7, 3),
+        priority=1,
+        status=TaskStatus.ASSIGNED,
+        assigned_robot_id=r0.state.robot_id,
+    )
+    sim.tasks.append(task)
+    r0.assign_task(task)
+
+    # Let robot-0 make progress, then hard-kill it mid-task.
+    sim.run(max_ticks=5)
+    assert r0.current_task is task
+    sim.kill_robot("robot-0")
+
+    assert r0.state.status == RobotStatus.OFFLINE
+    assert task.status == TaskStatus.ASSIGNED or task.status == TaskStatus.RECOVERABLE
+
+    # Recovery must hand the orphaned task to the surviving robot and finish it.
     sim.run(max_ticks=600)
 
-    # robot-0's task should have been recovered
-    recoverable_remaining = [t for t in sim.tasks
-                              if t.status == TaskStatus.RECOVERABLE]
-    assert len(recoverable_remaining) == 0 or sim.completed_tasks > completed_before, (
-        "Orphaned task was not recovered and no new tasks were completed")
-    print(f"S5 passed — completed after kill: {sim.completed_tasks}")
+    recoverable_remaining = [
+        t for t in sim.tasks if t.task_id == task.task_id and t.status == TaskStatus.RECOVERABLE
+    ]
+    assert not recoverable_remaining, "Orphaned task was not recovered"
+    assert task.status == TaskStatus.COMPLETED, (
+        f"Recovered task did not complete: status={task.status}, "
+        f"assigned_robot_id={task.assigned_robot_id}"
+    )
+    assert task.assigned_robot_id == r1.state.robot_id
+    print(f"S5 passed — {task.task_id} recovered by {r1.state.robot_id} and completed")
 
 
 # ---------------------------------------------------------------------------
