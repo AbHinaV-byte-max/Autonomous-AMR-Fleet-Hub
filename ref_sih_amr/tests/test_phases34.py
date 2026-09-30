@@ -29,9 +29,12 @@ HEAD_ON_MAP = """\
 def test_scenario_a_intersection():
     """
     Section 23.1 Scenario A: two robots approach the same cell from
-    perpendicular directions.  Assert: (a) zero vertex collisions,
-    (b) exactly one robot yields (WAITING status at some point),
-    (c) both eventually complete their goals.
+    perpendicular directions. Assert: (a) zero vertex collisions,
+    (b) conflict resolution is observed, and (c) both eventually complete
+    their goals.
+
+    P1 uses CBS as the path authority, so conflict resolution may happen
+    during planning rather than by an execution-time WAITING state.
     """
     ascii_map = """\
 #######
@@ -51,7 +54,7 @@ def test_scenario_a_intersection():
     sim.tasks.extend([t1, t2])
 
     collision_count = 0
-    any_yielded = False
+    conflict_resolved = False
 
     for _ in range(500):
         sim.tick()
@@ -65,11 +68,14 @@ def test_scenario_a_intersection():
                 collision_count += 1
             positions[pos] = m.state.robot_id
 
-        if any(m.state.status == RobotStatus.WAITING for m in sim.robot_managers):
-            any_yielded = True
+        if any(
+            event["outcome"] in {"CBS_RESOLVED", "YIELD", "WAIT_OCCUPIED", "YIELD_WAIT"}
+            for event in sim.event_log.conflict_events
+        ):
+            conflict_resolved = True
 
     assert collision_count == 0, f"Vertex collisions detected: {collision_count}"
-    assert any_yielded, "No robot ever yielded — conflict resolution not triggered"
+    assert conflict_resolved, "No conflict resolution was recorded"
     print(f"Scenario A passed — {sim.completed_tasks} tasks, {collision_count} collisions")
 
 
