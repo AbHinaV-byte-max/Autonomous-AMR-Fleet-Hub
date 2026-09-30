@@ -1080,8 +1080,8 @@ body {
         </div>
 
         <!-- Dispatch Order Button -->
-        <button onclick="openDispatchModal()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-md shadow-indigo-600/30 flex items-center gap-1.5">
-          <span class="material-symbols-outlined text-[16px]">add_circle</span> Dispatch Order
+        <button id="dispatchOrderButton" onclick="openDispatchModal()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-md shadow-indigo-600/30 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+          <span class="material-symbols-outlined text-[16px]">add_circle</span> Manual Dispatch
         </button>
       </div>
     </div>
@@ -3319,6 +3319,7 @@ body {
     function renderAutoOrderMode() {
       const button = document.getElementById('autoOrdersToggle');
       const label = document.getElementById('pipelineModeLabel');
+      const dispatchButton = document.getElementById('dispatchOrderButton');
       if (!button) return;
       button.innerText = state.autoOrdersEnabled ? 'ON' : 'OFF';
       button.className = state.autoOrdersEnabled
@@ -3326,8 +3327,14 @@ body {
         : 'px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-all';
       if (label) {
         label.innerText = state.autoOrdersEnabled
-          ? 'Automatic task generation enabled'
-          : 'MANUAL DISPATCH ONLY · automatic generation paused';
+          ? 'AUTOMATIC MODE · background orders enabled'
+          : 'MANUAL MODE · operator dispatch only';
+      }
+      if (dispatchButton) {
+        dispatchButton.disabled = state.autoOrdersEnabled;
+        dispatchButton.title = state.autoOrdersEnabled
+          ? 'Turn Auto Orders OFF to dispatch a manual order'
+          : 'Create a manual operator order';
       }
     }
 
@@ -3359,6 +3366,10 @@ body {
     }
 
     function openDispatchModal() {
+      if (state.autoOrdersEnabled) {
+        window.alert('Manual Dispatch is available only when Auto Orders is OFF.');
+        return;
+      }
       document.getElementById('dispatchModal').classList.remove('hidden');
     }
 
