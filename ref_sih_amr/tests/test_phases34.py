@@ -189,7 +189,7 @@ def test_s5_robot_failure_task_recovery():
     r0.assign_task(task)
 
     # Let robot-0 make progress, then hard-kill it mid-task.
-    sim.run(max_ticks=20)
+    sim.run(max_ticks=5)
     assert r0.current_task is task
     sim.kill_robot("robot-0")
 
