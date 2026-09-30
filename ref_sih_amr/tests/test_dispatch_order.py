@@ -32,3 +32,26 @@ def test_s1_dispatch_points_are_real_map_cells():
 def test_s1_dispatch_points_are_distinct():
     assert len(set(S1_PICKUP_STATIONS.values())) == len(S1_PICKUP_STATIONS)
     assert len(set(S1_TARGET_DOCKS.values())) == len(S1_TARGET_DOCKS)
+
+
+def test_p1_initial_allocation_injects_executable_paths():
+    from experiments.runner import SCENARIOS
+    from sim.simulator import Simulator
+
+    sim = Simulator(SCENARIOS["S1_Normal"], headless=True, strategy="P1")
+    active = [m for m in sim.robot_managers if m.current_task is not None]
+    assert active, "P1 should assign initial work"
+    assert any(m.state.planned_path for m in active), "P1 initial assignments need executable CBS/A* paths"
+
+
+def test_auto_tick_keeps_moving_after_task_generation():
+    from experiments.runner import SCENARIOS
+    from sim.simulator import Simulator
+
+    sim = Simulator(SCENARIOS["S1_Normal"], headless=True, strategy="P1")
+    sim.task_generator.enabled = True
+    before = {m.state.robot_id: tuple(m.state.position) for m in sim.robot_managers}
+    for _ in range(3):
+        sim.tick()
+    after = {m.state.robot_id: tuple(m.state.position) for m in sim.robot_managers}
+    assert any(before[rid] != after[rid] for rid in before), f"No AMR moved: before={before}, after={after}"

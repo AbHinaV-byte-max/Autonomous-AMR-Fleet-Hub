@@ -84,6 +84,7 @@ def inject_bus(bus: TelemetryBus):
 
 
 CURRENT_SIM = None
+_SIM_LOCK = threading.RLock()
 
 def live_simulation_loop(bus):
     global LIVE_SCENARIO, CURRENT_SIM
@@ -122,7 +123,8 @@ def live_simulation_loop(bus):
                 sim.kill_robot("robot-0")
                 
             sim.task_generator.enabled = AUTO_TASKS_ENABLED
-            sim.tick()
+            with _SIM_LOCK:
+                sim.tick()
             if SIM_STEP_REQUEST:
                 SIM_STEP_REQUEST = False
             time.sleep(SIM_TICK_RATE)  # Smooth, observable pace
@@ -188,14 +190,15 @@ async def set_auto_task_mode(request: dict):
     if not request or "enabled" not in request:
         raise HTTPException(status_code=400, detail="enabled is required")
     AUTO_TASKS_ENABLED = bool(request["enabled"])
-    sim = CURRENT_SIM
     cleared_auto_tasks = 0
+    sim = CURRENT_SIM
     if sim is not None:
-        sim.task_generator.enabled = AUTO_TASKS_ENABLED
-        if not AUTO_TASKS_ENABLED:
-            cleared_auto_tasks = sim.clear_queued_auto_tasks()
-        if sim.telemetry_bus is not None:
-            sim.telemetry_bus.publish(sim._build_snapshot())
+        with _SIM_LOCK:
+            sim.task_generator.enabled = AUTO_TASKS_ENABLED
+            if not AUTO_TASKS_ENABLED:
+                cleared_auto_tasks = sim.clear_queued_auto_tasks()
+            if sim.telemetry_bus is not None:
+                sim.telemetry_bus.publish(sim._build_snapshot())
     return {"status": "ok", "enabled": AUTO_TASKS_ENABLED, "cleared_auto_tasks": cleared_auto_tasks}
 
 
