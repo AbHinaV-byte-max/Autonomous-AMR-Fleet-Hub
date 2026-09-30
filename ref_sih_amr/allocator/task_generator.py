@@ -29,7 +29,8 @@ class TaskGenerator:
                     dropoff_cell=dropoff,
                     priority=random.randint(1, 5),
                     status=TaskStatus.QUEUED,
-                    created_at=current_time
+                    created_at=current_time,
+                    source="AUTO"
                 )
                 self.queue.append(task)
                 new_tasks.append(task)
