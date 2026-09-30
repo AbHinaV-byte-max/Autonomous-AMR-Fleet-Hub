@@ -194,9 +194,11 @@ def test_s5_robot_failure_task_recovery():
     sim.kill_robot("robot-0")
 
     assert r0.state.status == RobotStatus.OFFLINE
-    assert task.status == TaskStatus.ASSIGNED or task.status == TaskStatus.RECOVERABLE
+    assert task.status == TaskStatus.ASSIGNED
+    assert task.assigned_robot_id == r1.state.robot_id
+    assert r1.current_task is task
 
-    # Recovery must hand the orphaned task to the surviving robot and finish it.
+    # Recovery must finish the exact orphaned task within the acceptance window.
     sim.run(max_ticks=600)
 
     recoverable_remaining = [
