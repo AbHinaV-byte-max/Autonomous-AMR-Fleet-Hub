@@ -1129,15 +1129,6 @@ body {
                   <span class="material-symbols-outlined text-indigo-600 text-[16px]">center_focus_strong</span>
                   <select id="inspectAmrSelect" onchange="inspectRobot(this.value)" class="text-xs font-heading font-bold bg-transparent text-indigo-950 outline-none cursor-pointer">
                     <option value="">🎯 Inspect AMR...</option>
-                    <option value="AMR-01">AMR-01 (Lead)</option>
-                    <option value="AMR-02">AMR-02</option>
-                    <option value="AMR-03">AMR-03</option>
-                    <option value="AMR-04">AMR-04</option>
-                    <option value="AMR-05">AMR-05</option>
-                    <option value="AMR-06">AMR-06</option>
-                    <option value="AMR-07">AMR-07</option>
-                    <option value="AMR-08">AMR-08</option>
-                    <option value="AMR-09">AMR-09</option>
                   </select>
                 </div>
 
@@ -2098,8 +2089,32 @@ body {
       return group;
     }
 
+    function updateInspectAmrSelector(robots) {
+      const select = document.getElementById('inspectAmrSelect');
+      if (!select) return;
+      const currentValue = select.value;
+      const liveIds = (robots || []).map(r => r.robot_id || r.id).filter(Boolean);
+      select.innerHTML = '<option value="">🎯 Inspect AMR...</option>' +
+        liveIds.map((rid, index) => {
+          const displayId = formatAmrDisplayId(rid);
+          const label = index === 0 ? displayId + ' (Lead)' : displayId;
+          return '<option value="' + displayId + '">' + label + '</option>';
+        }).join('');
+      if (currentValue && liveIds.some(rid => formatAmrDisplayId(rid) === currentValue)) {
+        select.value = currentValue;
+      } else {
+        select.value = '';
+        if (state.selectedRobotId && !liveIds.includes(state.selectedRobotId)) {
+          state.selectedRobotId = null;
+          state.cameraMode = 'overview';
+          lastTrackedBotPos = null;
+        }
+      }
+    }
+
     function updateRobots3D(robots) {
       if (!robots) return;
+      updateInspectAmrSelector(robots);
       const mapW = state.grid.length ? state.grid[0].length : 30;
       const mapH = state.grid.length ? state.grid.length : 20;
 
@@ -3092,6 +3107,13 @@ body {
       // Keep the pipeline focused on the most recently created orders.
       // The simulator may append new tasks beyond the initial task set, so
       // displaying the first 12 entries would hide freshly dispatched orders.
+      const liveRobotIds = new Set((state.robots || []).map(r => r.robot_id || r.id));
+      const displayAssignedRobot = (robotId) => {
+        if (!robotId) return 'Unassigned';
+        if (!liveRobotIds.has(robotId)) return formatAmrDisplayId(robotId) + ' (not in live fleet)';
+        return formatAmrDisplayId(robotId);
+      };
+
       const visibleTasks = [...list].sort((a, b) => {
         const createdA = Number(a.created_at ?? -Infinity);
         const createdB = Number(b.created_at ?? -Infinity);
@@ -3103,7 +3125,7 @@ body {
 
       body.innerHTML = visibleTasks.map((t) => {
         const id = t.id || t.task_id || 'TASK-—';
-        const robot = formatAmrDisplayId(t.assigned_robot_id || 'Unassigned');
+        const robot = displayAssignedRobot(t.assigned_robot_id);
         const pickup = t.pickup || t.pickup_cell || '—';
         const dropoff = t.dropoff || t.dropoff_cell || '—';
         const status = statusLabel(t.status);
