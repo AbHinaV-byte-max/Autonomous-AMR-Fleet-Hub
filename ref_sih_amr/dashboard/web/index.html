@@ -3333,6 +3333,10 @@ body {
         const data = await apiRequest('/api/tasks/auto');
         state.autoOrdersEnabled = !!data.enabled;
         renderAutoOrderMode();
+        if (!state.autoOrdersEnabled && Number(data.cleared_auto_tasks || 0) > 0) {
+          const label = document.getElementById('pipelineModeLabel');
+          if (label) label.innerText = 'MANUAL DISPATCH ONLY · cleared ' + data.cleared_auto_tasks + ' queued automatic orders';
+        }
       } catch (e) {
         console.warn('Auto-order mode fetch failed:', e);
       }
