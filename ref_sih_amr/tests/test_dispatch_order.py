@@ -35,13 +35,13 @@ def test_s1_dispatch_points_are_distinct():
 
 
 def test_manual_dispatch_can_preempt_unstarted_auto_task():
-    from models import TaskStatus
+    from models import Task, TaskStatus
     from sim.simulator import Simulator
 
     sim = Simulator(SCENARIOS["S1_Normal"], headless=True, strategy="P1")
     sim.task_generator.enabled = False
 
-    manual = __import__("models").Task(
+    manual = Task(
         task_id="MANUAL_PRIORITY",
         pickup_cell=S1_PICKUP_STATIONS["PK-1 (Aisle 1)"],
         dropoff_cell=S1_TARGET_DOCKS["DD-1 (Left Bay)"],
