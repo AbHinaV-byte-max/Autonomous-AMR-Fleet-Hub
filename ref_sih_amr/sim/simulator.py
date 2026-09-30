@@ -495,6 +495,32 @@ class Simulator:
             event_logger=self.event_log, tick=self.tick_count
         )
 
+        # The CBS planner can exhaust its conflict-tree budget on a dense
+        # rolling-horizon problem. A partial/empty CBS result must not strand
+        # every active AMR. Robots with no CBS route get one low-level A* path
+        # to their current goal as a liveness fallback; execution-time
+        # occupancy checks still remain authoritative.
+        fallback_count = 0
+        for m in self.robot_managers:
+            rid = m.state.robot_id
+            goal = goals.get(rid)
+            if goal is None or paths.get(rid):
+                continue
+            fallback = self.planner.plan(
+                start=m.state.position,
+                goal=goal,
+                costmap=self.grid_map,
+                reservation_table=self.global_reservation_table,
+                start_time=float(self.tick_count),
+                robot_id=rid,
+            )
+            if fallback:
+                paths[rid] = fallback
+                fallback_count += 1
+                self.event_log.log_conflict(
+                    rid, "CBS", "NO_JOINT_PATH", "ASTAR_FALLBACK", self.tick_count
+                )
+
         injected = 0
         for m in self.robot_managers:
             rid = m.state.robot_id
