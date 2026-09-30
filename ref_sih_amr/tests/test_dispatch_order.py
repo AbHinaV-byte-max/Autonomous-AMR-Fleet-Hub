@@ -145,3 +145,18 @@ def test_manual_dispatch_can_use_robot_after_post_delivery_staging():
     assert task.assigned_robot_id == robot.state.robot_id
     assert task.status == TaskStatus.ASSIGNED
     assert robot.current_task is task
+
+
+def test_auto_pickup_points_are_traversable_aisle_cells():
+    from experiments.runner import SCENARIOS
+    from sim.simulator import Simulator
+
+    sim = Simulator(SCENARIOS["S1_Normal"], headless=True, strategy="P1")
+
+    assert sim.pickup_cells
+    for x, y in sim.pickup_cells:
+        assert sim.grid_map.get_cell(x, y) == "."
+        assert any(
+            sim.grid_map.get_cell(x + dx, y + dy) == "#"
+            for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]
+        )
