@@ -3065,7 +3065,19 @@ body {
         return 'bg-amber-100 text-amber-800';
       };
 
-      body.innerHTML = list.slice(0, 12).map((t) => {
+      // Keep the pipeline focused on the most recently created orders.
+      // The simulator may append new tasks beyond the initial task set, so
+      // displaying the first 12 entries would hide freshly dispatched orders.
+      const visibleTasks = [...list].sort((a, b) => {
+        const createdA = Number(a.created_at ?? -Infinity);
+        const createdB = Number(b.created_at ?? -Infinity);
+        if (Number.isFinite(createdA) && Number.isFinite(createdB) && createdA !== createdB) {
+          return createdB - createdA;
+        }
+        return String(b.id || b.task_id || '').localeCompare(String(a.id || a.task_id || ''));
+      }).slice(0, 12);
+
+      body.innerHTML = visibleTasks.map((t) => {
         const id = t.id || t.task_id || 'TASK-—';
         const robot = t.assigned_robot_id || 'Unassigned';
         const pickup = t.pickup || t.pickup_cell || '—';
