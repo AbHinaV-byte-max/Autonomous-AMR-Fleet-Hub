@@ -102,3 +102,4 @@ class Task:
     status: TaskStatus = TaskStatus.QUEUED
     created_at: float = 0.0
     assigned_robot_id: Optional[str] = None
+    source: str = "AUTO"  # AUTO-generated or MANUAL operator dispatch
