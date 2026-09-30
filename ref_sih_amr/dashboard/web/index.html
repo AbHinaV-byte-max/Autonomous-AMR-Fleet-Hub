@@ -3036,6 +3036,14 @@ body {
       }
     }
 
+    function formatAmrDisplayId(robotId) {
+      if (!robotId || robotId === 'Unassigned') return 'Unassigned';
+      const raw = String(robotId);
+      const match = raw.match(/^robot-(\\d+)$/i);
+      if (match) return 'AMR-' + String(Number(match[1]) + 1).padStart(2, '0');
+      return raw;
+    }
+
     function updateOrderPipeline(tasks) {
       const body = document.getElementById('order-pipeline-body');
       if (!body) return;
@@ -3079,7 +3087,7 @@ body {
 
       body.innerHTML = visibleTasks.map((t) => {
         const id = t.id || t.task_id || 'TASK-—';
-        const robot = t.assigned_robot_id || 'Unassigned';
+        const robot = formatAmrDisplayId(t.assigned_robot_id || 'Unassigned');
         const pickup = t.pickup || t.pickup_cell || '—';
         const dropoff = t.dropoff || t.dropoff_cell || '—';
         const payload = t.payload ?? '—';
