@@ -537,6 +537,8 @@ class Simulator:
                 injected += 1
                 continue
 
+            # A* fallback above should normally cover a CBS budget miss. Keep the
+            # last-resort WAIT only for a genuine no-path result.
             # CBS may legitimately fail to find a route for one active robot
             # while other robots still receive valid paths. Never leave that
             # robot advertising MOVING/IN TRANSIT with an empty route.
