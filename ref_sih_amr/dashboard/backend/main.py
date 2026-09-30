@@ -65,6 +65,7 @@ LIVE_SCENARIO = "S1_Normal"
 SIM_TICK_RATE = 0.8  # Seconds between simulation ticks.
 SIM_PAUSED = False
 SIM_STEP_REQUEST = False
+AUTO_TASKS_ENABLED = True
 
 # Shared telemetry bus — injected by the simulation process on startup
 _bus: TelemetryBus = TelemetryBus()
@@ -90,6 +91,7 @@ def live_simulation_loop(bus):
         current_scen = LIVE_SCENARIO
         sim = Simulator(ascii_map=SCENARIOS[current_scen], headless=True, telemetry_bus=bus, strategy="P1")
         sim.scenario_name = current_scen
+        sim.task_generator.enabled = AUTO_TASKS_ENABLED
         CURRENT_SIM = sim
         
         # S6 CommDelay: patch comms so robot-0 drops broadcasts
@@ -119,6 +121,7 @@ def live_simulation_loop(bus):
             elif current_scen == "S5_Failure" and tick == 50:
                 sim.kill_robot("robot-0")
                 
+            sim.task_generator.enabled = AUTO_TASKS_ENABLED
             sim.tick()
             if SIM_STEP_REQUEST:
                 SIM_STEP_REQUEST = False
@@ -173,6 +176,24 @@ async def set_scenario(request: dict):
 @app.get("/api/scenario")
 async def get_scenario():
     return {"scenario": LIVE_SCENARIO}
+
+@app.get("/api/tasks/auto")
+async def get_auto_task_mode():
+    return {"enabled": AUTO_TASKS_ENABLED}
+
+
+@app.post("/api/tasks/auto")
+async def set_auto_task_mode(request: dict):
+    global AUTO_TASKS_ENABLED
+    if not request or "enabled" not in request:
+        raise HTTPException(status_code=400, detail="enabled is required")
+    AUTO_TASKS_ENABLED = bool(request["enabled"])
+    sim = CURRENT_SIM
+    if sim is not None:
+        sim.task_generator.enabled = AUTO_TASKS_ENABLED
+        if sim.telemetry_bus is not None:
+            sim.telemetry_bus.publish(sim._build_snapshot())
+    return {"status": "ok", "enabled": AUTO_TASKS_ENABLED}
 
 
 @app.post("/api/speed")
@@ -354,12 +375,17 @@ async def submit_task(request: dict):
     CURRENT_SIM.tasks.append(task)
     CURRENT_SIM._allocate()
 
+    assigned_robot_id = task.assigned_robot_id
+    task_status = task.status.value
+
     if CURRENT_SIM.telemetry_bus is not None:
         CURRENT_SIM.telemetry_bus.publish(CURRENT_SIM._build_snapshot())
 
     return {"status": "ok", "task_id": task_id,
             "pickup": list(pickup), "dropoff": list(dropoff),
-            "priority": priority}
+            "priority": priority,
+            "assigned_robot_id": assigned_robot_id,
+            "task_status": task_status}
 
 
 _benchmark_lock = asyncio.Lock()
