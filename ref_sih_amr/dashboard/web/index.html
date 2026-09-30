@@ -1115,6 +1115,13 @@ body {
                 </select>
               </div>
 
+              <!-- Automatic vs Manual Order Mode -->
+              <div class="flex items-center gap-2 bg-gray-100/90 px-2.5 py-1 rounded-xl border border-gray-200/80 shadow-sm">
+                <span class="material-symbols-outlined text-amber-600 text-[16px]">autorenew</span>
+                <span class="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Auto Orders</span>
+                <button id="autoOrdersToggle" onclick="toggleAutoOrders()" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-all">ON</button>
+              </div>
+
               <!-- 3D Camera Preset Angles & Inspect AMR -->
               <div class="flex items-center gap-2">
                 <!-- Inspect AMR Dropdown -->
@@ -1429,7 +1436,10 @@ body {
                 <span class="material-symbols-outlined text-indigo-600 text-[20px]">conveyor_belt</span>
                 Logistics Order Pipeline
               </h2>
-              <span class="text-xs text-gray-500 font-medium">Auto-dispatched via Hungarian Assignment</span>
+              <div class="flex items-center gap-2">
+                <span id="manualTrackingStatus" class="text-[10px] font-mono font-semibold text-indigo-700 hidden"></span>
+                <span id="pipelineModeLabel" class="text-xs text-gray-500 font-medium">Automatic task generation enabled</span>
+              </div>
             </div>
 
             <div class="w-full overflow-x-auto rounded-2xl border border-gray-200/80 bg-white/40">
@@ -1598,7 +1608,10 @@ body {
       toggles: { lidar: true, paths: true, racks: true },
       simRate: 0.8,
       currentScenario: 'S1_Normal',
-      cameraMode: 'overview' // 'overview', 'iso', 'top', 'chase'
+      cameraMode: 'overview', // 'overview', 'iso', 'top', 'chase'
+      autoOrdersEnabled: true,
+      lastManualTaskId: null,
+      lastManualAssignedRobotId: null
     };
 
     // Three.js Scene Globals
@@ -2447,6 +2460,7 @@ body {
       try {
         const snap = await apiRequest('/api/fleet/status');
         handleSnapshot(snap);
+        await refreshAutoOrderMode();
       } catch (e) {
         console.warn('Initial fetch fallback:', e);
       }
@@ -3093,8 +3107,10 @@ body {
         const pickup = t.pickup || t.pickup_cell || '—';
         const dropoff = t.dropoff || t.dropoff_cell || '—';
         const status = statusLabel(t.status);
-        return `<tr class="text-gray-700">
-          <td class="px-4 py-3 font-mono font-bold text-gray-900">${id}</td>
+        const isManual = id === state.lastManualTaskId;
+        const rowClass = isManual ? 'text-gray-700 bg-indigo-50/80 ring-1 ring-inset ring-indigo-200' : 'text-gray-700';
+        return `<tr class="${rowClass}">
+          <td class="px-4 py-3 font-mono font-bold text-gray-900">${id}${isManual ? ' <span class="ml-1 text-[9px] text-indigo-700 font-sans uppercase tracking-wider">MANUAL</span>' : ''}</td>
           <td class="px-4 py-3 font-mono text-indigo-700 font-semibold">${robot}</td>
           <td class="px-4 py-3 font-mono">${pickup} &rarr; ${dropoff}</td>
           <td class="px-4 py-3"><span class="inline-flex px-2 py-1 rounded-full text-[10px] font-bold ${statusClass(t.status)}">${status}</span></td>
@@ -3289,6 +3305,58 @@ body {
     /* -------------------------------------------------------------
        DISPATCH ORDER MODAL & OMNIVERSE BRIDGE ACTION
        ------------------------------------------------------------- */
+    async function refreshAutoOrderMode() {
+      try {
+        const data = await apiRequest('/api/tasks/auto');
+        state.autoOrdersEnabled = !!data.enabled;
+        renderAutoOrderMode();
+      } catch (e) {
+        console.warn('Auto-order mode fetch failed:', e);
+      }
+    }
+
+    function renderAutoOrderMode() {
+      const button = document.getElementById('autoOrdersToggle');
+      const label = document.getElementById('pipelineModeLabel');
+      if (!button) return;
+      button.innerText = state.autoOrdersEnabled ? 'ON' : 'OFF';
+      button.className = state.autoOrdersEnabled
+        ? 'px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-100 text-emerald-800 hover:bg-emerald-200 transition-all'
+        : 'px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 transition-all';
+      if (label) {
+        label.innerText = state.autoOrdersEnabled
+          ? 'Automatic task generation enabled'
+          : 'MANUAL DISPATCH ONLY · automatic generation paused';
+      }
+    }
+
+    async function toggleAutoOrders() {
+      const next = !state.autoOrdersEnabled;
+      try {
+        const data = await apiRequest('/api/tasks/auto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: next })
+        });
+        state.autoOrdersEnabled = !!data.enabled;
+        renderAutoOrderMode();
+      } catch (e) {
+        console.error('Auto-order mode toggle failed:', e);
+        window.alert(e.message || 'Unable to change automatic order mode.');
+      }
+    }
+
+    function updateManualTracking(taskId, assignedRobotId, status) {
+      state.lastManualTaskId = taskId || state.lastManualTaskId;
+      state.lastManualAssignedRobotId = assignedRobotId || state.lastManualAssignedRobotId;
+      const el = document.getElementById('manualTrackingStatus');
+      if (!el || !state.lastManualTaskId) return;
+      const statusText = status === 'IN_PROGRESS' ? 'IN TRANSIT' : (status || 'QUEUED');
+      const robotText = formatAmrDisplayId(state.lastManualAssignedRobotId || 'Unassigned');
+      el.innerText = 'Tracking ' + state.lastManualTaskId + ' → ' + robotText + ' · ' + statusText;
+      el.classList.remove('hidden');
+    }
+
     function openDispatchModal() {
       document.getElementById('dispatchModal').classList.remove('hidden');
     }
@@ -3362,6 +3430,9 @@ body {
           throw new Error(data.message || 'Dispatch request was not accepted.');
         }
 
+        state.lastManualTaskId = data.task_id;
+        state.lastManualAssignedRobotId = data.assigned_robot_id || null;
+        updateManualTracking(data.task_id, data.assigned_robot_id, data.task_status);
         closeDispatchModal();
         await fetchInitialState();
       } catch (e) {
