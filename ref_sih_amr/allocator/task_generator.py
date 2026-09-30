@@ -10,11 +10,14 @@ class TaskGenerator:
         self.spawn_interval = spawn_interval
         self.ticks_since_last_spawn = 0
         self.queue: List[Task] = []
+        self.enabled = True
 
     def tick(self, current_time: float) -> List[Task]:
         """Called every simulation tick. Returns newly generated tasks."""
-        self.ticks_since_last_spawn += 1
         new_tasks = []
+        if not self.enabled:
+            return new_tasks
+        self.ticks_since_last_spawn += 1
         if self.ticks_since_last_spawn >= self.spawn_interval:
             self.ticks_since_last_spawn = 0
             if self.pickup_cells and self.dropoff_cells:
