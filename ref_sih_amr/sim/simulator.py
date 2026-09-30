@@ -51,11 +51,16 @@ class Simulator:
         self.telemetry_bus = telemetry_bus   # Phase 5 — write-only publish, never reads back
         self.strategy = strategy
 
-        self.pickup_cells = []
+        # Pickup points are AMR-accessible aisle cells immediately beside racks.
+        # The rack itself remains an obstacle/source location; the AMR never needs
+        # to route onto a rack cell to perform a pickup.
+        pickup_cells = set()
         for x, y in self.grid_map.find_all('#'):
-            # Only add racks that are adjacent to an aisle
-            if any(self.grid_map.get_cell(x+dx, y+dy) == '.' for dx, dy in [(0,1), (1,0), (0,-1), (-1,0)]):
-                self.pickup_cells.append((x, y))
+            for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+                cell = (x + dx, y + dy)
+                if self.grid_map.get_cell(cell[0], cell[1]) == '.':
+                    pickup_cells.add(cell)
+        self.pickup_cells = sorted(pickup_cells, key=lambda cell: (cell[1], cell[0]))
         self.dropoff_cells = self.grid_map.find_all('D')
         self.spawn_cells   = self.grid_map.find_all('R')
         self.free_cells    = self.grid_map.find_all('.')
