@@ -331,10 +331,30 @@ class Simulator:
         if not eligible or not queueable:
             return
 
-        # Prioritize RECOVERABLE tasks from shutdown or low-battery robots so they are taken over first
-        queueable.sort(key=lambda t: (0 if t.status == TaskStatus.RECOVERABLE else 1, t.priority))
+        # A dropoff is a shared physical delivery slot. Do not dispatch
+        # multiple live tasks to the same slot at once: with S1's four D
+        # cells, random task generation could otherwise send a whole fleet
+        # into the same corner and force CBS to solve an impossible target
+        # collision.
+        occupied_dropoffs = {
+            tuple(m.current_task.dropoff_cell)
+            for m in self.robot_managers
+            if m.current_task is not None
+            and m.state.status not in (RobotStatus.OFFLINE, RobotStatus.CHARGING)
+        }
+        available_queueable = [
+            task for task in queueable
+            if tuple(task.dropoff_cell) not in occupied_dropoffs
+        ]
+        if not available_queueable:
+            return
 
-        assignments = self.allocator.allocate(eligible, queueable)
+        # Prioritize RECOVERABLE tasks from shutdown or low-battery robots so they are taken over first
+        available_queueable.sort(
+            key=lambda t: (0 if t.status == TaskStatus.RECOVERABLE else 1, t.priority)
+        )
+
+        assignments = self.allocator.allocate(eligible, available_queueable)
         newly_assigned = []
         for robot_id, task_id in assignments.items():
             manager = next(m for m in self.robot_managers if m.state.robot_id == robot_id)
