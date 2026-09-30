@@ -454,10 +454,40 @@ class Simulator:
         injected = 0
         for m in self.robot_managers:
             rid = m.state.robot_id
-            if rid in paths and paths[rid]:
-                goal = goals[rid]
-                m.inject_path(paths[rid], goal)
+            goal = goals.get(rid)
+            path = paths.get(rid)
+
+            if path:
+                m.inject_path(path, goal)
                 injected += 1
+                continue
+
+            # CBS may legitimately fail to find a route for one active robot
+            # while other robots still receive valid paths. Never leave that
+            # robot advertising MOVING/IN TRANSIT with an empty route: that
+            # makes the dashboard claim motion while the AMR is physically
+            # stationary. Keep the task active, expose WAITING, and let the
+            # normal CBS retry cycle try again.
+            if goal is not None:
+                current_cell = (
+                    int(m.state.position[0]),
+                    int(m.state.position[1]),
+                )
+                if current_cell == (int(goal[0]), int(goal[1])):
+                    # Arrival may have become true between planning and path
+                    # injection (e.g. a pickup/dropoff checkpoint).
+                    m._handle_arrival()
+                    if m.current_task is None or m.target_cell is None:
+                        continue
+
+                m.state.planned_path = []
+                m.state.status = RobotStatus.WAITING
+                m.waiting_on = "CBS"
+                m.wait_time += 1.0
+                self.event_log.log_conflict(
+                    rid, "CBS", "NO_PATH", "WAIT_REPLAN", self.tick_count
+                )
+
         if injected:
             self.metric_values[metrics.REPLAN_COUNT] += 1  # count CBS runs, not individual paths
 
