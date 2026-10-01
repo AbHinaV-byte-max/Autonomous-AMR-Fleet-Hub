@@ -10,6 +10,7 @@ on:
       - "ref_sih_amr/sim/**"
       - "ref_sih_amr/robot/**"
       - "ref_sih_amr/comms/**"
+      - "ref_sih_amr/experiments/**"
 
 jobs:
   acceptance:
@@ -21,5 +22,11 @@ jobs:
           python-version: "3.12"
       - name: Install runtime dependencies
         run: python -m pip install -r requirements-dev.txt
-      - name: Run decentralized acceptance benchmark
+      - name: Run multi-scenario decentralized acceptance benchmark
         run: python ref_sih_amr/experiments/decentralized_acceptance.py
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2p-acceptance-matrix
+          path: artifacts/p2p_acceptance_matrix.json
