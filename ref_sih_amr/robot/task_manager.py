@@ -18,6 +18,8 @@ class LocalTaskManager:
         self.current_task: Optional[Task] = None
         self.seq = 0
         self.target_cell: Optional[tuple[int, int]] = None
+        # Post-task lifecycle target: CHARGER or STAGING. None means normal task work.
+        self.post_task_mode: Optional[str] = None
         
         # Decentralized coordination
         self.reservation_table = ReservationTable()
@@ -46,6 +48,7 @@ class LocalTaskManager:
         task.status = TaskStatus.ASSIGNED
         task.assigned_robot_id = self.state.robot_id
         self.target_cell = task.pickup_cell
+        self.post_task_mode = None
         self.wait_time = 0.0
         self.waiting_on = None
         self.wait_ticks_on_peer = 0
@@ -418,7 +421,7 @@ class LocalTaskManager:
         self.seq += 1
         
         broadcast_path = self.state.planned_path.copy()
-        if self.state.status in (RobotStatus.WAITING, RobotStatus.IDLE):
+        if self.state.status in (RobotStatus.WAITING, RobotStatus.IDLE, RobotStatus.STAGING):
             curr_pos = (int(self.state.position[0]), int(self.state.position[1]))
             broadcast_path = [curr_pos] * 200 + broadcast_path
 
@@ -428,7 +431,7 @@ class LocalTaskManager:
             timestamp=current_time,
             position=self.state.position,
             velocity=1.0 if self.state.status == RobotStatus.MOVING else 0.0,
-            intent=Intent.WAIT if self.state.status in (RobotStatus.WAITING, RobotStatus.IDLE) else Intent.MOVE,
+            intent=Intent.WAIT if self.state.status in (RobotStatus.WAITING, RobotStatus.IDLE, RobotStatus.STAGING) else Intent.MOVE,
             next_intersection=None,
             task_id=self.state.current_task_id,
             priority=self.state.task_priority,
@@ -441,20 +444,33 @@ class LocalTaskManager:
     def _handle_arrival(self):
         current_int = (int(self.state.position[0]), int(self.state.position[1]))
 
-        # A robot that has completed a delivery can be given a short
-        # post-delivery parking route by the simulator. It has no task while
-        # parking, so reaching target_cell means the robot is ready to return
-        # to the normal IDLE pool; do not treat this as a warehouse task.
+        # Post-task lifecycle destinations are explicit service resources.
+        # Reaching a charger transitions into CHARGING; reaching a staging bay
+        # transitions into STAGING. Neither resource is a permanent dropoff.
         if not self.current_task:
             if self.target_cell is not None and current_int == (
                 int(self.target_cell[0]), int(self.target_cell[1])
             ):
-                self.state.status = RobotStatus.IDLE
+                mode = self.post_task_mode
                 self.state.current_task_id = None
                 self.state.planned_path = []
                 self.target_cell = None
+                self.post_task_mode = None
                 self.wait_time = 0.0
                 self.waiting_on = None
+
+                if mode == "CHARGER":
+                    self.state.status = RobotStatus.CHARGING
+                elif mode == "STAGING":
+                    self.state.status = RobotStatus.STAGING
+                else:
+                    self.state.status = RobotStatus.IDLE
+
+                self.reservation_table.stake_current(
+                    self.state.robot_id,
+                    current_int,
+                    self.state.timestamp,
+                )
             return
         
         if self.current_task.status == TaskStatus.ASSIGNED:
