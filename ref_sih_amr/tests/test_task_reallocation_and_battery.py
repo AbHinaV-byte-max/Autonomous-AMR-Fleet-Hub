@@ -9,7 +9,8 @@ GRID_MAP = """\
 #######
 #R...R#
 #..P..#
-#..D..#
+#..D.C#
+#..S..#
 #######
 """
 
@@ -70,14 +71,20 @@ def test_battery_drain_and_auto_recharge_failover():
     # Run ticks so battery dips below 20.0%
     sim.tick()
     
-    # r0 should now be CHARGING, its task shed and handed over to r1
-    assert r0.state.status == RobotStatus.CHARGING
+    # r0 must shed the task but travel to the fixed charger first.
+    assert r0.state.status == RobotStatus.MOVING
+    assert r0.post_task_mode == "CHARGER"
     assert r0.current_task is None
     assert r1.current_task is not None
     assert r1.current_task.task_id == "BATTERY_TASK"
     assert task.assigned_robot_id == r1.state.robot_id
-    
-    # Continue ticking to verify charging increases battery level
+
+    # The charger is a real map resource: reach it before entering CHARGING.
+    for _ in range(10):
+        if r0.state.status == RobotStatus.CHARGING:
+            break
+        sim.tick()
+    assert r0.state.status == RobotStatus.CHARGING
     initial_charge = r0.state.battery
     sim.tick()
     assert r0.state.battery > initial_charge, "Battery should increase while CHARGING"
@@ -127,10 +134,62 @@ def test_completed_robot_is_reassigned_without_waiting_for_periodic_allocator():
     sim.tick()
 
     assert completed.status == TaskStatus.COMPLETED
+    # The delivery cell is released and the robot immediately leaves it for
+    # the fixed staging bay instead of taking another task at the dock.
+    assert r0.current_task is None
+    assert r0.post_task_mode == "STAGING"
+    assert r0.state.status == RobotStatus.MOVING
+    assert (int(r0.state.position[0]), int(r0.state.position[1])) != (3, 3)
+    assert follow_up.status == TaskStatus.QUEUED
+
+    # Once staged, the robot can be dispatched again by the normal allocator.
+    for _ in range(6):
+        sim.tick()
     assert r0.current_task is not None
     assert r0.current_task.task_id == follow_up.task_id
-    assert r0.state.status == RobotStatus.MOVING
     assert follow_up.assigned_robot_id == r0.state.robot_id
+
+
+def test_completed_robot_routes_to_fixed_staging_bay():
+    sim = Simulator(
+        ascii_map="""\
+########
+#R.....#
+#..P...#
+#..D.S.#
+#....C.#
+########
+""",
+        headless=True,
+        strategy="B0",
+    )
+    sim.tasks.clear()
+    sim.task_generator.queue.clear()
+
+    robot = sim.robot_managers[0]
+    task = Task(
+        "STAGE_AFTER_DELIVERY",
+        pickup_cell=(3, 2),
+        dropoff_cell=(3, 3),
+        priority=1,
+        status=TaskStatus.IN_PROGRESS,
+        assigned_robot_id=robot.state.robot_id,
+    )
+    sim.tasks.append(task)
+    robot.current_task = task
+    robot.state.current_task_id = task.task_id
+    robot.state.position = (3.0, 3.0)
+    robot.state.status = RobotStatus.MOVING
+    robot.target_cell = task.dropoff_cell
+    robot.state.planned_path = []
+
+    sim.tick()
+
+    assert task.status == TaskStatus.COMPLETED
+    assert robot.current_task is None
+    assert robot.post_task_mode == "STAGING"
+    assert robot.state.status == RobotStatus.MOVING
+    assert (int(robot.state.position[0]), int(robot.state.position[1])) != (3, 3)
 
 
 def test_completed_robot_does_not_leave_long_future_reservation():
