@@ -453,10 +453,26 @@ class Simulator:
             for m in self.robot_managers
             if m is not manager and m.state.status != RobotStatus.OFFLINE
         }
+
+        # A service bay is also reserved by an AMR that has already selected
+        # it as its post-task destination. In P2P mode there is intentionally
+        # no fleet-wide reservation table, so the simulator must not hand the
+        # same fixed bay to two robots during local post-task scheduling.
+        peer_service_targets = {
+            (int(m.target_cell[0]), int(m.target_cell[1]))
+            for m in self.robot_managers
+            if (
+                m is not manager
+                and m.state.status != RobotStatus.OFFLINE
+                and m.target_cell is not None
+                and m.post_task_mode in ("CHARGER", "STAGING")
+            )
+        }
+
         candidates = []
         for cell in cells:
             cell = (int(cell[0]), int(cell[1]))
-            if cell in occupied:
+            if cell in occupied or cell in peer_service_targets:
                 continue
             if manager.reservation_table.get_claimer(cell, float(self.tick_count + 1)):
                 continue
@@ -519,19 +535,45 @@ class Simulator:
         return True
 
     def _retry_post_task_destinations(self):
-        """Retry taskless robots waiting for a fixed service resource."""
+        """Retry taskless robots waiting for a fixed service resource.
+
+        If another AMR has occupied a previously selected service bay, release
+        that stale goal before choosing a new bay. This prevents the AMR from
+        repeatedly planning into an occupied staging/charger cell.
+        """
         for manager in self.robot_managers:
             if manager.current_task is not None or manager.state.status == RobotStatus.OFFLINE:
                 continue
             if manager.post_task_mode not in ("CHARGER", "STAGING"):
                 continue
-            if manager.target_cell is not None:
-                continue
 
             mode = manager.post_task_mode
             if manager.state.battery <= 20.0:
                 mode = "CHARGER"
-            self._schedule_post_task_destination(manager, mode)
+
+            if manager.target_cell is not None:
+                target = (
+                    int(manager.target_cell[0]),
+                    int(manager.target_cell[1]),
+                )
+                occupied_by_peer = any(
+                    peer is not manager
+                    and peer.state.status != RobotStatus.OFFLINE
+                    and (
+                        int(peer.state.position[0]),
+                        int(peer.state.position[1]),
+                    ) == target
+                    for peer in self.robot_managers
+                )
+                if occupied_by_peer:
+                    manager.target_cell = None
+                    manager.state.planned_path = []
+                    manager.state.status = RobotStatus.WAITING
+                    manager.waiting_on = f"{mode}_RESOURCE"
+                    manager.checkpoint_reached = True
+
+            if manager.target_cell is None:
+                self._schedule_post_task_destination(manager, mode)
 
     def _allocate(self):
         eligible = [
