@@ -4,11 +4,11 @@
 
 A distributed multi-robot coordination prototype for **Autonomous Mobile Robots (AMRs)** operating in smart warehouses.
 
-The project combines task allocation, grid-based path planning, multi-robot conflict resolution, collision-safety checks, rerouting, failure recovery, simulated peer communication, telemetry, benchmarking, and a live fleet dashboard.
+The project combines task allocation, robot-local A* planning, peer-intent conflict resolution, collision-safety checks, rerouting, failure recovery, direct UDP peer transport, telemetry, benchmarking, and a live fleet dashboard.
 
 > **Primary runtime:** `ref_sih_amr/`  
 > **Dashboard:** FastAPI + WebSocket + HTML5 Canvas  
-> **Coordination:** Hungarian allocation + A* + CBS + runtime safety checks
+> **Coordination:** Hungarian task allocation + robot-local A* + peer-intent reservations + runtime safety checks
 
 ![SIH AMR Fleet Dashboard](assets/dashboard/fleet_dashboard_hud.png)
 
@@ -21,11 +21,11 @@ The project combines task allocation, grid-based path planning, multi-robot conf
 | 🤖 Multi-AMR coordination | Concurrent simulated robot managers |
 | 📦 Task allocation | Fleet allocator with Hungarian assignment |
 | 🧭 Navigation | Grid-based A* path planning |
-| 🔀 Conflict resolution | Space-time planning + CBS |
+| 🔀 Conflict resolution | Robot-local A* + peer-intent reservations; CBS retained only as an explicit centralized benchmark strategy |
 | 🛡️ Safety | Vertex, edge-swap, occupancy and reservation checks |
 | 🚧 Dynamic rerouting | Blocked-cell detection and replanning |
 | 🔋 Resilience | Battery/failure handling and task reassignment |
-| 📡 Peer communication | Simulated heartbeat/message channel with degradation handling |
+| 📡 Peer communication | Direct UDP peer mesh (`UdpPeerChannel`) plus deterministic in-process test transport |
 | 📊 Telemetry | Queue-based `TelemetryBus` + WebSocket stream |
 | 🖥️ Operations dashboard | Live fleet state, task pipeline and warehouse view |
 | 🧪 Benchmarking | Reproducible scenarios and coordination strategies |
@@ -49,12 +49,10 @@ The project combines task allocation, grid-based path planning, multi-robot conf
                 │              │              │
                 └──────────────┼──────────────┘
                                │
-                     ┌─────────▼─────────┐
-                     │   CBS Coordinator │
-                     │ conflicts / paths │
-                     └─────────┬─────────┘
-                               │
-                     Deterministic Safety
+                 ┌─────────────▼─────────────┐
+                 │     Robot-local Safety    │
+                 │ peer reservations / yield │
+                 └─────────────┬─────────────┘
                                │
                      ┌─────────▼─────────┐
                      │    TelemetryBus   │
@@ -68,7 +66,7 @@ The project combines task allocation, grid-based path planning, multi-robot conf
                      └───────────────────┘
 ```
 
-The **deterministic safety and coordination layer remains authoritative** over higher-level decision logic.
+The live fleet uses the **P2P strategy**: each robot owns its reservation table and exchanges intent directly with peers. Hungarian allocation remains a fleet-level task-assignment service; CBS is not used by the live P2P motion loop and is retained for comparison/legacy validation.
 
 ---
 
@@ -77,20 +75,20 @@ The **deterministic safety and coordination layer remains authoritative** over h
 ### Requirements
 
 - Python 3.12
-- Windows for the provided `.bat` launcher
+- Linux, macOS, or Windows with Python 3.10+
 
 ### Install runtime dependencies
 
-```powershell
-python -m pip install -r requirements.txt
+```bash
+python3 -m pip install -r requirements.txt
 ```
 
-The root `requirements.txt` contains only the dependencies needed by the live FastAPI dashboard and simulator. This keeps serverless deployments within function bundle limits.
+The root `requirements.txt` contains the live dashboard/runtime dependencies. The dashboard owns an in-memory simulator lifecycle, so a persistent process/container is the canonical judge/demo deployment; serverless hosting should be treated as a preview/integration surface rather than durable fleet state.
 
 For full local validation, benchmark analysis, and optional ONNX training/inference:
 
-```powershell
-python -m pip install -r requirements-dev.txt
+```bash
+python3 -m pip install -r requirements-dev.txt
 ```
 
 ### Start
@@ -152,7 +150,7 @@ Tracked metrics include:
 - Edge inference latency
 - Energy proxy metrics
 
-The benchmark framework includes sequential execution, independent planning, stop-and-wait coordination, and the proposed coordinated fleet strategy.
+The benchmark framework includes sequential execution, independent planning, stop-and-wait coordination, P2P local coordination, and the legacy CBS strategy. The acceptance matrix reports measured makespan reduction and zero-collision results across crossing, narrow-aisle, blocked-aisle and 8-AMR scenarios. See `docs/validation/P2P_ACCEPTANCE_MATRIX.md` for the latest recorded evidence. It does not hard-code a success claim.
 
 ---
 
@@ -195,13 +193,43 @@ The repository no longer carries the inherited NVIDIA Kit application-template/t
 
 ---
 
+## Evidence boundaries and deployment notes
+
+### Task allocation is fleet-level, coordination is P2P
+
+The live runtime intentionally separates **task assignment** from **motion coordination**:
+
+- Hungarian allocation is a fleet-level optimization service that assigns queued orders to eligible AMRs.
+- Once a task is assigned, each AMR performs its own A* planning, owns its own reservation table, and exchanges intent directly with peers over UDP.
+- No fleet-wide reservation table or centralized motion coordinator is used by the live P2P path.
+
+This is an explicit architectural trade-off: the SIH requirement calls for decentralized robot-to-robot communication and multi-agent conflict resolution; task allocation is kept centralized so the prototype can optimize global order-to-robot assignment deterministically. Replacing this allocator with CBBA/auction bidding would be a separate research change and is not required to establish the current P2P motion-coordination evidence.
+
+### Edge-class emulation
+
+No Raspberry Pi or Jetson measurement is currently claimed.
+
+For a repeatable **Pi-class resource emulation**, `robot/node.py` can run as an independent robot process inside Docker containers with approximately **1 CPU and 1 GB RAM per robot**. The containers communicate over UDP exactly as separate robot nodes would. CPU/RAM usage and robot-local planning latency should be recorded from those containers and reported as **containerized edge-class emulation**, not physical edge-hardware evidence.
+
+The physical-hardware measurement helper under `ref_sih_amr/edge/` is retained only as optional instrumentation for a future target-device run.
+
+### Optional Omniverse/MCP integration
+
+The canonical SIH runtime does **not** require NVIDIA Omniverse, OpenUSD, or MCP.
+
+- `ref_sih_amr/` is the judge/demo runtime.
+- `omniverse/`, `assets/omniverse/`, and related USD/scenario material are optional visualization/integration assets.
+- `mcp_fleet/` is optional integration tooling.
+
+Judges can run the simulator, P2P transport, benchmarks, tests, and dashboard without those components.
+
 ## 🧠 Coordination pipeline
 
 1. **Tasks enter the fleet queue.**
 2. **The allocator assigns work** to eligible robots.
 3. **A*** generates obstacle-aware paths.
-4. **CBS** resolves multi-robot path conflicts using space-time constraints.
-5. **Runtime safety checks** guard against occupancy, vertex and edge-swap conflicts.
+4. **Peer intents + local reservations** resolve multi-robot conflicts at each robot edge node.
+5. **Runtime safety checks** guard against occupancy, vertex and edge-swap conflicts. CBS is retained only as an explicit centralized comparison strategy.
 6. **Blocked paths or changing conditions** trigger replanning.
 7. **Robot failure or degraded communication** can move work into recovery/reassignment.
 8. **TelemetryBus** publishes the current fleet state to the dashboard.

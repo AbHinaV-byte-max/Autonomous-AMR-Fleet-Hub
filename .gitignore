@@ -46,3 +46,6 @@ dist/
 # Local Python virtual environments.
 .venv/
 venv/
+
+# Generated benchmark artifacts.
+artifacts/

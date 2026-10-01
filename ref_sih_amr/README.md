@@ -60,13 +60,16 @@ or enter a degraded operating mode depending on the situation.
 
 ### 1. Path Planning
 
-The simulator uses grid-based path planning with A* and a space-time
-representation for considering reservations and movement over time.
+Each AMR uses grid-based A* locally. Its reservation table is private to the
+robot and is populated with peer intent messages. The live P2P strategy does
+not depend on a fleet-wide reservation table or a central CBS coordinator.
 
 ### 2. Multi-Robot Coordination
 
-Robots exchange intent/state information and use reservations to reduce
-conflicts at shared cells and intersections.
+Robots exchange intent/state information directly with peers and maintain
+local reservations to reduce conflicts at shared cells and intersections.
+The deterministic simulator also retains a centralized CBS strategy for
+comparison/legacy validation; it is not the live P2P motion strategy.
 
 The coordination layer includes:
 
@@ -109,8 +112,9 @@ ONNX-based policy can be evaluated locally.
 
 ### 6. Communication & Security
 
-The communication layer provides a pluggable message-channel abstraction
-for peer coordination.
+The communication layer provides a pluggable peer channel. `PubSubChannel` is
+deterministic and test-only; `UdpPeerChannel` sends IntentMessage packets
+directly between robot endpoints with no broker.
 
 The security layer includes validation concepts such as:
 
@@ -119,6 +123,22 @@ The security layer includes validation concepts such as:
 - sequence checking
 - freshness checking
 - physical plausibility checks
+
+### 7. Direct UDP robot processes
+
+For a true multi-process P2P demonstration, start one `robot/node.py` process
+per AMR. Each process owns its own reservation table and UDP socket.
+
+Example:
+
+```bash
+python ref_sih_amr/robot/node.py --robot-id robot-0 --bind 127.0.0.1:19001 \
+  --peers robot-1=127.0.0.1:19002,robot-2=127.0.0.1:19003 \
+  --start 1,1 --pickup 4,1 --dropoff 4,5
+```
+
+The peers exchange `IntentMessage` directly; no broker or shared reservation
+table is required.
 
 ### 7. Dashboard
 

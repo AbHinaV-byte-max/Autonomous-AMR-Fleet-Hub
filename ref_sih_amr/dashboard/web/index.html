@@ -1970,6 +1970,34 @@ body {
             });
 
             rackGroup.add(rack);
+          } else if (cell === 'S') {
+            // Fixed post-task staging bay.
+            const stageGeo = new THREE.PlaneGeometry(CELL_SIZE * 0.82, CELL_SIZE * 0.82);
+            const stageMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.20 });
+            const stage = new THREE.Mesh(stageGeo, stageMat);
+            stage.rotation.x = -Math.PI / 2;
+            stage.position.set(pos.x, 0.02, pos.z);
+            dockGroup.add(stage);
+
+            const stageEdges = new THREE.EdgesGeometry(stageGeo);
+            const stageLine = new THREE.LineSegments(stageEdges, new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 2 }));
+            stageLine.rotation.x = -Math.PI / 2;
+            stageLine.position.set(pos.x, 0.025, pos.z);
+            dockGroup.add(stageLine);
+          } else if (cell === 'C') {
+            // Fixed charging bay.
+            const chargeGeo = new THREE.PlaneGeometry(CELL_SIZE * 0.82, CELL_SIZE * 0.82);
+            const chargeMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.22 });
+            const charge = new THREE.Mesh(chargeGeo, chargeMat);
+            charge.rotation.x = -Math.PI / 2;
+            charge.position.set(pos.x, 0.02, pos.z);
+            dockGroup.add(charge);
+
+            const chargeEdges = new THREE.EdgesGeometry(chargeGeo);
+            const chargeLine = new THREE.LineSegments(chargeEdges, new THREE.LineBasicMaterial({ color: 0xf59e0b, linewidth: 2 }));
+            chargeLine.rotation.x = -Math.PI / 2;
+            chargeLine.position.set(pos.x, 0.025, pos.z);
+            dockGroup.add(chargeLine);
           } else if (cell === 'D') {
             // Delivery Dock Zone (Hazard striped zone on floor)
             const dockGeo = new THREE.PlaneGeometry(CELL_SIZE * 0.9, CELL_SIZE * 0.9);

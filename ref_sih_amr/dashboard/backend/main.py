@@ -25,8 +25,6 @@ from models import RobotStatus, Task, TaskStatus
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
 from dashboard.backend.telemetry import TelemetryBus
 from dashboard.backend.db import init_db, persist_snapshot
 
@@ -90,47 +88,56 @@ def live_simulation_loop(bus):
     global LIVE_SCENARIO, CURRENT_SIM
     while RUNNING:
         current_scen = LIVE_SCENARIO
-        sim = Simulator(ascii_map=SCENARIOS[current_scen], headless=True, telemetry_bus=bus, strategy="P1")
+        sim = Simulator(
+            ascii_map=SCENARIOS[current_scen],
+            headless=True,
+            telemetry_bus=bus,
+            strategy="P2P",
+            comms_mode="udp",
+        )
         sim.scenario_name = current_scen
         sim.task_generator.enabled = AUTO_TASKS_ENABLED
         CURRENT_SIM = sim
-        
-        # S6 CommDelay: patch comms so robot-0 drops broadcasts
+
+        # S6 CommDelay: patch robot-0's own peer transport so its
+        # broadcasts are dropped while the other AMRs continue normally.
         if current_scen == "S6_CommDelay":
-            original_send = sim.comms.send
-            def patched_send(msg):
-                if msg.robot_id != "robot-0":
-                    original_send(msg)
-            sim.comms.send = patched_send
-        
-        switched = False
-        for tick in range(500):
-            if not RUNNING or current_scen != LIVE_SCENARIO: 
-                switched = True
-                break
-                
+            for manager in sim.robot_managers:
+                if manager.state.robot_id == "robot-0":
+                    original_send = manager.comms.send
+
+                    def patched_send(msg, _original_send=original_send):
+                        if msg.robot_id != "robot-0":
+                            _original_send(msg)
+
+                    manager.comms.send = patched_send
+
+        # Keep one simulator instance alive for the whole scenario. Recreating
+        # it every 500 ticks silently discarded live tasks, robot positions,
+        # batteries and reservations, which made Auto Mode appear to create
+        # fresh work after a reset and made long-running fleet behaviour
+        # impossible to observe truthfully.
+        while RUNNING and current_scen == LIVE_SCENARIO:
             global SIM_PAUSED, SIM_STEP_REQUEST
             while SIM_PAUSED and not SIM_STEP_REQUEST and RUNNING and current_scen == LIVE_SCENARIO:
                 time.sleep(0.05)
             if not RUNNING or current_scen != LIVE_SCENARIO:
-                switched = True
                 break
 
-            # Apply scenario-specific dynamic events
-            if current_scen == "S4_Blocked" and tick == 40:
+            # Apply one-shot scenario events against the persistent simulator.
+            # These used to be tied to the old 500-tick recreation loop.
+            next_tick = sim.tick_count + 1
+            if current_scen == "S4_Blocked" and next_tick == 40:
                 sim.block_cell(5, 2)
-            elif current_scen == "S5_Failure" and tick == 50:
+            elif current_scen == "S5_Failure" and next_tick == 50:
                 sim.kill_robot("robot-0")
-                
+
             sim.task_generator.enabled = AUTO_TASKS_ENABLED
             with _SIM_LOCK:
                 sim.tick()
             if SIM_STEP_REQUEST:
                 SIM_STEP_REQUEST = False
             time.sleep(SIM_TICK_RATE)  # Smooth, observable pace
-            
-        if not switched and RUNNING:
-            time.sleep(1)
 
 
 @app.on_event("startup")
@@ -378,14 +385,18 @@ async def submit_task(request: dict):
     task = Task(task_id=task_id, pickup_cell=pickup, dropoff_cell=dropoff,
                 priority=priority, status=TaskStatus.QUEUED,
                 created_at=float(CURRENT_SIM.tick_count), source="MANUAL")
-    CURRENT_SIM.tasks.append(task)
-    CURRENT_SIM._allocate()
+    # The live simulation thread mutates the same Simulator every tick.
+    # Manual dispatch must use the simulator lock as well, otherwise a task can
+    # be appended while allocation/CBS is rebuilding paths, producing stale
+    # assignment or telemetry state in the UI.
+    with _SIM_LOCK:
+        CURRENT_SIM.tasks.append(task)
+        CURRENT_SIM._allocate()
+        assigned_robot_id = task.assigned_robot_id
+        task_status = task.status.value
 
-    assigned_robot_id = task.assigned_robot_id
-    task_status = task.status.value
-
-    if CURRENT_SIM.telemetry_bus is not None:
-        CURRENT_SIM.telemetry_bus.publish(CURRENT_SIM._build_snapshot())
+        if CURRENT_SIM.telemetry_bus is not None:
+            CURRENT_SIM.telemetry_bus.publish(CURRENT_SIM._build_snapshot())
 
     return {"status": "ok", "task_id": task_id,
             "pickup": list(pickup), "dropoff": list(dropoff),

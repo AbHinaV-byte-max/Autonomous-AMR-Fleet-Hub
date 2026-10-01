@@ -18,6 +18,8 @@ class LocalTaskManager:
         self.current_task: Optional[Task] = None
         self.seq = 0
         self.target_cell: Optional[tuple[int, int]] = None
+        # Post-task lifecycle target: CHARGER or STAGING. None means normal task work.
+        self.post_task_mode: Optional[str] = None
         
         # Decentralized coordination
         self.reservation_table = ReservationTable()
@@ -46,6 +48,7 @@ class LocalTaskManager:
         task.status = TaskStatus.ASSIGNED
         task.assigned_robot_id = self.state.robot_id
         self.target_cell = task.pickup_cell
+        self.post_task_mode = None
         self.wait_time = 0.0
         self.waiting_on = None
         self.wait_ticks_on_peer = 0
@@ -86,8 +89,8 @@ class LocalTaskManager:
 
         Strips the start cell from the path if it matches the robot's current
         position (the robot is already there — no need to 'move' to it).
-        Also commits the new path to the shared reservation table so that
-        the decentralised coordination layer stays in sync.
+        Commits the new path only to this robot's local reservation table;
+        peers learn the route through IntentMessage broadcasts.
         """
         self.target_cell = goal
         current_int = (int(self.state.position[0]), int(self.state.position[1]))
@@ -100,7 +103,7 @@ class LocalTaskManager:
         self._prev_waiting_on = None
         if self.state.planned_path:
             self.state.status = RobotStatus.MOVING
-            # Keep the reservation table in sync for the comms layer
+            # Keep this robot's local reservation table in sync for peer broadcasts
             self.reservation_table.commit(
                 self.state.robot_id, self.state.planned_path, self.state.timestamp + 1
             )
@@ -132,6 +135,60 @@ class LocalTaskManager:
                 self.reservation_table.commit(msg.robot_id, msg.planned_path, msg.timestamp + 1)
             else:
                 self.reservation_table.expire(msg.robot_id)
+
+        # A stationary peer occupying our active goal is a persistent
+        # execution constraint, not a normal time-window reservation. If we
+        # keep replanning around a goal that another AMR is parked on, the
+        # space-time planner can produce repeated detours that return to the
+        # same blocked cell. Hold at the current cell until that peer moves.
+        if self.target_cell is not None:
+            target = (int(self.target_cell[0]), int(self.target_cell[1]))
+            current = (int(self.state.position[0]), int(self.state.position[1]))
+            if current != target:
+                blocker = None
+                for peer_id, peer_msg in self.peer_states.items():
+                    peer_pos = (int(peer_msg.position[0]), int(peer_msg.position[1]))
+                    stationary = (
+                        peer_msg.intent == Intent.WAIT
+                        or peer_msg.velocity == 0
+                        or not peer_msg.planned_path
+                    )
+                    if peer_pos == target and stationary:
+                        blocker = peer_id
+                        break
+
+                if blocker is not None:
+                    self.state.planned_path = []
+                    self.state.status = RobotStatus.WAITING
+                    self.waiting_on = blocker
+                    self.wait_time += 1.0
+                    if self.event_logger:
+                        self.event_logger.log_conflict(
+                            self.state.robot_id,
+                            blocker,
+                            "PERSISTENT_GOAL_OCCUPANCY",
+                            "WAIT_FOR_RELEASE",
+                            int(current_time),
+                        )
+                elif (
+                    self.state.status == RobotStatus.WAITING
+                    and self.waiting_on in self.peer_states
+                    and self.waiting_on is not None
+                ):
+                    # The peer that blocked the goal has moved. Rebuild the
+                    # route immediately instead of waiting for a global
+                    # allocator/deadlock cycle.
+                    released_peer = self.peer_states[self.waiting_on]
+                    released_pos = (
+                        int(released_peer.position[0]),
+                        int(released_peer.position[1]),
+                    )
+                    if released_pos != target and not self.cbs_mode:
+                        self._replan()
+                        if self.state.planned_path:
+                            self.state.status = RobotStatus.MOVING
+                            self.wait_time = 0.0
+                            self.waiting_on = None
 
         # Check for degraded comms (Phase 4)
         degraded = False
@@ -202,6 +259,10 @@ class LocalTaskManager:
                 self.state.status = RobotStatus.WAITING
                 self.wait_time += 1.0
                 self.waiting_on = physical_block
+                # A physical block means the currently planned joint route is
+                # no longer executable at this instant. Ask the simulator to
+                # refresh CBS after all robots finish this tick.
+                self.checkpoint_reached = True
                 return False
 
             # CBS paths are already jointly conflict-free for the planning
@@ -381,6 +442,22 @@ class LocalTaskManager:
             return
 
         if self.state.status not in (RobotStatus.OFFLINE, RobotStatus.CHARGING):
+            current_int = (int(self.state.position[0]), int(self.state.position[1]))
+            if (
+                self.state.status in (RobotStatus.MOVING, RobotStatus.DEGRADED)
+                and self.target_cell is not None
+                and not self.state.planned_path
+                and current_int != (int(self.target_cell[0]), int(self.target_cell[1]))
+            ):
+                # Never advertise MOVING/IN TRANSIT without an executable route.
+                # P1 will ask the simulator/CBS for a fresh route on the next
+                # planning checkpoint instead of leaving the AMR visually frozen.
+                self.state.status = RobotStatus.WAITING
+                if self.waiting_on is None:
+                    self.waiting_on = "NO_EXECUTABLE_PATH"
+                self.checkpoint_reached = True
+                self.wait_time += 1.0
+
             if self._check_conflicts(current_time):
                 # Move
                 next_cell = self.state.planned_path.pop(0)
@@ -397,12 +474,13 @@ class LocalTaskManager:
                     self.state.position = (float(next_cell[0]), float(next_cell[1]))
                     if self.state.status != RobotStatus.DEGRADED:
                         self.state.status = RobotStatus.MOVING
-                    # Immediately stake current position in the shared reservation table
-                    # so that later robots ticking in the same step see us here and
-                    # don't also move into this cell (fixes the simultaneous-entry collision).
-                    self.reservation_table.commit(
+                    # Stake only the robot's actual current cell. Do not call
+                    # commit() here: commit() expires all reservations at/after
+                    # current_time, which would erase this robot's future CBS route
+                    # and make later execution checks operate on stale intent.
+                    self.reservation_table.stake_current(
                         self.state.robot_id,
-                        [target_int],
+                        target_int,
                         current_time
                     )
             elif not self.state.planned_path and self.target_cell:
@@ -413,7 +491,7 @@ class LocalTaskManager:
         self.seq += 1
         
         broadcast_path = self.state.planned_path.copy()
-        if self.state.status in (RobotStatus.WAITING, RobotStatus.IDLE):
+        if self.state.status in (RobotStatus.WAITING, RobotStatus.IDLE, RobotStatus.STAGING):
             curr_pos = (int(self.state.position[0]), int(self.state.position[1]))
             broadcast_path = [curr_pos] * 200 + broadcast_path
 
@@ -423,7 +501,7 @@ class LocalTaskManager:
             timestamp=current_time,
             position=self.state.position,
             velocity=1.0 if self.state.status == RobotStatus.MOVING else 0.0,
-            intent=Intent.WAIT if self.state.status in (RobotStatus.WAITING, RobotStatus.IDLE) else Intent.MOVE,
+            intent=Intent.WAIT if self.state.status in (RobotStatus.WAITING, RobotStatus.IDLE, RobotStatus.STAGING) else Intent.MOVE,
             next_intersection=None,
             task_id=self.state.current_task_id,
             priority=self.state.task_priority,
@@ -434,10 +512,43 @@ class LocalTaskManager:
         self.comms.send(msg)
 
     def _handle_arrival(self):
-        if not self.current_task:
-            return
-            
         current_int = (int(self.state.position[0]), int(self.state.position[1]))
+
+        # Post-task lifecycle destinations are explicit service resources.
+        # Reaching a charger transitions into CHARGING; reaching a staging bay
+        # transitions into STAGING. Neither resource is a permanent dropoff.
+        if not self.current_task:
+            if self.target_cell is not None and current_int == (
+                int(self.target_cell[0]), int(self.target_cell[1])
+            ):
+                mode = self.post_task_mode
+                self.state.current_task_id = None
+                self.state.planned_path = []
+                self.target_cell = None
+                self.wait_time = 0.0
+                self.waiting_on = None
+
+                if mode == "CHARGER":
+                    self.post_task_mode = None
+                    self.state.status = RobotStatus.CHARGING
+                elif mode == "STAGING":
+                    self.post_task_mode = None
+                    self.state.status = RobotStatus.STAGING
+                elif mode == "HOLD":
+                    # Overflow aisle parking: keep retrying for a real bay.
+                    self.post_task_mode = "HOLD"
+                    self.state.status = RobotStatus.WAITING
+                    self.waiting_on = "STAGING_RESOURCE"
+                else:
+                    self.post_task_mode = None
+                    self.state.status = RobotStatus.IDLE
+
+                self.reservation_table.stake_current(
+                    self.state.robot_id,
+                    current_int,
+                    self.state.timestamp,
+                )
+            return
         
         if self.current_task.status == TaskStatus.ASSIGNED:
             px, py = self.current_task.pickup_cell

@@ -18,12 +18,18 @@ class HungarianAllocator(TaskAllocator):
         Allocates tasks to robots using the Hungarian Algorithm to minimize total travel time.
         """
         def is_idle(r):
+            """Return whether the supplied robot is dispatchable.
+
+            The simulator already filters the fleet into eligible robots before
+            calling the allocator. A robot travelling to its fixed staging bay
+            is intentionally eligible for immediate reassignment, so the
+            allocator must not collapse that state back to IDLE-only.
+            """
             st = getattr(r, "status", None)
-            if st is None or st == "IDLE":
+            if st is None:
                 return True
-            if hasattr(st, "value") and st.value == "IDLE":
-                return True
-            return st == RobotStatus.IDLE
+            value = getattr(st, "value", st)
+            return value in ("IDLE", "STAGING", "WAITING")
 
         def is_queued(t):
             st = getattr(t, "status", None)

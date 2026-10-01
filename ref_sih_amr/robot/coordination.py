@@ -50,6 +50,19 @@ class ReservationTable:
     def get_claimer(self, cell: Tuple[int, int], time: float) -> Optional[str]:
         return self.claims.get((cell[0], cell[1], time))
 
+    def stake_current(self, robot_id: str, cell: Tuple[int, int], time: float):
+        """Claim the robot's actual current cell without deleting future reservations."""
+        claim_key = (int(cell[0]), int(cell[1]), float(time))
+        existing = self.claims.get(claim_key)
+        if existing is not None and existing != robot_id:
+            return False
+
+        reservations = self.robot_reservations.setdefault(robot_id, [])
+        if claim_key not in reservations:
+            reservations.append(claim_key)
+        self.claims[claim_key] = robot_id
+        return True
+
 # --- Conflict Detection Functions ---
 
 def check_vertex_conflict(table: ReservationTable, robot_id: str, cell: Tuple[int, int], time: float) -> Optional[str]:
@@ -70,11 +83,15 @@ def check_edge_swap(table: ReservationTable, robot_id: str, curr_cell: Tuple[int
     return None
 
 def check_following(table: ReservationTable, robot_id: str, curr_cell: Tuple[int, int], next_cell: Tuple[int, int], time: float) -> Optional[str]:
-    """Following/unsafe gap: R2 would reach a cell before R1 has cleared it."""
-    # Simplified temporal headway: just don't enter if the cell is claimed at time or time+1
-    # Actually, vertex conflict handles time+1. Let's just check if it's occupied at time
-    # and they aren't moving. For this simulation, 1 tick per cell implies atomic swaps which are caught by edge_swap.
-    pass
+    """Return a peer that has not cleared next_cell yet.
+
+    Edge-swap detection handles opposite traversal; this helper covers the
+    same-direction/headway case.
+    """
+    claimer = table.get_claimer(next_cell, time)
+    if claimer is not None and claimer != robot_id:
+        return claimer
+    return None
 
 def check_intersection(table: ReservationTable, robot_id: str, cell: Tuple[int, int], time: float, window: int = 2) -> Optional[str]:
     """Intersection conflict: multiple robots request the same choke-point within a window."""

@@ -6,6 +6,8 @@ Format:
 P = pickup
 D = dropoff
 R = robot spawn
+S = fixed post-task staging bay
+C = fixed charging bay
 """
 from typing import List, Tuple
 

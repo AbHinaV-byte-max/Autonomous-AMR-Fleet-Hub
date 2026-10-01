@@ -2,8 +2,6 @@
 Phase 6A edge AI tests — deterministic policy, safety override (Section 9.2).
 """
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from robot.edge_policy import (
     DeterministicPolicy, SafeEdgePolicy, PolicyFeatures,
     ACTION_CONTINUE, ACTION_YIELD, ACTION_WAIT, ACTION_REROUTE,

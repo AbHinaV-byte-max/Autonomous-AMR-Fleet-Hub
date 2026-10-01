@@ -1,0 +1,75 @@
+services:
+  amr-dashboard:
+    build: .
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  # Edge-class emulation: each robot is isolated into its own constrained
+  # process/container and communicates only over the Docker UDP network.
+  # This is NOT Raspberry Pi/Jetson hardware evidence.
+  robot-0:
+    build: .
+    command:
+      - python
+      - ref_sih_amr/robot/node.py
+      - --robot-id
+      - robot-0
+      - --bind
+      - 0.0.0.0:19001
+      - --peers
+      - robot-1=robot-1:19002,robot-2=robot-2:19003
+      - --start
+      - 1,1
+      - --pickup
+      - 2,1
+      - --dropoff
+      - 3,17
+      - --ticks
+      - "120"
+    mem_limit: 1g
+    cpus: "1.0"
+
+  robot-1:
+    build: .
+    command:
+      - python
+      - ref_sih_amr/robot/node.py
+      - --robot-id
+      - robot-1
+      - --bind
+      - 0.0.0.0:19002
+      - --peers
+      - robot-0=robot-0:19001,robot-2=robot-2:19003
+      - --start
+      - 12,1
+      - --pickup
+      - 13,1
+      - --dropoff
+      - 14,17
+      - --ticks
+      - "120"
+    mem_limit: 1g
+    cpus: "1.0"
+
+  robot-2:
+    build: .
+    command:
+      - python
+      - ref_sih_amr/robot/node.py
+      - --robot-id
+      - robot-2
+      - --bind
+      - 0.0.0.0:19003
+      - --peers
+      - robot-0=robot-0:19001,robot-1=robot-1:19002
+      - --start
+      - 24,5
+      - --pickup
+      - 23,5
+      - --dropoff
+      - 25,17
+      - --ticks
+      - "120"
+    mem_limit: 1g
+    cpus: "1.0"
