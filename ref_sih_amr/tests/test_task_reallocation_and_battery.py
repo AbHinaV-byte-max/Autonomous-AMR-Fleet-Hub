@@ -80,7 +80,9 @@ def test_battery_drain_and_auto_recharge_failover():
     assert task.assigned_robot_id == r1.state.robot_id
 
     # The charger is a real map resource: reach it before entering CHARGING.
-    for _ in range(10):
+    assert r0.target_cell in sim.charger_cells
+    assert r0.state.planned_path
+    for _ in range(30):
         if r0.state.status == RobotStatus.CHARGING:
             break
         sim.tick()
@@ -139,11 +141,16 @@ def test_completed_robot_is_reassigned_without_waiting_for_periodic_allocator():
     assert r0.current_task is None
     assert r0.post_task_mode == "STAGING"
     assert r0.state.status == RobotStatus.MOVING
-    assert (int(r0.state.position[0]), int(r0.state.position[1])) != (3, 3)
+    assert r0.target_cell in sim.staging_cells
+    assert r0.state.planned_path
     assert follow_up.status == TaskStatus.QUEUED
 
+    # Movement starts on the following simulation tick.
+    sim.tick()
+    assert (int(r0.state.position[0]), int(r0.state.position[1])) != (3, 3)
+
     # Once staged, the robot can be dispatched again by the normal allocator.
-    for _ in range(6):
+    for _ in range(10):
         sim.tick()
     assert r0.current_task is not None
     assert r0.current_task.task_id == follow_up.task_id
@@ -189,6 +196,9 @@ def test_completed_robot_routes_to_fixed_staging_bay():
     assert robot.current_task is None
     assert robot.post_task_mode == "STAGING"
     assert robot.state.status == RobotStatus.MOVING
+    assert robot.target_cell in sim.staging_cells
+    assert robot.state.planned_path
+    sim.tick()
     assert (int(robot.state.position[0]), int(robot.state.position[1])) != (3, 3)
 
 
