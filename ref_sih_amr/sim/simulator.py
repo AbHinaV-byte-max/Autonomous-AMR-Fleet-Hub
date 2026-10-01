@@ -740,7 +740,7 @@ class Simulator:
                 start=m.state.position,
                 goal=goal,
                 costmap=self.grid_map,
-                reservation_table=manager.reservation_table,
+                reservation_table=m.reservation_table,
                 start_time=float(self.tick_count),
                 robot_id=rid,
             )
