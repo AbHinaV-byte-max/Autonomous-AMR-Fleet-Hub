@@ -129,7 +129,7 @@ def main():
         raise SystemExit(f"Unknown benchmark scenario(s): {', '.join(unknown)}")
 
     task_count = int(os.getenv("BENCH_TASKS", "6"))
-    max_ticks = int(os.getenv("BENCH_MAX_TICKS", "1500"))
+    max_ticks = int(os.getenv("BENCH_MAX_TICKS", "3000"))
     output_path = os.getenv(
         "BENCH_OUTPUT",
         "artifacts/p2p_acceptance_matrix.json",
