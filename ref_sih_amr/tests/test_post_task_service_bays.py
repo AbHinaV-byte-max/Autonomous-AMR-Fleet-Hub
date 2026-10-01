@@ -15,6 +15,16 @@ def test_post_task_staging_bays_are_unique_and_reassigned_if_occupied():
     sim.tasks.clear()
     sim.task_generator.queue.clear()
 
+    # The simulator seeds initial work during construction. Clearing the
+    # workload must also clear those obsolete routes/reservations; otherwise
+    # this isolated service-bay test can mistake a stale peer route for a
+    # live reservation on a staging bay.
+    for manager in sim.robot_managers:
+        manager.state.planned_path = []
+        manager.target_cell = None
+        manager.current_task = None
+        manager.reservation_table = type(manager.reservation_table)()
+
     first, second = sim.robot_managers[:2]
     assert len(sim.staging_cells) >= 2
 
