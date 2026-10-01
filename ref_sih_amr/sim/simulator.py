@@ -1003,10 +1003,21 @@ class Simulator:
                     m.checkpoint_reached = False
                 self._run_cbs_planning()
 
-        # 4. Read heartbeats from comms channel
-        for msg in self.comms.receive():
-            if msg.heartbeat > 0:
-                self.last_heartbeat[msg.robot_id] = t
+        # 4. Read heartbeats from the active communication transport.
+        # In UDP mode each robot manager already drained its own socket; merge
+        # the peer observations into the simulator's watchdog without creating
+        # a central reservation/coordination state.
+        if self.comms_mode == "local":
+            for msg in self.comms.receive():
+                if msg.heartbeat > 0:
+                    self.last_heartbeat[msg.robot_id] = t
+        else:
+            for manager in self.robot_managers:
+                for peer_id, last_t in manager.last_seen.items():
+                    self.last_heartbeat[peer_id] = max(
+                        self.last_heartbeat.get(peer_id, 0.0),
+                        last_t,
+                    )
 
         # 5. Update metrics
         waiting = sum(1 for m in self.robot_managers if m.state.status == RobotStatus.WAITING)
@@ -1025,8 +1036,10 @@ class Simulator:
         self._run_deadlock_detection()
         self._check_collisions()
 
-        # 8. Clear comms
-        self.comms.clear()
+        # 8. Clear deterministic test transport. UDP sockets are drained
+        # directly by each robot manager and require no global clear.
+        if self.comms_mode == "local":
+            self.comms.clear()
 
         # 9. Publish telemetry (Phase 5 — non-blocking, best-effort)
         if self.telemetry_bus is not None:
