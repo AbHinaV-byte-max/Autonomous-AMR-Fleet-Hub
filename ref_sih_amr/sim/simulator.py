@@ -549,6 +549,21 @@ class Simulator:
         for manager in self.robot_managers:
             if manager.current_task is not None or manager.state.status == RobotStatus.OFFLINE:
                 continue
+
+            # A completed delivery clears current_task/target_cell in
+            # LocalTaskManager. Preserve the post-task lifecycle even if the
+            # first service-bay selection failed: a taskless AMR sitting on a
+            # delivery cell must keep retrying for a fixed staging bay/charger.
+            if manager.post_task_mode is None and manager.target_cell is None:
+                current_cell = (
+                    int(manager.state.position[0]),
+                    int(manager.state.position[1]),
+                )
+                if current_cell in self.dropoff_cells:
+                    manager.post_task_mode = (
+                        "CHARGER" if manager.state.battery <= 20.0 else "STAGING"
+                    )
+
             if manager.post_task_mode not in ("CHARGER", "STAGING"):
                 continue
 
