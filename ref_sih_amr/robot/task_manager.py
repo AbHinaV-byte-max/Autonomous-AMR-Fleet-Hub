@@ -439,10 +439,23 @@ class LocalTaskManager:
         self.comms.send(msg)
 
     def _handle_arrival(self):
-        if not self.current_task:
-            return
-            
         current_int = (int(self.state.position[0]), int(self.state.position[1]))
+
+        # A robot that has completed a delivery can be given a short
+        # post-delivery parking route by the simulator. It has no task while
+        # parking, so reaching target_cell means the robot is ready to return
+        # to the normal IDLE pool; do not treat this as a warehouse task.
+        if not self.current_task:
+            if self.target_cell is not None and current_int == (
+                int(self.target_cell[0]), int(self.target_cell[1])
+            ):
+                self.state.status = RobotStatus.IDLE
+                self.state.current_task_id = None
+                self.state.planned_path = []
+                self.target_cell = None
+                self.wait_time = 0.0
+                self.waiting_on = None
+            return
         
         if self.current_task.status == TaskStatus.ASSIGNED:
             px, py = self.current_task.pickup_cell
