@@ -102,10 +102,9 @@ class Simulator:
         # Heartbeat tracker: robot_id -> last heartbeat tick
         self.last_heartbeat: Dict[str, float] = {}
 
-        # Shared global reservation table to enable Prioritized Planning
-        from robot.coordination import ReservationTable
-        self.global_reservation_table = ReservationTable()
-
+        # Each AMR owns its reservation table. Peer intent messages are the
+        # only mechanism used to learn other robots' planned occupancy.
+        # There is deliberately no fleet-wide reservation table.
         # Spawn robots at R markers with realistic initial battery levels for demonstration
         num_robots = len(self.spawn_cells) if self.spawn_cells else 3
         initial_batteries = [96.0, 42.0, 88.0, 68.0, 82.0, 32.0, 91.0, 54.0, 94.0]
@@ -124,10 +123,6 @@ class Simulator:
             )
             manager = LocalTaskManager(state, self.planner, self.comms, self.grid_map, strategy=self.strategy, event_logger=self.event_log)
             manager.maintenance_profile = maintenance_profile(f"item_{i}")
-
-            # OVERRIDE the local table with the global one so robots instantly see each other's paths
-            # during sequential allocation, solving the simultaneous-planning collision bug.
-            manager.reservation_table = self.global_reservation_table
 
             # Enable CBS mode for P1 strategy — CBS is the sole path authority
             if self.strategy == "P1":
@@ -433,7 +428,7 @@ class Simulator:
             cell = (int(cell[0]), int(cell[1]))
             if cell in occupied:
                 continue
-            if self.global_reservation_table.get_claimer(cell, float(self.tick_count + 1)):
+            if manager.reservation_table.get_claimer(cell, float(self.tick_count + 1)):
                 continue
             distance = (
                 abs(cell[0] - int(manager.state.position[0]))
@@ -706,6 +701,12 @@ class Simulator:
         if not goals:
             return
 
+        # In the P2P strategy, every robot plans locally from peer intents.
+        # CBS remains available only as an explicit centralized benchmark/legacy
+        # strategy; the live fleet path uses peer-to-peer coordination.
+        if self.strategy == "P2P":
+            return
+
         # Idle / offline / charging robots are static obstacles — wrap the costmap so CBS
         # treats their cells as walls (O(1) per get_cell, zero constraint overhead).
         idle_cells = [
@@ -737,7 +738,7 @@ class Simulator:
                 start=m.state.position,
                 goal=goal,
                 costmap=self.grid_map,
-                reservation_table=self.global_reservation_table,
+                reservation_table=manager.reservation_table,
                 start_time=float(self.tick_count),
                 robot_id=rid,
             )
