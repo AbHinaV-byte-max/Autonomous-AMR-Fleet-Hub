@@ -421,6 +421,8 @@ class Simulator:
         manager.wait_time = 0.0
         manager.waiting_on = None
         manager.checkpoint_reached = True
+        if not manager.cbs_mode:
+            manager._replan()
         self.event_log.log_conflict(
             manager.state.robot_id,
             "SYSTEM",
