@@ -144,7 +144,7 @@ def main():
     if unknown:
         raise SystemExit(f"Unknown benchmark scenario(s): {', '.join(unknown)}")
 
-    task_count = int(os.getenv("BENCH_TASKS", "6"))
+    task_override = os.getenv("BENCH_TASKS")
     max_ticks = int(os.getenv("BENCH_MAX_TICKS", "3000"))
     output_path = os.getenv(
         "BENCH_OUTPUT",
@@ -152,7 +152,11 @@ def main():
     )
 
     results = [
-        benchmark_scenario(scenario, task_count, max_ticks)
+        benchmark_scenario(
+            scenario,
+            int(task_override) if task_override else SCENARIO_TASKS[scenario],
+            max_ticks,
+        )
         for scenario in scenarios
     ]
 
