@@ -202,6 +202,10 @@ class LocalTaskManager:
                 self.state.status = RobotStatus.WAITING
                 self.wait_time += 1.0
                 self.waiting_on = physical_block
+                # A physical block means the currently planned joint route is
+                # no longer executable at this instant. Ask the simulator to
+                # refresh CBS after all robots finish this tick.
+                self.checkpoint_reached = True
                 return False
 
             # CBS paths are already jointly conflict-free for the planning
