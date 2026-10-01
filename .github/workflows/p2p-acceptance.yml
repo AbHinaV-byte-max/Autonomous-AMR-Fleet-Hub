@@ -4,7 +4,17 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - fix/sih26-auto-safety
+    paths:
+      - "ref_sih_amr/experiments/decentralized_acceptance.py"
+      - "ref_sih_amr/sim/**"
+      - "ref_sih_amr/robot/**"
+      - "ref_sih_amr/comms/**"
+      - "ref_sih_amr/experiments/**"
+  pull_request:
+    branches:
+      - main
     paths:
       - "ref_sih_amr/experiments/decentralized_acceptance.py"
       - "ref_sih_amr/sim/**"
