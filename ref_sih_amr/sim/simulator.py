@@ -215,7 +215,9 @@ class Simulator:
                 continue
             staging.append(cell)
             occupied.add(cell)
-            if len(staging) >= min(4, max(1, len(self.free_cells) // 10)):
+            # Keep enough fixed staging capacity for a small fleet.
+            # Service bays are explicit infrastructure, not dynamic parking.
+            if len(staging) >= min(4, max(3, len(self.free_cells) // 10)):
                 break
 
         chargers = []
