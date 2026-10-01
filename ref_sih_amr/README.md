@@ -124,6 +124,22 @@ The security layer includes validation concepts such as:
 - freshness checking
 - physical plausibility checks
 
+### 7. Direct UDP robot processes
+
+For a true multi-process P2P demonstration, start one `robot/node.py` process
+per AMR. Each process owns its own reservation table and UDP socket.
+
+Example:
+
+```bash
+python ref_sih_amr/robot/node.py --robot-id robot-0 --bind 127.0.0.1:19001 \
+  --peers robot-1=127.0.0.1:19002,robot-2=127.0.0.1:19003 \
+  --start 1,1 --pickup 4,1 --dropoff 4,5
+```
+
+The peers exchange `IntentMessage` directly; no broker or shared reservation
+table is required.
+
 ### 7. Dashboard
 
 A web dashboard provides visualization and monitoring of the simulation
