@@ -150,6 +150,36 @@ SCENARIOS = {
 ##########################
 """
 }
+ 
+# Fixed post-task infrastructure. These cells are part of each scenario map,
+# not dynamically selected parking locations. S = staging bay, C = charger.
+FIXED_INFRASTRUCTURE = {
+    "S1_Normal": {"staging": [(7, 2), (13, 2), (16, 2), (21, 2)], "chargers": [(14, 4), (7, 5)]},
+    "S2_Crossing": {"staging": [(12, 2), (10, 4), (13, 4), (4, 6)], "chargers": [(7, 6), (11, 6)]},
+    "S3_Narrow": {"staging": [(12, 5), (13, 3), (1, 7), (22, 7)], "chargers": [(7, 9), (10, 9)]},
+    "S4_Blocked": {"staging": [(2, 6), (7, 6), (15, 6), (21, 6)], "chargers": [(7, 9), (15, 9)]},
+    "S5_Failure": {"staging": [(3, 2), (13, 2), (20, 2), (10, 3)], "chargers": [(2, 4), (14, 4)]},
+    "S6_CommDelay": {"staging": [(3, 2), (10, 2), (13, 2), (20, 2)], "chargers": [(2, 4), (11, 4)]},
+    "S7_Malformed": {"staging": [(2, 4), (7, 4), (13, 4), (10, 4)], "chargers": [(4, 5), (10, 1)]},
+    "S8_Scale": {"staging": [(7, 2), (7, 5), (14, 5), (20, 5)], "chargers": [(7, 8), (14, 8)]},
+}
+
+def _apply_fixed_infrastructure(ascii_map, spec):
+    lines = [list(line) for line in ascii_map.strip().splitlines()]
+    for x, y in spec["staging"]:
+        if lines[y][x] != ".":
+            raise ValueError(f"Staging cell {(x, y)} is not free")
+        lines[y][x] = "S"
+    for x, y in spec["chargers"]:
+        if lines[y][x] != ".":
+            raise ValueError(f"Charger cell {(x, y)} is not free")
+        lines[y][x] = "C"
+    return "\n".join("".join(row) for row in lines)
+
+for _scenario_name, _spec in FIXED_INFRASTRUCTURE.items():
+    SCENARIOS[_scenario_name] = _apply_fixed_infrastructure(
+        SCENARIOS[_scenario_name], _spec
+    )
 
 STRATEGIES = ["B0", "B1", "B2", "P1"]
 TRIALS = 20
