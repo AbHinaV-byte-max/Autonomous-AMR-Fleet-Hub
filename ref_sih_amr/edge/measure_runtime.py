@@ -1,8 +1,9 @@
-"""Measure the robot-local decision layer on the actual edge machine.
+"""Measure robot-local decision latency and resource telemetry.
 
-Run this script on a Raspberry Pi or Jetson. It records the machine identity,
-CPU/RAM telemetry, and local decision latency. Desktop simulation numbers must
-not be presented as edge-hardware evidence.
+This utility is optional instrumentation. It can be run inside the documented
+Pi-class Docker emulation or on a real target device. Container results are
+**edge-class emulation**, not physical Raspberry Pi/Jetson evidence. A physical
+hardware claim requires platform/machine data captured on that device.
 """
 
 import argparse
@@ -31,7 +32,7 @@ def main():
     parser.add_argument(
         "--output",
         default=None,
-        help="Optional JSON output path for the captured hardware evidence.",
+        help="Optional JSON output path for the captured runtime measurement.",
     )
     args = parser.parse_args()
 
@@ -73,6 +74,7 @@ def main():
         "cpu_percent_mean": statistics.mean(cpu_samples) if cpu_samples else None,
         "ram_percent_mean": statistics.mean(ram_samples) if ram_samples else None,
         "psutil_available": psutil is not None,
+        "evidence_type": "runtime_measurement_only",
     }
     rendered = json.dumps(result, indent=2)
     print(rendered)
