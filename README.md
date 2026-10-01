@@ -4,11 +4,11 @@
 
 A distributed multi-robot coordination prototype for **Autonomous Mobile Robots (AMRs)** operating in smart warehouses.
 
-The project combines task allocation, grid-based path planning, multi-robot conflict resolution, collision-safety checks, rerouting, failure recovery, simulated peer communication, telemetry, benchmarking, and a live fleet dashboard.
+The project combines task allocation, robot-local A* planning, peer-intent conflict resolution, collision-safety checks, rerouting, failure recovery, direct UDP peer transport, telemetry, benchmarking, and a live fleet dashboard.
 
 > **Primary runtime:** `ref_sih_amr/`  
 > **Dashboard:** FastAPI + WebSocket + HTML5 Canvas  
-> **Coordination:** Hungarian allocation + A* + CBS + runtime safety checks
+> **Coordination:** Hungarian task allocation + robot-local A* + peer-intent reservations + runtime safety checks
 
 ![SIH AMR Fleet Dashboard](assets/dashboard/fleet_dashboard_hud.png)
 
@@ -21,11 +21,11 @@ The project combines task allocation, grid-based path planning, multi-robot conf
 | 🤖 Multi-AMR coordination | Concurrent simulated robot managers |
 | 📦 Task allocation | Fleet allocator with Hungarian assignment |
 | 🧭 Navigation | Grid-based A* path planning |
-| 🔀 Conflict resolution | Space-time planning + CBS |
+| 🔀 Conflict resolution | Robot-local A* + peer-intent reservations; CBS retained only as an explicit centralized benchmark strategy |
 | 🛡️ Safety | Vertex, edge-swap, occupancy and reservation checks |
 | 🚧 Dynamic rerouting | Blocked-cell detection and replanning |
 | 🔋 Resilience | Battery/failure handling and task reassignment |
-| 📡 Peer communication | Simulated heartbeat/message channel with degradation handling |
+| 📡 Peer communication | Direct UDP peer mesh (`UdpPeerChannel`) plus deterministic in-process test transport |
 | 📊 Telemetry | Queue-based `TelemetryBus` + WebSocket stream |
 | 🖥️ Operations dashboard | Live fleet state, task pipeline and warehouse view |
 | 🧪 Benchmarking | Reproducible scenarios and coordination strategies |
@@ -68,7 +68,7 @@ The project combines task allocation, grid-based path planning, multi-robot conf
                      └───────────────────┘
 ```
 
-The **deterministic safety and coordination layer remains authoritative** over higher-level decision logic.
+The live fleet uses the **P2P strategy**: each robot owns its reservation table and exchanges intent directly with peers. Hungarian allocation remains a fleet-level task-assignment service; CBS is not used by the live P2P motion loop and is retained for comparison/legacy validation.
 
 ---
 
@@ -77,7 +77,7 @@ The **deterministic safety and coordination layer remains authoritative** over h
 ### Requirements
 
 - Python 3.12
-- Windows for the provided `.bat` launcher
+- Linux, macOS, or Windows with Python 3.10+
 
 ### Install runtime dependencies
 
@@ -85,7 +85,7 @@ The **deterministic safety and coordination layer remains authoritative** over h
 python -m pip install -r requirements.txt
 ```
 
-The root `requirements.txt` contains only the dependencies needed by the live FastAPI dashboard and simulator. This keeps serverless deployments within function bundle limits.
+The root `requirements.txt` contains the live dashboard/runtime dependencies. The dashboard is a long-running FastAPI/WebSocket process; deploy it on a persistent process host or container rather than a serverless function.
 
 For full local validation, benchmark analysis, and optional ONNX training/inference:
 
@@ -152,7 +152,7 @@ Tracked metrics include:
 - Edge inference latency
 - Energy proxy metrics
 
-The benchmark framework includes sequential execution, independent planning, stop-and-wait coordination, and the proposed coordinated fleet strategy.
+The benchmark framework includes sequential execution, independent planning, stop-and-wait coordination, P2P local coordination, and the legacy CBS strategy. The acceptance benchmark reports measured makespan reduction and fails when the required 20% target or zero-collision target is not met; it does not hard-code a success claim.
 
 ---
 
