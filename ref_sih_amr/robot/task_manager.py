@@ -388,6 +388,21 @@ class LocalTaskManager:
             return
 
         if self.state.status not in (RobotStatus.OFFLINE, RobotStatus.CHARGING):
+            current_int = (int(self.state.position[0]), int(self.state.position[1]))
+            if (
+                self.state.status in (RobotStatus.MOVING, RobotStatus.DEGRADED)
+                and self.target_cell is not None
+                and not self.state.planned_path
+                and current_int != (int(self.target_cell[0]), int(self.target_cell[1]))
+            ):
+                # Never advertise MOVING/IN TRANSIT without an executable route.
+                # P1 will ask the simulator/CBS for a fresh route on the next
+                # planning checkpoint instead of leaving the AMR visually frozen.
+                self.state.status = RobotStatus.WAITING
+                self.waiting_on = "NO_EXECUTABLE_PATH"
+                self.checkpoint_reached = True
+                self.wait_time += 1.0
+
             if self._check_conflicts(current_time):
                 # Move
                 next_cell = self.state.planned_path.pop(0)
