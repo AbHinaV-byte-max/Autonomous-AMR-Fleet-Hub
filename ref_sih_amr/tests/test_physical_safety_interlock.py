@@ -36,9 +36,5 @@ def test_physical_safety_stop_rolls_back_mover_not_stationary_occupant():
     assert (int(mover.state.position[0]), int(mover.state.position[1])) == (2, 1)
     assert (int(occupant.state.position[0]), int(occupant.state.position[1])) == (3, 1)
     assert sim.metric_values["COLLISION_COUNT"] == 0
-    assert any(
-        event["type"] == "PHYSICAL_SAFETY_STOP"
-        and event["robot_id"] == mover.state.robot_id
-        and event["peer_id"] == occupant.state.robot_id
-        for event in sim.event_log.conflict_events
-    )
+    assert mover.state.status == RobotStatus.WAITING
+    assert mover.waiting_on == occupant.state.robot_id
