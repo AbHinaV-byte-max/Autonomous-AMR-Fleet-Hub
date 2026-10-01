@@ -525,30 +525,19 @@ class Simulator:
         if not eligible or not queueable:
             return
 
-        # A dropoff is a shared physical delivery slot. Do not dispatch
-        # multiple live tasks to the same slot at once: with S1's four D
-        # cells, random task generation could otherwise send a whole fleet
-        # into the same corner and force CBS to solve an impossible target
-        # collision.
-        # A dropoff slot is unavailable not only while another task is
-        # targeting it, but also while an AMR is physically parked on that
-        # slot after completing a previous order.  Treating only active task
-        # targets as occupied lets a new AMR be assigned to an already occupied
-        # dropoff; CBS then sees the parked AMR as a dynamic obstacle and can
-        # incorrectly reinterpret the goal as an obstacle/rack, producing a
-        # never-ending detour instead of task completion.
+        # A dropoff is a shared physical delivery slot. The allocator only
+        # prevents multiple NEW assignments from claiming the same slot in
+        # this allocation pass. It deliberately does not inspect a parked
+        # robot's physical cell: in the P2P strategy the receiving robot may
+        # already be carrying the next task and its local conflict checks will
+        # wait/yield until the slot is physically clear. P1/CBS has an
+        # additional goal-slot check in _run_cbs_planning().
         occupied_dropoffs = {
             tuple(m.current_task.dropoff_cell)
             for m in self.robot_managers
             if m.current_task is not None
             and m.state.status not in (RobotStatus.OFFLINE, RobotStatus.CHARGING)
         }
-        occupied_dropoffs.update(
-            (int(m.state.position[0]), int(m.state.position[1]))
-            for m in self.robot_managers
-            if m.state.status != RobotStatus.OFFLINE
-            and (int(m.state.position[0]), int(m.state.position[1])) in self.dropoff_cells
-        )
         available_queueable = [
             task for task in queueable
             if tuple(task.dropoff_cell) not in occupied_dropoffs
