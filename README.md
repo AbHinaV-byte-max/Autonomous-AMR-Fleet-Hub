@@ -150,7 +150,7 @@ Tracked metrics include:
 - Edge inference latency
 - Energy proxy metrics
 
-The benchmark framework includes sequential execution, independent planning, stop-and-wait coordination, P2P local coordination, and the legacy CBS strategy. The acceptance benchmark reports measured makespan reduction and fails when the required 20% target or zero-collision target is not met; it does not hard-code a success claim.
+The benchmark framework includes sequential execution, independent planning, stop-and-wait coordination, P2P local coordination, and the legacy CBS strategy. The acceptance matrix reports measured makespan reduction and zero-collision results across crossing, narrow-aisle, blocked-aisle and 8-AMR scenarios. See `docs/validation/P2P_ACCEPTANCE_MATRIX.md` for the latest recorded evidence. It does not hard-code a success claim.
 
 ---
 
@@ -198,8 +198,8 @@ The repository no longer carries the inherited NVIDIA Kit application-template/t
 1. **Tasks enter the fleet queue.**
 2. **The allocator assigns work** to eligible robots.
 3. **A*** generates obstacle-aware paths.
-4. **CBS** resolves multi-robot path conflicts using space-time constraints.
-5. **Runtime safety checks** guard against occupancy, vertex and edge-swap conflicts.
+4. **Peer intents + local reservations** resolve multi-robot conflicts at each robot edge node.
+5. **Runtime safety checks** guard against occupancy, vertex and edge-swap conflicts. CBS is retained only as an explicit centralized comparison strategy.
 6. **Blocked paths or changing conditions** trigger replanning.
 7. **Robot failure or degraded communication** can move work into recovery/reassignment.
 8. **TelemetryBus** publishes the current fleet state to the dashboard.
