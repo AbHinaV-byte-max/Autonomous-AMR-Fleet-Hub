@@ -73,6 +73,24 @@ class AStarPlanner(Planner):
                 new_cost = cost_so_far.get((current, t), 0) + 1.0
                 if dx == 0 and dy == 0:
                     new_cost += 0.5  # Penalise waiting in-place: prefer detour over temporal stall
+
+                # Penalise spatial revisits in the same candidate route. In
+                # the S4 blocked-aisle case, time-expanded A* can otherwise
+                # find a valid but pathological cycle such as
+                # A -> B -> C -> D -> A while it waits for a peer reservation
+                # to clear. Re-visiting remains possible when needed for a
+                # constrained space-time route; the extra cost simply makes a
+                # genuine detour or an in-place wait preferable.
+                if nxt != current:
+                    ancestor_state = (current, t)
+                    revisits = False
+                    while ancestor_state is not None:
+                        if ancestor_state[0] == nxt:
+                            revisits = True
+                            break
+                        ancestor_state = came_from.get(ancestor_state)
+                    if revisits:
+                        new_cost += 6.0  # Strongly discourage spatial cycles
                 
                 if (nxt, nxt_t) not in cost_so_far or new_cost < cost_so_far[(nxt, nxt_t)]:
                     cost_so_far[(nxt, nxt_t)] = new_cost
