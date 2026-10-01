@@ -148,12 +148,14 @@ def test_completed_robot_is_reassigned_without_waiting_for_periodic_allocator():
     assert (int(r0.state.position[0]), int(r0.state.position[1])) != (3, 3)
 
     # Once staged, the robot can be dispatched again by the normal allocator.
-    for i in range(10):
+    # Stop as soon as the follow-up leaves QUEUED; it may complete quickly after
+    # assignment, so asserting current_task at an arbitrary later tick is brittle.
+    for _ in range(10):
         sim.tick()
-        print("TRACE", i + 1, "status=", r0.state.status, "pos=", r0.state.position, "target=", r0.target_cell, "post=", r0.post_task_mode, "task=", getattr(r0.current_task, "task_id", None), "follow=", follow_up.status, "assigned=", follow_up.assigned_robot_id)
-    assert r0.current_task is not None
-    assert r0.current_task.task_id == follow_up.task_id
+        if follow_up.status != TaskStatus.QUEUED:
+            break
     assert follow_up.assigned_robot_id == r0.state.robot_id
+    assert follow_up.status in (TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS, TaskStatus.COMPLETED)
 
 
 def test_completed_robot_routes_to_fixed_staging_bay():
