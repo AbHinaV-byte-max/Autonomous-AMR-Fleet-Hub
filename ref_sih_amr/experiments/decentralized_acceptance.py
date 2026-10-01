@@ -109,23 +109,11 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int) -> Result
     waiting_by_robot = {m.state.robot_id: 0 for m in sim.robot_managers}
     max_wait_by_robot = {m.state.robot_id: 0 for m in sim.robot_managers}
     prev_wait_by_robot = {m.state.robot_id: 0.0 for m in sim.robot_managers}
-    replan_events = []
-
-    # Diagnostic-only S4 route tracing. This does not alter simulation behavior.
-    trace_task_id = None
-    trace_last = {}
-    trace_next_tick = 100
-    if scenario == "S4_Blocked":
-        trace_task_id = "BENCH_03" if strategy == "B2" else "BENCH_01"
+    
 
     while sim.tick_count < max_ticks and sim.completed_tasks < task_count:
         if block_at is not None and sim.tick_count == block_at:
             sim.block_cell(*block_cell)
-            if trace_task_id:
-                print(
-                    f"[S4 ROUTE TRACE] strategy={strategy} tick={sim.tick_count} "
-                    f"BLOCKED cell={block_cell} task={trace_task_id}"
-                )
 
         before_completed = {
             task.task_id
@@ -145,11 +133,6 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int) -> Result
             completion_ticks[task_id] = sim.tick_count
 
         current_replans = float(sim.metric_values.get("REPLAN_COUNT", 0.0))
-        if current_replans > before_replans:
-            replan_events.append({
-                "tick": sim.tick_count,
-                "delta": current_replans - before_replans,
-            })
 
         for manager in sim.robot_managers:
             robot_id = manager.state.robot_id
@@ -158,60 +141,6 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int) -> Result
                 waiting_by_robot[robot_id] += int(wait - prev_wait_by_robot[robot_id])
             max_wait_by_robot[robot_id] = max(max_wait_by_robot[robot_id], wait)
             prev_wait_by_robot[robot_id] = wait
-
-            if trace_task_id and manager.current_task and manager.current_task.task_id == trace_task_id:
-                pos = (int(manager.state.position[0]), int(manager.state.position[1]))
-                target = manager.target_cell
-                path_len = len(manager.state.planned_path)
-                state = (
-                    manager.state.status.value,
-                    pos,
-                    target,
-                    path_len,
-                    manager.waiting_on,
-                    manager.current_task.status.value,
-                )
-                previous = trace_last.get(manager.state.robot_id)
-                periodic = sim.tick_count >= trace_next_tick and sim.tick_count >= 100
-                changed = state != previous
-                if changed or periodic:
-                    print(
-                        f"[S4 ROUTE TRACE] strategy={strategy} tick={sim.tick_count} "
-                        f"task={trace_task_id} robot={manager.state.robot_id} "
-                        f"status={manager.state.status.value} pos={pos} target={target} "
-                        f"path_len={path_len} waiting_on={manager.waiting_on} "
-                        f"wait={manager.wait_time} task_status={manager.current_task.status.value}"
-                    )
-                    trace_last[manager.state.robot_id] = state
-                    if periodic:
-                        trace_next_tick += 25
-
-        if trace_task_id:
-            for task in sim.tasks:
-                if task.task_id == trace_task_id and task.status == TaskStatus.COMPLETED:
-                    print(
-                        f"[S4 ROUTE TRACE] strategy={strategy} tick={sim.tick_count} "
-                        f"task={trace_task_id} COMPLETED"
-                    )
-                    trace_task_id = None
-                    break
-
-    if scenario == "S4_Blocked":
-        print(f"[S4 TRACE] strategy={strategy} tick={sim.tick_count} completed={sim.completed_tasks}")
-        print(f"[S4 TRACE] completion_ticks={completion_ticks}")
-        print(f"[S4 TRACE] replan_events={replan_events}")
-        print(f"[S4 TRACE] waiting_by_robot={waiting_by_robot}")
-        print(f"[S4 TRACE] max_wait_by_robot={max_wait_by_robot}")
-        for manager in sim.robot_managers:
-            print(
-                f"[S4 TRACE] {manager.state.robot_id} "
-                f"status={manager.state.status.value} "
-                f"task={getattr(manager.current_task, 'task_id', None)} "
-                f"task_status={getattr(getattr(manager, 'current_task', None), 'status', None)} "
-                f"pos={(int(manager.state.position[0]), int(manager.state.position[1]))} "
-                f"target={manager.target_cell} post={manager.post_task_mode} "
-                f"wait={manager.wait_time} waiting_on={manager.waiting_on}"
-            )
 
     return Result(
         strategy=strategy,
