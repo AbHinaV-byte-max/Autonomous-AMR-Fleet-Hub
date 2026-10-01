@@ -94,7 +94,7 @@ def live_simulation_loop(bus):
         sim.scenario_name = current_scen
         sim.task_generator.enabled = AUTO_TASKS_ENABLED
         CURRENT_SIM = sim
-        
+
         # S6 CommDelay: patch comms so robot-0 drops broadcasts
         if current_scen == "S6_CommDelay":
             original_send = sim.comms.send
@@ -102,35 +102,25 @@ def live_simulation_loop(bus):
                 if msg.robot_id != "robot-0":
                     original_send(msg)
             sim.comms.send = patched_send
-        
-        switched = False
-        for tick in range(500):
-            if not RUNNING or current_scen != LIVE_SCENARIO: 
-                switched = True
-                break
-                
+
+        # Keep one simulator instance alive for the whole scenario. Recreating
+        # it every 500 ticks silently discarded live tasks, robot positions,
+        # batteries and reservations, which made Auto Mode appear to create
+        # fresh work after a reset and made long-running fleet behaviour
+        # impossible to observe truthfully.
+        while RUNNING and current_scen == LIVE_SCENARIO:
             global SIM_PAUSED, SIM_STEP_REQUEST
             while SIM_PAUSED and not SIM_STEP_REQUEST and RUNNING and current_scen == LIVE_SCENARIO:
                 time.sleep(0.05)
             if not RUNNING or current_scen != LIVE_SCENARIO:
-                switched = True
                 break
 
-            # Apply scenario-specific dynamic events
-            if current_scen == "S4_Blocked" and tick == 40:
-                sim.block_cell(5, 2)
-            elif current_scen == "S5_Failure" and tick == 50:
-                sim.kill_robot("robot-0")
-                
             sim.task_generator.enabled = AUTO_TASKS_ENABLED
             with _SIM_LOCK:
                 sim.tick()
             if SIM_STEP_REQUEST:
                 SIM_STEP_REQUEST = False
             time.sleep(SIM_TICK_RATE)  # Smooth, observable pace
-            
-        if not switched and RUNNING:
-            time.sleep(1)
 
 
 @app.on_event("startup")
