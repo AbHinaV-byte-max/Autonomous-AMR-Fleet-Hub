@@ -6,7 +6,7 @@ measurement-driven: it records per-scenario completion, makespan, waiting,
 replans and collisions, then evaluates the aggregate >=20% improvement and
 zero-collision requirements.
 
-Scenarios:
+Evidence matrix scenarios:
 - S2_Crossing: orthogonal crossing / choke-point stress.
 - S3_Narrow: narrow-aisle contention.
 - S4_Blocked: dynamic blocked-aisle rerouting.
