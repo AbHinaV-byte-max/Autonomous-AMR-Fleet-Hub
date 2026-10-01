@@ -3449,14 +3449,12 @@ body {
         window.alert('Manual Dispatch is available only when Auto Orders is OFF.');
         return;
       }
-      if (state.currentScenario !== 'S1_Normal') {
-        const points = getScenarioDispatchPoints();
-        if (!points) {
-          window.alert('Manual Dispatch is not configured for ' + (SCENARIO_LABELS[state.currentScenario] || state.currentScenario || 'this scenario') + '.');
-          return;
-        }
-        populateDispatchModal(points);
+      const points = getScenarioDispatchPoints();
+      if (!points) {
+        window.alert('Manual Dispatch is not configured for ' + (SCENARIO_LABELS[state.currentScenario] || state.currentScenario || 'this scenario') + '.');
+        return;
       }
+      populateDispatchModal(points);
       document.getElementById('dispatchModal').classList.remove('hidden');
     }
 
