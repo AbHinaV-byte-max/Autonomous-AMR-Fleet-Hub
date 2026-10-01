@@ -1,3 +1,5 @@
+> **Historical validation record — superseded.** This report describes the pre-P2P/CBS architecture that existed before the current acceptance work. Its performance figures are retained for traceability and must not be presented as measurements of the current P2P implementation. Current acceptance is defined by `ref_sih_amr/experiments/decentralized_acceptance.py` and real edge measurements from `ref_sih_amr/edge/measure_runtime.py`.
+
 # PHASE 5 FINAL ACCEPTANCE REPORT
 
 **Generated:** 2026-09-26  
