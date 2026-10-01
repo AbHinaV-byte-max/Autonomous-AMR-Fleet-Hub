@@ -57,6 +57,8 @@ class Simulator:
             if any(self.grid_map.get_cell(x+dx, y+dy) == '.' for dx, dy in [(0,1), (1,0), (0,-1), (-1,0)]):
                 self.pickup_cells.append((x, y))
         self.dropoff_cells = self.grid_map.find_all('D')
+        self.staging_cells = self.grid_map.find_all('S')
+        self.charger_cells = self.grid_map.find_all('C')
         self.spawn_cells   = self.grid_map.find_all('R')
         self.free_cells    = self.grid_map.find_all('.')
 
@@ -244,6 +246,7 @@ class Simulator:
             manager.state.battery = 100.0
             manager.state.planned_path = []
             manager.target_cell = None
+            manager.post_task_mode = None
             manager.wait_time = 0.0
             self.last_heartbeat[robot_id] = float(self.tick_count)
             for peer in self.robot_managers:
@@ -268,6 +271,7 @@ class Simulator:
             manager.state.current_task_id = None
             manager.state.planned_path = []
             manager.target_cell = None
+            manager.post_task_mode = None
 
     def _check_heartbeats(self):
         for m in self.robot_managers:
@@ -347,113 +351,103 @@ class Simulator:
             else:
                 positions[pos] = m.state.robot_id
 
-    def _park_completed_dropoff_robots(self):
-        """Move a completed AMR off a delivery slot when another task needs it.
+    def _find_free_service_cell(self, manager: LocalTaskManager, cells: List[tuple]) -> Optional[tuple]:
+        """Return the nearest currently free fixed service bay.
 
-        Delivery cells are shared physical slots, not permanent parking spaces.
-        When Auto Mode is OFF there may be no later order that naturally pulls a
-        completed AMR away from the dock, so an already-assigned task targeting
-        that same slot could otherwise wait forever. Give the completed AMR a
-        short, collision-aware parking route to a nearby non-dropoff aisle cell.
+        Staging and charging bays are explicit single-occupancy resources. The
+        physical occupancy check handles robots already sitting on a bay, while
+        the reservation-table check prevents two post-task routes from claiming
+        the same bay at the same execution time.
         """
+        if not cells:
+            return None
+
         occupied = {
             (int(m.state.position[0]), int(m.state.position[1]))
             for m in self.robot_managers
-            if m.state.status != RobotStatus.OFFLINE
+            if m is not manager and m.state.status != RobotStatus.OFFLINE
         }
-        dropoffs = {tuple(cell) for cell in self.dropoff_cells}
-        pickups = {tuple(cell) for cell in self.pickup_cells}
+        candidates = []
+        for cell in cells:
+            cell = (int(cell[0]), int(cell[1]))
+            if cell in occupied:
+                continue
+            if self.global_reservation_table.get_claimer(cell, float(self.tick_count + 1)):
+                continue
+            distance = (
+                abs(cell[0] - int(manager.state.position[0]))
+                + abs(cell[1] - int(manager.state.position[1]))
+            )
+            candidates.append((distance, cell))
 
+        candidates.sort()
+        return candidates[0][1] if candidates else None
+
+    def _schedule_post_task_destination(self, manager: LocalTaskManager, mode: str) -> bool:
+        """Send a taskless AMR to a fixed charger or staging bay.
+
+        This is fleet housekeeping, not order generation, so it continues even
+        when Auto Mode is OFF. A delivery cell is released immediately when a
+        task completes and is never used as a parking destination.
+        """
+        if manager.current_task is not None or manager.state.status == RobotStatus.OFFLINE:
+            return False
+
+        if mode not in ("CHARGER", "STAGING"):
+            raise ValueError(f"Unsupported post-task mode: {mode}")
+
+        cells = self.charger_cells if mode == "CHARGER" else self.staging_cells
+        goal = self._find_free_service_cell(manager, cells)
+        manager.post_task_mode = mode
+
+        if goal is None:
+            manager.target_cell = None
+            manager.state.planned_path = []
+            manager.state.status = RobotStatus.WAITING
+            manager.waiting_on = f"{mode}_RESOURCE"
+            manager.checkpoint_reached = True
+            self.event_log.log_conflict(
+                manager.state.robot_id,
+                "SYSTEM",
+                f"{mode}_RESOURCE",
+                "WAIT_RESOURCE",
+                self.tick_count,
+            )
+            return False
+
+        manager.target_cell = goal
+        manager.state.planned_path = []
+        manager.state.status = RobotStatus.MOVING
+        manager.wait_time = 0.0
+        manager.waiting_on = None
+        manager.checkpoint_reached = True
+        self.event_log.log_conflict(
+            manager.state.robot_id,
+            "SYSTEM",
+            f"POST_TASK_{mode}",
+            f"Reserved fixed {mode.lower()} bay {goal}",
+            self.tick_count,
+        )
+        return True
+
+    def _retry_post_task_destinations(self):
+        """Retry taskless robots waiting for a fixed service resource."""
         for manager in self.robot_managers:
-            if (
-                manager.state.status != RobotStatus.IDLE
-                or manager.current_task is not None
-            ):
+            if manager.current_task is not None or manager.state.status == RobotStatus.OFFLINE:
+                continue
+            if manager.post_task_mode not in ("CHARGER", "STAGING"):
+                continue
+            if manager.target_cell is not None:
                 continue
 
-            current = (
-                int(manager.state.position[0]),
-                int(manager.state.position[1]),
-            )
-            if current not in dropoffs:
-                continue
-
-            slot_needed = any(
-                t.status in (
-                    TaskStatus.QUEUED,
-                    TaskStatus.ASSIGNED,
-                    TaskStatus.IN_PROGRESS,
-                    TaskStatus.RECOVERABLE,
-                )
-                and tuple(t.dropoff_cell) == current
-                and t.assigned_robot_id != manager.state.robot_id
-                for t in self.tasks
-            )
-            if not slot_needed:
-                continue
-
-            candidates = []
-            for cell in self.free_cells:
-                cell = (int(cell[0]), int(cell[1]))
-                if cell in dropoffs or cell in pickups or cell in occupied:
-                    continue
-
-                degree = sum(
-                    1
-                    for dx, dy in ((0, 1), (1, 0), (0, -1), (-1, 0))
-                    if self.grid_map.get_cell(cell[0] + dx, cell[1] + dy) != '#'
-                )
-                if degree >= 2:
-                    candidates.append((
-                        abs(cell[0] - current[0]) + abs(cell[1] - current[1]),
-                        -degree,
-                        cell,
-                    ))
-
-            candidates.sort()
-
-            other_occupied = [
-                m.state.position
-                for m in self.robot_managers
-                if m is not manager
-                and m.state.status in (
-                    RobotStatus.IDLE,
-                    RobotStatus.OFFLINE,
-                    RobotStatus.CHARGING,
-                )
-            ]
-            planning_map = (
-                ObstacleCostmap(self.grid_map, other_occupied)
-                if other_occupied else self.grid_map
-            )
-
-            for _, _, parking_cell in candidates[:40]:
-                path = self.planner.plan(
-                    start=manager.state.position,
-                    goal=parking_cell,
-                    costmap=planning_map,
-                    reservation_table=self.global_reservation_table,
-                    start_time=float(self.tick_count),
-                    robot_id=manager.state.robot_id,
-                )
-                if not path:
-                    continue
-
-                manager.inject_path(path, parking_cell)
-                manager.checkpoint_reached = True
-                self.event_log.log_conflict(
-                    manager.state.robot_id,
-                    "SYSTEM",
-                    "POST_DROPOFF_PARK",
-                    f"Vacating occupied dropoff {current} -> parking {parking_cell}",
-                    self.tick_count,
-                )
-                occupied.add(parking_cell)
-                break
+            mode = manager.post_task_mode
+            if manager.state.battery <= 20.0:
+                mode = "CHARGER"
+            self._schedule_post_task_destination(manager, mode)
 
     def _allocate(self):
         eligible = [m.state for m in self.robot_managers
-                    if m.state.status == RobotStatus.IDLE and m.state.battery > 20.0]
+                    if m.state.status in (RobotStatus.IDLE, RobotStatus.STAGING) and m.state.battery > 20.0]
         queueable = [t for t in self.tasks
                      if t.status in (TaskStatus.QUEUED, TaskStatus.RECOVERABLE)]
         if not eligible or not queueable:
@@ -562,7 +556,7 @@ class Simulator:
         # AMR "looping" around an order that never reaches COMPLETED.
         target_groups = {}
         for m in self.robot_managers:
-            if m.state.status in (RobotStatus.OFFLINE, RobotStatus.IDLE, RobotStatus.CHARGING):
+            if m.state.status in (RobotStatus.OFFLINE, RobotStatus.IDLE, RobotStatus.STAGING, RobotStatus.CHARGING):
                 continue
             goal = m.get_current_goal()
             if goal is None:
@@ -582,7 +576,8 @@ class Simulator:
                 ),
                 None,
             )
-            if goal_cell in self.dropoff_cells and goal_occupant is not None and current_cell != goal_cell:
+            service_cells = set(self.dropoff_cells) | set(self.staging_cells) | set(self.charger_cells)
+            if goal_cell in service_cells and goal_occupant is not None and current_cell != goal_cell:
                 if m.state.status != RobotStatus.WAITING or m.waiting_on != f"GOAL_SLOT_OCCUPIED:{goal_cell[0]},{goal_cell[1]}":
                     self.event_log.log_conflict(
                         m.state.robot_id,
@@ -641,7 +636,7 @@ class Simulator:
         idle_cells = [
             m.state.position
             for m in self.robot_managers
-            if m.state.status in (RobotStatus.IDLE, RobotStatus.OFFLINE, RobotStatus.CHARGING)
+            if m.state.status in (RobotStatus.IDLE, RobotStatus.STAGING, RobotStatus.OFFLINE, RobotStatus.CHARGING)
         ]
         planning_map = (
             ObstacleCostmap(self.grid_map, idle_cells) if idle_cells else self.grid_map
@@ -789,43 +784,29 @@ class Simulator:
         for m in self.robot_managers:
             m.tick(t)
 
-        # If a completed robot is sitting on a delivery slot that another
-        # unfinished order needs, start a short parking route immediately.
-        self._park_completed_dropoff_robots()
+        # Re-plan any taskless robots whose fixed service resource became
+        # available, then route newly completed robots away from the delivery cell.
+        self._retry_post_task_destinations()
 
-        # If a robot physically leaves a dropoff cell, refresh the joint plan
-        # immediately so waiting orders can claim the newly freed slot.
-        dropoff_vacated = any(
-            positions_before_tick[m.state.robot_id] in self.dropoff_cells
-            and (
-                int(m.state.position[0]),
-                int(m.state.position[1]),
-            ) != positions_before_tick[m.state.robot_id]
+        completed_robot_ids = [
+            m.state.robot_id
             for m in self.robot_managers
-        )
-        if dropoff_vacated:
-            for m in self.robot_managers:
-                if (
-                    m.current_task is not None
-                    and m.state.status not in (
-                        RobotStatus.OFFLINE,
-                        RobotStatus.CHARGING,
-                    )
-                ):
-                    m.checkpoint_reached = True
+            if (
+                m.state.robot_id in active_task_robots_before_tick
+                and m.current_task is None
+                and m.state.status == RobotStatus.IDLE
+            )
+        ]
 
-        # A completed robot is immediately eligible for the next queued order.
-        # Without this handoff, a robot can sit at a delivery dock until the
-        # next periodic allocation pass, making normal-warehouse dispatch look
-        # like a stall.
-        completed_during_tick = any(
-            m.state.robot_id in active_task_robots_before_tick
-            and m.current_task is None
-            and m.state.status == RobotStatus.IDLE
-            for m in self.robot_managers
-        )
-        if completed_during_tick:
-            self._allocate()
+        # Delivery cells are released by _handle_arrival(). The completed AMR
+        # immediately transitions to a fixed staging bay, or to a fixed charger
+        # when its battery is low. This removes the root cause of endpoint
+        # blocking instead of waiting for another order to pull it away.
+        for manager in self.robot_managers:
+            if manager.state.robot_id not in completed_robot_ids:
+                continue
+            mode = "CHARGER" if manager.state.battery <= 20.0 else "STAGING"
+            self._schedule_post_task_destination(manager, mode)
 
         # 3a. Battery discharge, low-battery failover & recharge cycle
         for m in self.robot_managers:
@@ -837,6 +818,7 @@ class Simulator:
                 m.state.battery = min(100.0, m.state.battery + 1.5)
                 if m.state.battery >= 90.0:
                     m.state.status = RobotStatus.IDLE
+                    m.post_task_mode = None
                     self.event_log.log_conflict(
                         m.state.robot_id, "SYSTEM", "CHARGE_COMPLETE",
                         f"Recharge complete ({m.state.battery:.0f}%) -> Returned to active fleet",
@@ -854,22 +836,22 @@ class Simulator:
                 m.state.battery = max(0.0, m.state.battery - burn)
 
                 # Low battery safety threshold (<= 20.0%):
-                # Robot must shed its task to an available peer and enter charging mode
-                if m.state.battery <= 20.0:
+                # Shed an active task if needed, then route to a fixed charger.
+                # A robot already travelling to a charger is allowed to finish that
+                # route instead of repeatedly resetting itself to the same goal.
+                if m.state.battery <= 20.0 and m.post_task_mode != "CHARGER":
                     orphaned = m.current_task
                     task_id = orphaned.task_id if orphaned else None
                     self._orphan_task(m)
-                    m.state.status = RobotStatus.CHARGING
-                    m.state.planned_path = []
-                    m.target_cell = None
                     m.reservation_table.expire(m.state.robot_id)
+                    self._schedule_post_task_destination(m, "CHARGER")
 
                     self.event_log.log_conflict(
                         m.state.robot_id, "SYSTEM", "LOW_BATTERY_SHED",
-                        f"Battery low ({m.state.battery:.1f}%) -> Task {task_id} reallocated to fleet",
+                        f"Battery low ({m.state.battery:.1f}%) -> Task {task_id} reallocated; routing to charger",
                         self.tick_count
                     )
-                    # Immediately reallocate the shed task to an available peer!
+                    # Immediately reallocate the shed task to an available peer.
                     self._allocate()
 
         # 3b. CBS checkpoint check + rolling-horizon replan
@@ -950,6 +932,14 @@ class Simulator:
             {"location": [x, y]}
             for x, y in (self.grid_map.find_all('D') if self.grid_map else [])
         ]
+        staging_stations = [
+            {"location": [x, y]}
+            for x, y in (self.grid_map.find_all('S') if self.grid_map else [])
+        ]
+        charging_stations = [
+            {"location": [x, y]}
+            for x, y in (self.grid_map.find_all('C') if self.grid_map else [])
+        ]
         spawn_points = [
             [x, y]
             for x, y in (self.grid_map.find_all('R') if self.grid_map else [])
@@ -1004,6 +994,8 @@ class Simulator:
                 "obstacles": obstacles,
                 "pickup_stations": pickup_stations,
                 "dropoff_stations": dropoff_stations,
+                "staging_stations": staging_stations,
+                "charging_stations": charging_stations,
                 "spawn_points": spawn_points,
                 "human_zones": [],
             },
