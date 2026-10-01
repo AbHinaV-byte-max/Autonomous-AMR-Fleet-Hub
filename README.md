@@ -193,6 +193,36 @@ The repository no longer carries the inherited NVIDIA Kit application-template/t
 
 ---
 
+## Evidence boundaries and deployment notes
+
+### Task allocation is fleet-level, coordination is P2P
+
+The live runtime intentionally separates **task assignment** from **motion coordination**:
+
+- Hungarian allocation is a fleet-level optimization service that assigns queued orders to eligible AMRs.
+- Once a task is assigned, each AMR performs its own A* planning, owns its own reservation table, and exchanges intent directly with peers over UDP.
+- No fleet-wide reservation table or centralized motion coordinator is used by the live P2P path.
+
+This is an explicit architectural trade-off: the SIH requirement calls for decentralized robot-to-robot communication and multi-agent conflict resolution; task allocation is kept centralized so the prototype can optimize global order-to-robot assignment deterministically. Replacing this allocator with CBBA/auction bidding would be a separate research change and is not required to establish the current P2P motion-coordination evidence.
+
+### Edge-class emulation
+
+No Raspberry Pi or Jetson measurement is currently claimed.
+
+For a repeatable **Pi-class resource emulation**, `robot/node.py` can run as an independent robot process inside Docker containers with approximately **1 CPU and 1 GB RAM per robot**. The containers communicate over UDP exactly as separate robot nodes would. CPU/RAM usage and robot-local planning latency should be recorded from those containers and reported as **containerized edge-class emulation**, not physical edge-hardware evidence.
+
+The physical-hardware measurement helper under `ref_sih_amr/edge/` is retained only as optional instrumentation for a future target-device run.
+
+### Optional Omniverse/MCP integration
+
+The canonical SIH runtime does **not** require NVIDIA Omniverse, OpenUSD, or MCP.
+
+- `ref_sih_amr/` is the judge/demo runtime.
+- `omniverse/`, `assets/omniverse/`, and related USD/scenario material are optional visualization/integration assets.
+- `mcp_fleet/` is optional integration tooling.
+
+Judges can run the simulator, P2P transport, benchmarks, tests, and dashboard without those components.
+
 ## 🧠 Coordination pipeline
 
 1. **Tasks enter the fleet queue.**
