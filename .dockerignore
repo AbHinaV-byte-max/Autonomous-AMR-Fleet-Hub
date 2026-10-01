@@ -1,0 +1,16 @@
+.git
+.gitignore
+.gitmodules
+runs.db
+*.db
+*.db-*
+.pytest_cache
+__pycache__
+*.py[cod]
+*.pyo
+*.pyd
+.venv
+venv
+env
+artifacts
+omniverse

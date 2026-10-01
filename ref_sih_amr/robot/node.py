@@ -60,6 +60,7 @@ def main():
     p.add_argument("--scenario", default="S1_Normal")
     p.add_argument("--ticks", type=int, default=500)
     p.add_argument("--period", type=float, default=0.2)
+    p.add_argument("--start-delay", type=float, default=0.0, help="seconds to wait before the first simulation tick")
     args = p.parse_args()
 
     costmap = load_map(SCENARIOS[args.scenario])
@@ -97,6 +98,9 @@ def main():
     manager.assign_task(task)
 
     try:
+        if args.start_delay > 0:
+            time.sleep(args.start_delay)
+
         for tick in range(1, args.ticks + 1):
             manager.tick(float(tick))
             print(
