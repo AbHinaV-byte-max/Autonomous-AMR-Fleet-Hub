@@ -53,9 +53,28 @@ SCENARIO_TASKS = {
 
 
 def fixed_workload(sim: Simulator, count: int = 6):
+    # The Simulator constructor seeds a demonstration workload so the live
+    # dashboard starts with executable routes. Acceptance runs must not inherit
+    # that hidden state: otherwise clearing sim.tasks leaves orphaned tasks,
+    # paths, and reservations attached to robot managers.
     sim.tasks.clear()
     sim.task_generator.queue.clear()
     sim.task_generator.enabled = False
+
+    for manager in sim.robot_managers:
+        manager.current_task = None
+        manager.state.current_task_id = None
+        manager.state.planned_path = []
+        manager.state.status = manager.state.status.IDLE
+        manager.target_cell = None
+        manager.post_task_mode = None
+        manager.wait_time = 0.0
+        manager.waiting_on = None
+        manager.wait_ticks_on_peer = 0
+        manager._prev_waiting_on = None
+        manager.checkpoint_reached = False
+        manager.reservation_table = manager.reservation_table.__class__()
+        manager.peer_states.clear()
 
     pickups = list(sim.pickup_cells)
     dropoffs = list(sim.dropoff_cells)
