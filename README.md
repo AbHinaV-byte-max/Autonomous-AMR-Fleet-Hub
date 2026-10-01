@@ -49,12 +49,10 @@ The project combines task allocation, robot-local A* planning, peer-intent confl
                 │              │              │
                 └──────────────┼──────────────┘
                                │
-                     ┌─────────▼─────────┐
-                     │   CBS Coordinator │
-                     │ conflicts / paths │
-                     └─────────┬─────────┘
-                               │
-                     Deterministic Safety
+                 ┌─────────────▼─────────────┐
+                 │     Robot-local Safety    │
+                 │ peer reservations / yield │
+                 └─────────────┬─────────────┘
                                │
                      ┌─────────▼─────────┐
                      │    TelemetryBus   │
@@ -81,16 +79,16 @@ The live fleet uses the **P2P strategy**: each robot owns its reservation table 
 
 ### Install runtime dependencies
 
-```powershell
-python -m pip install -r requirements.txt
+```bash
+python3 -m pip install -r requirements.txt
 ```
 
 The root `requirements.txt` contains the live dashboard/runtime dependencies. The dashboard is a long-running FastAPI/WebSocket process; deploy it on a persistent process host or container rather than a serverless function.
 
 For full local validation, benchmark analysis, and optional ONNX training/inference:
 
-```powershell
-python -m pip install -r requirements-dev.txt
+```bash
+python3 -m pip install -r requirements-dev.txt
 ```
 
 ### Start
