@@ -1,6 +1,4 @@
 import sys, os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import pytest
 from sim.simulator import Simulator
 from models import RobotStatus, TaskStatus, Task
