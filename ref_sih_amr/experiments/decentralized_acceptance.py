@@ -23,7 +23,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from experiments.runner import SCENARIOS
-from models import Task, TaskStatus
+from models import Task, TaskStatus, RobotStatus
 from sim.simulator import Simulator
 
 
@@ -65,7 +65,7 @@ def fixed_workload(sim: Simulator, count: int = 6):
         manager.current_task = None
         manager.state.current_task_id = None
         manager.state.planned_path = []
-        manager.state.status = manager.state.status.IDLE
+        manager.state.status = RobotStatus.IDLE
         manager.target_cell = None
         manager.post_task_mode = None
         manager.wait_time = 0.0
