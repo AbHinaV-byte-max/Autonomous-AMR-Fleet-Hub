@@ -376,14 +376,18 @@ async def submit_task(request: dict):
     task = Task(task_id=task_id, pickup_cell=pickup, dropoff_cell=dropoff,
                 priority=priority, status=TaskStatus.QUEUED,
                 created_at=float(CURRENT_SIM.tick_count), source="MANUAL")
-    CURRENT_SIM.tasks.append(task)
-    CURRENT_SIM._allocate()
+    # The live simulation thread mutates the same Simulator every tick.
+    # Manual dispatch must use the simulator lock as well, otherwise a task can
+    # be appended while allocation/CBS is rebuilding paths, producing stale
+    # assignment or telemetry state in the UI.
+    with _SIM_LOCK:
+        CURRENT_SIM.tasks.append(task)
+        CURRENT_SIM._allocate()
+        assigned_robot_id = task.assigned_robot_id
+        task_status = task.status.value
 
-    assigned_robot_id = task.assigned_robot_id
-    task_status = task.status.value
-
-    if CURRENT_SIM.telemetry_bus is not None:
-        CURRENT_SIM.telemetry_bus.publish(CURRENT_SIM._build_snapshot())
+        if CURRENT_SIM.telemetry_bus is not None:
+            CURRENT_SIM.telemetry_bus.publish(CURRENT_SIM._build_snapshot())
 
     return {"status": "ok", "task_id": task_id,
             "pickup": list(pickup), "dropoff": list(dropoff),
