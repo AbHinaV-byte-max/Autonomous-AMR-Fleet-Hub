@@ -28,6 +28,11 @@ from robot.edge_policy import PolicyFeatures, SafeEdgePolicy
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--iterations", type=int, default=1000)
+    parser.add_argument(
+        "--output",
+        default=None,
+        help="Optional JSON output path for the captured hardware evidence.",
+    )
     args = parser.parse_args()
 
     policy = SafeEdgePolicy()
@@ -69,7 +74,14 @@ def main():
         "ram_percent_mean": statistics.mean(ram_samples) if ram_samples else None,
         "psutil_available": psutil is not None,
     }
-    print(json.dumps(result, indent=2))
+    rendered = json.dumps(result, indent=2)
+    print(rendered)
+    if args.output:
+        output_dir = os.path.dirname(args.output)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        with open(args.output, "w", encoding="utf-8") as handle:
+            handle.write(rendered + "\n")
 
 
 if __name__ == "__main__":
