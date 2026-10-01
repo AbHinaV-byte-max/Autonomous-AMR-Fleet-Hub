@@ -136,6 +136,60 @@ class LocalTaskManager:
             else:
                 self.reservation_table.expire(msg.robot_id)
 
+        # A stationary peer occupying our active goal is a persistent
+        # execution constraint, not a normal time-window reservation. If we
+        # keep replanning around a goal that another AMR is parked on, the
+        # space-time planner can produce repeated detours that return to the
+        # same blocked cell. Hold at the current cell until that peer moves.
+        if self.target_cell is not None:
+            target = (int(self.target_cell[0]), int(self.target_cell[1]))
+            current = (int(self.state.position[0]), int(self.state.position[1]))
+            if current != target:
+                blocker = None
+                for peer_id, peer_msg in self.peer_states.items():
+                    peer_pos = (int(peer_msg.position[0]), int(peer_msg.position[1]))
+                    stationary = (
+                        peer_msg.intent == Intent.WAIT
+                        or peer_msg.velocity == 0
+                        or not peer_msg.planned_path
+                    )
+                    if peer_pos == target and stationary:
+                        blocker = peer_id
+                        break
+
+                if blocker is not None:
+                    self.state.planned_path = []
+                    self.state.status = RobotStatus.WAITING
+                    self.waiting_on = blocker
+                    self.wait_time += 1.0
+                    if self.event_logger:
+                        self.event_logger.log_conflict(
+                            self.state.robot_id,
+                            blocker,
+                            "PERSISTENT_GOAL_OCCUPANCY",
+                            "WAIT_FOR_RELEASE",
+                            int(current_time),
+                        )
+                elif (
+                    self.state.status == RobotStatus.WAITING
+                    and self.waiting_on in self.peer_states
+                    and self.waiting_on is not None
+                ):
+                    # The peer that blocked the goal has moved. Rebuild the
+                    # route immediately instead of waiting for a global
+                    # allocator/deadlock cycle.
+                    released_peer = self.peer_states[self.waiting_on]
+                    released_pos = (
+                        int(released_peer.position[0]),
+                        int(released_peer.position[1]),
+                    )
+                    if released_pos != target and not self.cbs_mode:
+                        self._replan()
+                        if self.state.planned_path:
+                            self.state.status = RobotStatus.MOVING
+                            self.wait_time = 0.0
+                            self.waiting_on = None
+
         # Check for degraded comms (Phase 4)
         degraded = False
         for peer_id, last_t in list(self.last_seen.items()):
@@ -399,7 +453,8 @@ class LocalTaskManager:
                 # P1 will ask the simulator/CBS for a fresh route on the next
                 # planning checkpoint instead of leaving the AMR visually frozen.
                 self.state.status = RobotStatus.WAITING
-                self.waiting_on = "NO_EXECUTABLE_PATH"
+                if self.waiting_on is None:
+                    self.waiting_on = "NO_EXECUTABLE_PATH"
                 self.checkpoint_reached = True
                 self.wait_time += 1.0
 
