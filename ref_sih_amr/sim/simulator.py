@@ -1033,6 +1033,10 @@ class Simulator:
                     pygame.draw.rect(self.screen, (40, 160, 80), rect, border_radius=2)
                 elif char == 'D':
                     pygame.draw.rect(self.screen, (60, 100, 210), rect, border_radius=2)
+                elif char == 'S':
+                    pygame.draw.rect(self.screen, (40, 170, 150), rect, border_radius=2)
+                elif char == 'C':
+                    pygame.draw.rect(self.screen, (230, 170, 60), rect, border_radius=2)
                 else:
                     pygame.draw.rect(self.screen, (45, 45, 52), rect, border_radius=2)
 
