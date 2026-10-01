@@ -89,8 +89,8 @@ class LocalTaskManager:
 
         Strips the start cell from the path if it matches the robot's current
         position (the robot is already there — no need to 'move' to it).
-        Also commits the new path to the shared reservation table so that
-        the decentralised coordination layer stays in sync.
+        Commits the new path only to this robot's local reservation table;
+        peers learn the route through IntentMessage broadcasts.
         """
         self.target_cell = goal
         current_int = (int(self.state.position[0]), int(self.state.position[1]))
@@ -103,7 +103,7 @@ class LocalTaskManager:
         self._prev_waiting_on = None
         if self.state.planned_path:
             self.state.status = RobotStatus.MOVING
-            # Keep the reservation table in sync for the comms layer
+            # Keep this robot's local reservation table in sync for peer broadcasts
             self.reservation_table.commit(
                 self.state.robot_id, self.state.planned_path, self.state.timestamp + 1
             )
