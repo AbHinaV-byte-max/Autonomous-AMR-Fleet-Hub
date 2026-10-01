@@ -397,12 +397,13 @@ class LocalTaskManager:
                     self.state.position = (float(next_cell[0]), float(next_cell[1]))
                     if self.state.status != RobotStatus.DEGRADED:
                         self.state.status = RobotStatus.MOVING
-                    # Immediately stake current position in the shared reservation table
-                    # so that later robots ticking in the same step see us here and
-                    # don't also move into this cell (fixes the simultaneous-entry collision).
-                    self.reservation_table.commit(
+                    # Stake only the robot's actual current cell. Do not call
+                    # commit() here: commit() expires all reservations at/after
+                    # current_time, which would erase this robot's future CBS route
+                    # and make later execution checks operate on stale intent.
+                    self.reservation_table.stake_current(
                         self.state.robot_id,
-                        [target_int],
+                        target_int,
                         current_time
                     )
             elif not self.state.planned_path and self.target_cell:
