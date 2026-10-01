@@ -245,7 +245,7 @@ class Simulator:
             occupied.add(cell)
             # Keep enough fixed staging capacity for a small fleet.
             # Service bays are explicit infrastructure, not dynamic parking.
-            if len(staging) >= min(4, max(3, len(self.free_cells) // 10)):
+            if len(staging) >= min(8, max(len(self.spawn_cells) or 3, 4)):
                 break
 
         chargers = []
@@ -490,6 +490,91 @@ class Simulator:
         candidates.sort()
         return candidates[0][1] if candidates else None
 
+    def _occupied_cells(self, manager: LocalTaskManager) -> Set[tuple]:
+        return {
+            (int(m.state.position[0]), int(m.state.position[1]))
+            for m in self.robot_managers
+            if m is not manager and m.state.status != RobotStatus.OFFLINE
+        }
+
+    def _peer_targets(self, manager: LocalTaskManager) -> Set[tuple]:
+        return {
+            (int(m.target_cell[0]), int(m.target_cell[1]))
+            for m in self.robot_managers
+            if (
+                m is not manager
+                and m.state.status != RobotStatus.OFFLINE
+                and m.target_cell is not None
+            )
+        }
+
+    def _find_overflow_hold_cell(self, manager: LocalTaskManager) -> Optional[tuple]:
+        """Nearest free aisle cell that is not a dock, staging bay, or charger."""
+        current = (
+            int(manager.state.position[0]),
+            int(manager.state.position[1]),
+        )
+        reserved = set(self.dropoff_cells) | set(self.staging_cells) | set(self.charger_cells)
+        occupied = self._occupied_cells(manager)
+        peer_targets = self._peer_targets(manager)
+        candidates = []
+        for cell in self.free_cells:
+            cell = (int(cell[0]), int(cell[1]))
+            if cell == current or cell in reserved or cell in occupied or cell in peer_targets:
+                continue
+            if self.grid_map.get_cell(*cell) != ".":
+                continue
+            distance = abs(cell[0] - current[0]) + abs(cell[1] - current[1])
+            candidates.append((distance, cell))
+        candidates.sort()
+        return candidates[0][1] if candidates else None
+
+    def _route_to_overflow_hold(self, manager: LocalTaskManager) -> bool:
+        """Move a taskless AMR off a delivery dock when every service bay is busy."""
+        hold = self._find_overflow_hold_cell(manager)
+        if hold is None:
+            return False
+        manager.post_task_mode = "HOLD"
+        manager.target_cell = hold
+        manager.state.planned_path = []
+        manager.state.status = RobotStatus.MOVING
+        manager.wait_time = 0.0
+        manager.waiting_on = "STAGING_RESOURCE"
+        manager.checkpoint_reached = True
+        if not manager.cbs_mode:
+            manager._replan()
+        self.event_log.log_conflict(
+            manager.state.robot_id,
+            "SYSTEM",
+            "POST_TASK_HOLD",
+            f"Vacated dock; overflow hold {hold}",
+            self.tick_count,
+        )
+        return True
+
+    def _vacate_dropoffs_for_inbound_cargo(self):
+        """Never let a parked AMR block a live payload headed for that dock."""
+        inbound = {
+            tuple(m.current_task.dropoff_cell)
+            for m in self.robot_managers
+            if m.current_task is not None
+            and m.state.status not in (RobotStatus.OFFLINE, RobotStatus.CHARGING)
+        }
+        if not inbound:
+            return
+        for manager in self.robot_managers:
+            if manager.current_task is not None or manager.state.status == RobotStatus.OFFLINE:
+                continue
+            pos = (
+                int(manager.state.position[0]),
+                int(manager.state.position[1]),
+            )
+            if pos not in inbound:
+                continue
+            mode = "CHARGER" if manager.state.battery <= 20.0 else "STAGING"
+            if not self._schedule_post_task_destination(manager, mode):
+                self._route_to_overflow_hold(manager)
+
     def _schedule_post_task_destination(self, manager: LocalTaskManager, mode: str) -> bool:
         """Send a taskless AMR to a fixed charger or staging bay.
 
@@ -508,6 +593,12 @@ class Simulator:
         manager.post_task_mode = mode
 
         if goal is None:
+            current = (
+                int(manager.state.position[0]),
+                int(manager.state.position[1]),
+            )
+            if current in self.dropoff_cells and self._route_to_overflow_hold(manager):
+                return False
             manager.target_cell = None
             manager.state.planned_path = []
             manager.state.status = RobotStatus.WAITING
@@ -564,12 +655,14 @@ class Simulator:
                         "CHARGER" if manager.state.battery <= 20.0 else "STAGING"
                     )
 
-            if manager.post_task_mode not in ("CHARGER", "STAGING"):
+            if manager.post_task_mode not in ("CHARGER", "STAGING", "HOLD"):
                 continue
 
             mode = manager.post_task_mode
             if manager.state.battery <= 20.0:
                 mode = "CHARGER"
+            elif mode == "HOLD":
+                mode = "STAGING"
 
             if manager.target_cell is not None:
                 target = (
@@ -594,16 +687,23 @@ class Simulator:
 
             if manager.target_cell is None:
                 self._schedule_post_task_destination(manager, mode)
+            elif manager.post_task_mode == "HOLD":
+                cells = self.charger_cells if mode == "CHARGER" else self.staging_cells
+                if self._find_free_service_cell(manager, cells) is not None:
+                    self._schedule_post_task_destination(manager, mode)
 
     def _allocate(self):
         eligible = [
             m.state for m in self.robot_managers
             if (
                 m.state.battery > 20.0
+                and m.current_task is None
                 and (
                     m.state.status in (RobotStatus.IDLE, RobotStatus.STAGING)
                     or (
-                            )
+                        m.post_task_mode in ("HOLD", "STAGING")
+                        and m.state.status == RobotStatus.WAITING
+                    )
                 )
             )
         ]
@@ -1013,6 +1113,7 @@ class Simulator:
         # Re-plan any taskless robots whose fixed service resource became
         # available, then route newly completed robots away from the delivery cell.
         self._retry_post_task_destinations()
+        self._vacate_dropoffs_for_inbound_cargo()
 
         # A robot that has just reached a fixed staging bay is immediately
         # eligible for another queued order. This is still the normal allocator;

@@ -525,15 +525,22 @@ class LocalTaskManager:
                 self.state.current_task_id = None
                 self.state.planned_path = []
                 self.target_cell = None
-                self.post_task_mode = None
                 self.wait_time = 0.0
                 self.waiting_on = None
 
                 if mode == "CHARGER":
+                    self.post_task_mode = None
                     self.state.status = RobotStatus.CHARGING
                 elif mode == "STAGING":
+                    self.post_task_mode = None
                     self.state.status = RobotStatus.STAGING
+                elif mode == "HOLD":
+                    # Overflow aisle parking: keep retrying for a real bay.
+                    self.post_task_mode = "HOLD"
+                    self.state.status = RobotStatus.WAITING
+                    self.waiting_on = "STAGING_RESOURCE"
                 else:
+                    self.post_task_mode = None
                     self.state.status = RobotStatus.IDLE
 
                 self.reservation_table.stake_current(

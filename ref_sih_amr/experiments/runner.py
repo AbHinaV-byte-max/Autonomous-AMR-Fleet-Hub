@@ -154,7 +154,7 @@ SCENARIOS = {
 # Fixed post-task infrastructure. These cells are part of each scenario map,
 # not dynamically selected parking locations. S = staging bay, C = charger.
 FIXED_INFRASTRUCTURE = {
-    "S1_Normal": {"staging": [(7, 2), (13, 2), (16, 2), (21, 2)], "chargers": [(14, 4), (7, 5)]},
+    "S1_Normal": {"staging": [(7, 2), (13, 2), (16, 2), (21, 2), (2, 14), (8, 14), (21, 14), (27, 14)], "chargers": [(14, 4), (7, 5)]},
     "S2_Crossing": {"staging": [(12, 2), (10, 4), (13, 4), (4, 6)], "chargers": [(7, 6), (11, 6)]},
     "S3_Narrow": {"staging": [(12, 5), (13, 3), (1, 7), (22, 7)], "chargers": [(7, 9), (10, 9)]},
     "S4_Blocked": {"staging": [(2, 6), (7, 6), (15, 6), (21, 6)], "chargers": [(7, 9), (15, 9)]},

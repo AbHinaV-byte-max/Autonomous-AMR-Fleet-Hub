@@ -29,7 +29,7 @@ class HungarianAllocator(TaskAllocator):
             if st is None:
                 return True
             value = getattr(st, "value", st)
-            return value in ("IDLE", "STAGING")
+            return value in ("IDLE", "STAGING", "WAITING")
 
         def is_queued(t):
             st = getattr(t, "status", None)
