@@ -509,8 +509,20 @@ class Simulator:
             self._schedule_post_task_destination(manager, mode)
 
     def _allocate(self):
-        eligible = [m.state for m in self.robot_managers
-                    if m.state.status in (RobotStatus.IDLE, RobotStatus.STAGING) and m.state.battery > 20.0]
+        eligible = [
+            m.state for m in self.robot_managers
+            if (
+                m.state.battery > 20.0
+                and (
+                    m.state.status in (RobotStatus.IDLE, RobotStatus.STAGING)
+                    or (
+                        m.state.status == RobotStatus.MOVING
+                        and m.current_task is None
+                        and m.post_task_mode == "STAGING"
+                    )
+                )
+            )
+        ]
         queueable = [t for t in self.tasks
                      if t.status in (TaskStatus.QUEUED, TaskStatus.RECOVERABLE)]
         if not eligible or not queueable:
