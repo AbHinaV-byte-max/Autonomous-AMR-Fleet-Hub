@@ -181,7 +181,7 @@ for _scenario_name, _spec in FIXED_INFRASTRUCTURE.items():
         SCENARIOS[_scenario_name], _spec
     )
 
-STRATEGIES = ["B0", "B1", "B2", "P1"]
+STRATEGIES = ["B0", "B1", "B2", "P2P", "P1"]
 TRIALS = 20
 MAX_TICKS = 1000
 
