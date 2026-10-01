@@ -73,6 +73,18 @@ class AStarPlanner(Planner):
                 new_cost = cost_so_far.get((current, t), 0) + 1.0
                 if dx == 0 and dy == 0:
                     new_cost += 0.5  # Penalise waiting in-place: prefer detour over temporal stall
+
+                # Penalise immediate reversals. In the decentralized S4 case,
+                # a blocked robot can otherwise get a perfectly valid but
+                # pathological A->B->A->B space-time route while it is trying
+                # to clear a peer reservation. Prefer a genuine detour when
+                # one exists; do not forbid reversals because tight aisles may
+                # legitimately require a U-turn.
+                parent_state = came_from.get((current, t))
+                if parent_state is not None:
+                    previous_cell = parent_state[0]
+                    if nxt == previous_cell and current != start_int:
+                        new_cost += 4.0
                 
                 if (nxt, nxt_t) not in cost_so_far or new_cost < cost_so_far[(nxt, nxt_t)]:
                     cost_so_far[(nxt, nxt_t)] = new_cost
