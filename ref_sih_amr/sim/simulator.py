@@ -347,6 +347,110 @@ class Simulator:
             else:
                 positions[pos] = m.state.robot_id
 
+    def _park_completed_dropoff_robots(self):
+        """Move a completed AMR off a delivery slot when another task needs it.
+
+        Delivery cells are shared physical slots, not permanent parking spaces.
+        When Auto Mode is OFF there may be no later order that naturally pulls a
+        completed AMR away from the dock, so an already-assigned task targeting
+        that same slot could otherwise wait forever. Give the completed AMR a
+        short, collision-aware parking route to a nearby non-dropoff aisle cell.
+        """
+        occupied = {
+            (int(m.state.position[0]), int(m.state.position[1]))
+            for m in self.robot_managers
+            if m.state.status != RobotStatus.OFFLINE
+        }
+        dropoffs = {tuple(cell) for cell in self.dropoff_cells}
+        pickups = {tuple(cell) for cell in self.pickup_cells}
+
+        for manager in self.robot_managers:
+            if (
+                manager.state.status != RobotStatus.IDLE
+                or manager.current_task is not None
+            ):
+                continue
+
+            current = (
+                int(manager.state.position[0]),
+                int(manager.state.position[1]),
+            )
+            if current not in dropoffs:
+                continue
+
+            slot_needed = any(
+                t.status in (
+                    TaskStatus.QUEUED,
+                    TaskStatus.ASSIGNED,
+                    TaskStatus.IN_PROGRESS,
+                    TaskStatus.RECOVERABLE,
+                )
+                and tuple(t.dropoff_cell) == current
+                and t.assigned_robot_id != manager.state.robot_id
+                for t in self.tasks
+            )
+            if not slot_needed:
+                continue
+
+            candidates = []
+            for cell in self.free_cells:
+                cell = (int(cell[0]), int(cell[1]))
+                if cell in dropoffs or cell in pickups or cell in occupied:
+                    continue
+
+                degree = sum(
+                    1
+                    for dx, dy in ((0, 1), (1, 0), (0, -1), (-1, 0))
+                    if self.grid_map.get_cell(cell[0] + dx, cell[1] + dy) != '#'
+                )
+                if degree >= 2:
+                    candidates.append((
+                        abs(cell[0] - current[0]) + abs(cell[1] - current[1]),
+                        -degree,
+                        cell,
+                    ))
+
+            candidates.sort()
+
+            other_occupied = [
+                m.state.position
+                for m in self.robot_managers
+                if m is not manager
+                and m.state.status in (
+                    RobotStatus.IDLE,
+                    RobotStatus.OFFLINE,
+                    RobotStatus.CHARGING,
+                )
+            ]
+            planning_map = (
+                ObstacleCostmap(self.grid_map, other_occupied)
+                if other_occupied else self.grid_map
+            )
+
+            for _, _, parking_cell in candidates[:40]:
+                path = self.planner.plan(
+                    start=manager.state.position,
+                    goal=parking_cell,
+                    costmap=planning_map,
+                    reservation_table=self.global_reservation_table,
+                    start_time=float(self.tick_count),
+                    robot_id=manager.state.robot_id,
+                )
+                if not path:
+                    continue
+
+                manager.inject_path(path, parking_cell)
+                manager.checkpoint_reached = True
+                self.event_log.log_conflict(
+                    manager.state.robot_id,
+                    "SYSTEM",
+                    "POST_DROPOFF_PARK",
+                    f"Vacating occupied dropoff {current} -> parking {parking_cell}",
+                    self.tick_count,
+                )
+                occupied.add(parking_cell)
+                break
+
     def _allocate(self):
         eligible = [m.state for m in self.robot_managers
                     if m.state.status == RobotStatus.IDLE and m.state.battery > 20.0]
@@ -661,6 +765,14 @@ class Simulator:
                     m._handle_arrival()
 
         # 3. Tick each robot manager
+        positions_before_tick = {
+            m.state.robot_id: (
+                int(m.state.position[0]),
+                int(m.state.position[1]),
+            )
+            for m in self.robot_managers
+        }
+
         if self.strategy == "B0":
             active_robots = [m for m in self.robot_managers if m.state.status == RobotStatus.MOVING and m.state.planned_path]
             if not active_robots:
@@ -676,6 +788,31 @@ class Simulator:
 
         for m in self.robot_managers:
             m.tick(t)
+
+        # If a completed robot is sitting on a delivery slot that another
+        # unfinished order needs, start a short parking route immediately.
+        self._park_completed_dropoff_robots()
+
+        # If a robot physically leaves a dropoff cell, refresh the joint plan
+        # immediately so waiting orders can claim the newly freed slot.
+        dropoff_vacated = any(
+            positions_before_tick[m.state.robot_id] in self.dropoff_cells
+            and (
+                int(m.state.position[0]),
+                int(m.state.position[1]),
+            ) != positions_before_tick[m.state.robot_id]
+            for m in self.robot_managers
+        )
+        if dropoff_vacated:
+            for m in self.robot_managers:
+                if (
+                    m.current_task is not None
+                    and m.state.status not in (
+                        RobotStatus.OFFLINE,
+                        RobotStatus.CHARGING,
+                    )
+                ):
+                    m.checkpoint_reached = True
 
         # A completed robot is immediately eligible for the next queued order.
         # Without this handoff, a robot can sit at a delivery dock until the
