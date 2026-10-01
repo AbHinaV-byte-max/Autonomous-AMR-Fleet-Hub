@@ -115,6 +115,14 @@ def live_simulation_loop(bus):
             if not RUNNING or current_scen != LIVE_SCENARIO:
                 break
 
+            # Apply one-shot scenario events against the persistent simulator.
+            # These used to be tied to the old 500-tick recreation loop.
+            next_tick = sim.tick_count + 1
+            if current_scen == "S4_Blocked" and next_tick == 40:
+                sim.block_cell(5, 2)
+            elif current_scen == "S5_Failure" and next_tick == 50:
+                sim.kill_robot("robot-0")
+
             sim.task_generator.enabled = AUTO_TASKS_ENABLED
             with _SIM_LOCK:
                 sim.tick()
