@@ -21,9 +21,16 @@ def _msg(robot_id: str) -> IntentMessage:
 
 
 def test_udp_peer_channel_exchanges_intents_directly():
-    a = UdpPeerChannel("robot-a", ("127.0.0.1", 19101), {"robot-b": ("127.0.0.1", 19102)})
-    b = UdpPeerChannel("robot-b", ("127.0.0.1", 19102), {"robot-a": ("127.0.0.1", 19101)})
+    # Bind to ephemeral loopback ports so the test is isolated from stale
+    # listeners or another local simulator instance.
+    b = UdpPeerChannel("robot-b", ("127.0.0.1", 0), {})
+    a = None
     try:
+        b_endpoint = b.socket.getsockname()
+        a = UdpPeerChannel("robot-a", ("127.0.0.1", 0), {"robot-b": b_endpoint})
+        a_endpoint = a.socket.getsockname()
+        b.peers = {"robot-a": a_endpoint}
+
         a.send(_msg("robot-a"))
         deadline = time.monotonic() + 1.0
         received = []
@@ -37,7 +44,8 @@ def test_udp_peer_channel_exchanges_intents_directly():
         assert received[0].planned_path == [(1, 2), (2, 2)]
         assert received[0].intent == Intent.MOVE
     finally:
-        a.close()
+        if a is not None:
+            a.close()
         b.close()
 
 
