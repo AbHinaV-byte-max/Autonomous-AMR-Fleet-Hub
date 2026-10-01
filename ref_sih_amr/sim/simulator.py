@@ -900,6 +900,17 @@ class Simulator:
         # available, then route newly completed robots away from the delivery cell.
         self._retry_post_task_destinations()
 
+        # A robot that has just reached a fixed staging bay is immediately
+        # eligible for another queued order. This is still the normal allocator;
+        # the trigger simply avoids waiting for the periodic 5-tick sweep.
+        if any(
+            m.state.status == RobotStatus.STAGING
+            and m.current_task is None
+            and m.post_task_mode is None
+            for m in self.robot_managers
+        ):
+            self._allocate()
+
         completed_robot_ids = [
             m.state.robot_id
             for m in self.robot_managers
