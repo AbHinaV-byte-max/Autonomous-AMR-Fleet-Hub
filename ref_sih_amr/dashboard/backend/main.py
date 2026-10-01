@@ -88,7 +88,13 @@ def live_simulation_loop(bus):
     global LIVE_SCENARIO, CURRENT_SIM
     while RUNNING:
         current_scen = LIVE_SCENARIO
-        sim = Simulator(ascii_map=SCENARIOS[current_scen], headless=True, telemetry_bus=bus, strategy="P2P")
+        sim = Simulator(
+            ascii_map=SCENARIOS[current_scen],
+            headless=True,
+            telemetry_bus=bus,
+            strategy="P2P",
+            comms_mode="udp",
+        )
         sim.scenario_name = current_scen
         sim.task_generator.enabled = AUTO_TASKS_ENABLED
         CURRENT_SIM = sim
