@@ -228,9 +228,9 @@ def test_completed_robot_does_not_leave_long_future_reservation():
 
     assert task.status == TaskStatus.COMPLETED
     assert r0.state.status == RobotStatus.IDLE
-    assert sim.global_reservation_table.get_claimer((3, 3), 10.0) == r0.state.robot_id
-    assert sim.global_reservation_table.get_claimer((3, 3), 11.0) is None
-    assert sim.global_reservation_table.get_claimer((3, 3), 209.0) is None
+    assert r0.reservation_table.get_claimer((3, 3), 10.0) == r0.state.robot_id
+    assert r0.reservation_table.get_claimer((3, 3), 11.0) is None
+    assert r0.reservation_table.get_claimer((3, 3), 209.0) is None
 
 
 def test_allocator_does_not_stack_live_tasks_on_same_dropoff_slot():
