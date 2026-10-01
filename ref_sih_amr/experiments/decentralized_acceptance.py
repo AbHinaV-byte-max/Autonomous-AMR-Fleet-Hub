@@ -105,42 +105,11 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int) -> Result
     block_at = 100 if scenario == "S4_Blocked" else None
     block_cell = (5, 2)
 
-    completion_ticks = {}
-    waiting_by_robot = {m.state.robot_id: 0 for m in sim.robot_managers}
-    max_wait_by_robot = {m.state.robot_id: 0 for m in sim.robot_managers}
-    prev_wait_by_robot = {m.state.robot_id: 0.0 for m in sim.robot_managers}
-    
-
     while sim.tick_count < max_ticks and sim.completed_tasks < task_count:
         if block_at is not None and sim.tick_count == block_at:
             sim.block_cell(*block_cell)
 
-        before_completed = {
-            task.task_id
-            for task in sim.tasks
-            if task.status == TaskStatus.COMPLETED
-        }
-        before_replans = float(sim.metric_values.get("REPLAN_COUNT", 0.0))
-
         sim.tick()
-
-        after_completed = {
-            task.task_id
-            for task in sim.tasks
-            if task.status == TaskStatus.COMPLETED
-        }
-        for task_id in sorted(after_completed - before_completed):
-            completion_ticks[task_id] = sim.tick_count
-
-        current_replans = float(sim.metric_values.get("REPLAN_COUNT", 0.0))
-
-        for manager in sim.robot_managers:
-            robot_id = manager.state.robot_id
-            wait = float(manager.wait_time)
-            if wait > prev_wait_by_robot[robot_id]:
-                waiting_by_robot[robot_id] += int(wait - prev_wait_by_robot[robot_id])
-            max_wait_by_robot[robot_id] = max(max_wait_by_robot[robot_id], wait)
-            prev_wait_by_robot[robot_id] = wait
 
     return Result(
         strategy=strategy,
