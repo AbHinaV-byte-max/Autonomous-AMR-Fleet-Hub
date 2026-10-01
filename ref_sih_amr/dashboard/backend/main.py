@@ -25,8 +25,6 @@ from models import RobotStatus, Task, TaskStatus
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
 from dashboard.backend.telemetry import TelemetryBus
 from dashboard.backend.db import init_db, persist_snapshot
 
