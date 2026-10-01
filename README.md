@@ -83,7 +83,7 @@ The live fleet uses the **P2P strategy**: each robot owns its reservation table 
 python3 -m pip install -r requirements.txt
 ```
 
-The root `requirements.txt` contains the live dashboard/runtime dependencies. The dashboard is a long-running FastAPI/WebSocket process; deploy it on a persistent process host or container rather than a serverless function.
+The root `requirements.txt` contains the live dashboard/runtime dependencies. The dashboard owns an in-memory simulator lifecycle, so a persistent process/container is the canonical judge/demo deployment; serverless hosting should be treated as a preview/integration surface rather than durable fleet state.
 
 For full local validation, benchmark analysis, and optional ONNX training/inference:
 
