@@ -15,7 +15,7 @@ from robot.planner import AStarPlanner
 from robot.cbs import CBSPlanner, ObstacleCostmap
 from robot.task_manager import LocalTaskManager
 from robot.coordination import detect_deadlock, PriorityCalculator
-from comms.channel import PubSubChannel
+from comms.channel import PubSubChannel, UdpPeerChannel
 from data.industrial_robot_profiles import maintenance_profile
 import metrics
 
@@ -45,11 +45,16 @@ class EventLog:
 
 class Simulator:
     def __init__(self, ascii_map: str, headless: bool = True,
-                 telemetry_bus=None, strategy: str = "P1"):
+                 telemetry_bus=None, strategy: str = "P1",
+                 comms_mode: str = "local", udp_base_port: int = 19100):
         self.grid_map = load_map(ascii_map)
         self.headless = headless
         self.telemetry_bus = telemetry_bus   # Phase 5 — write-only publish, never reads back
         self.strategy = strategy
+        self.comms_mode = comms_mode
+        self.udp_base_port = int(udp_base_port)
+        if self.comms_mode not in ("local", "udp"):
+            raise ValueError("comms_mode must be 'local' or 'udp'")
 
         self.pickup_cells = []
         for x, y in self.grid_map.find_all('#'):
@@ -76,7 +81,10 @@ class Simulator:
             self.pickup_cells, self.dropoff_cells, spawn_interval=5)
 
         self.planner   = AStarPlanner()
+        # PubSub remains the deterministic lockstep transport for tests.
+        # UDP mode gives every AMR its own network socket and peer endpoint.
         self.comms     = PubSubChannel()
+        self.comms_channels = []
         self.allocator = HungarianAllocator(planner=self.planner, costmap=self.grid_map)
         self.event_log = EventLog()
         self.priority_calc = PriorityCalculator()
@@ -121,7 +129,27 @@ class Simulator:
                 task_priority=i + 1,  # unique base priority per robot — prevents priority ties
                 status=RobotStatus.IDLE
             )
-            manager = LocalTaskManager(state, self.planner, self.comms, self.grid_map, strategy=self.strategy, event_logger=self.event_log)
+            if self.comms_mode == "udp":
+                endpoints = {
+                    f"robot-{j}": ("127.0.0.1", self.udp_base_port + j)
+                    for j in range(num_robots)
+                }
+                manager_comms = UdpPeerChannel(
+                    state.robot_id,
+                    endpoints[state.robot_id],
+                    endpoints,
+                )
+            else:
+                manager_comms = self.comms
+            self.comms_channels.append(manager_comms)
+            manager = LocalTaskManager(
+                state,
+                self.planner,
+                manager_comms,
+                self.grid_map,
+                strategy=self.strategy,
+                event_logger=self.event_log,
+            )
             manager.maintenance_profile = maintenance_profile(f"item_{i}")
 
             # Enable CBS mode for P1 strategy — CBS is the sole path authority
