@@ -1785,11 +1785,13 @@ body {
     }
 
     function addDispatchPointMarkers(mapW, mapH) {
-      if (!dockGroup || !state.currentScenario || state.currentScenario !== 'S1_Normal') return;
+      if (!dockGroup || !state.currentScenario) return;
+      const configured = getScenarioDispatchPoints();
+      if (!configured) return;
 
       const points = [
-        ...S1_DISPATCH_POINTS.pickup.map((p, i) => ({ ...p, type: 'pickup', color: 0x10b981, index: i })),
-        ...S1_DISPATCH_POINTS.dropoff.map((p, i) => ({ ...p, type: 'dropoff', color: 0x00d4ff, index: i }))
+        ...configured.pickup.map((p, i) => ({ ...p, type: 'pickup', color: 0x10b981, index: i })),
+        ...configured.dropoff.map((p, i) => ({ ...p, type: 'dropoff', color: 0x00d4ff, index: i }))
       ];
 
       points.forEach(point => {
@@ -2551,16 +2553,19 @@ body {
         document.getElementById('hdr-tick').innerText = `T+${snap.tick}`;
       }
 
-      if (snap.scenario && snap.scenario !== state.currentScenario) {
+      const previousScenario = state.currentScenario;
+      const scenarioChanged = Boolean(snap.scenario && snap.scenario !== previousScenario);
+      if (scenarioChanged) {
         state.currentScenario = snap.scenario;
         const sel = document.getElementById('scenarioSelect');
         if (sel) sel.value = snap.scenario;
         updateScenarioDisplay(snap.scenario);
       }
 
-      if ((snap.warehouse ? snap.warehouse.grid : []) && (!state.grid.length || (snap.warehouse ? snap.warehouse.grid : []).length !== state.grid.length)) {
-        state.grid = (snap.warehouse ? snap.warehouse.grid : []);
-        build3DEnvironment((snap.warehouse ? snap.warehouse.grid : []));
+      const liveGrid = snap.warehouse ? snap.warehouse.grid : [];
+      if (liveGrid && liveGrid.length && (scenarioChanged || !state.grid.length || liveGrid.length !== state.grid.length)) {
+        state.grid = liveGrid;
+        build3DEnvironment(liveGrid);
       }
 
       if (snap.robots) {
@@ -3444,6 +3449,14 @@ body {
         window.alert('Manual Dispatch is available only when Auto Orders is OFF.');
         return;
       }
+      if (state.currentScenario !== 'S1_Normal') {
+        const points = getScenarioDispatchPoints();
+        if (!points) {
+          window.alert('Manual Dispatch is not configured for ' + (SCENARIO_LABELS[state.currentScenario] || state.currentScenario || 'this scenario') + '.');
+          return;
+        }
+        populateDispatchModal(points);
+      }
       document.getElementById('dispatchModal').classList.remove('hidden');
     }
 
@@ -3465,13 +3478,91 @@ body {
       ]
     };
 
+    // S2-S6 use explicit scenario-specific cells; S1 remains on its original contract above.
+    const SCENARIO_DISPATCH_POINTS = {
+      'S2_Crossing': {
+        pickup: [
+          { label: 'PK-1 (West Aisle)', cell: [2, 5] },
+          { label: 'PK-2 (Center Aisle)', cell: [10, 5] },
+          { label: 'PK-3 (East Aisle)', cell: [18, 5] }
+        ],
+        dropoff: [
+          { label: 'DD-1 (Top Bay)', cell: [5, 1] },
+          { label: 'DD-2 (East Bay)', cell: [21, 6] }
+        ]
+      },
+      'S3_Narrow': {
+        pickup: [
+          { label: 'PK-1 (West Passage)', cell: [6, 5] },
+          { label: 'PK-2 (East Passage)', cell: [16, 5] },
+          { label: 'PK-3 (Lower Passage)', cell: [4, 7] }
+        ],
+        dropoff: [
+          { label: 'DD-1 (Left Bay)', cell: [2, 9] },
+          { label: 'DD-2 (Right Bay)', cell: [18, 9] }
+        ]
+      },
+      'S4_Blocked': {
+        pickup: [
+          { label: 'PK-1 (West Aisle)', cell: [4, 6] },
+          { label: 'PK-2 (Center Aisle)', cell: [11, 6] },
+          { label: 'PK-3 (East Aisle)', cell: [18, 6] }
+        ],
+        dropoff: [
+          { label: 'DD-1 (Left Bay)', cell: [2, 9] },
+          { label: 'DD-2 (Right Bay)', cell: [17, 9] }
+        ]
+      },
+      'S5_Failure': {
+        pickup: [
+          { label: 'PK-1 (West Aisle)', cell: [5, 4] },
+          { label: 'PK-2 (Center Aisle)', cell: [12, 4] },
+          { label: 'PK-3 (East Aisle)', cell: [18, 4] }
+        ],
+        dropoff: [
+          { label: 'DD-1 (Left Bay)', cell: [2, 10] },
+          { label: 'DD-2 (Right Bay)', cell: [18, 10] }
+        ]
+      },
+      'S6_CommDelay': {
+        pickup: [
+          { label: 'PK-1 (West Aisle)', cell: [5, 4] },
+          { label: 'PK-2 (Center Aisle)', cell: [15, 4] },
+          { label: 'PK-3 (East Aisle)', cell: [20, 4] }
+        ],
+        dropoff: [
+          { label: 'DD-1 (Left Bay)', cell: [2, 10] },
+          { label: 'DD-2 (Right Bay)', cell: [20, 10] }
+        ]
+      }
+    };
+
+    function getScenarioDispatchPoints() {
+      if (state.currentScenario === 'S1_Normal') return S1_DISPATCH_POINTS;
+      return SCENARIO_DISPATCH_POINTS[state.currentScenario] || null;
+    }
+
+    function populateDispatchModal(points) {
+      const source = document.getElementById('modalSource');
+      const target = document.getElementById('modalTarget');
+      if (!source || !target) return;
+
+      source.innerHTML = points.pickup
+        .map((point, index) => `<option value="${index}">${point.label}</option>`)
+        .join('');
+      target.innerHTML = points.dropoff
+        .map((point, index) => `<option value="${index}">${point.label}</option>`)
+        .join('');
+    }
+
     function resolveDispatchCell(role, index) {
       const grid = state.grid || [];
       const height = grid.length;
       const width = height && Array.isArray(grid[0]) ? grid[0].length : 0;
       if (!width || !height) throw new Error('Live warehouse map is not ready yet.');
 
-      const points = S1_DISPATCH_POINTS[role] || [];
+      const configured = getScenarioDispatchPoints();
+      const points = configured ? (configured[role] || []) : [];
       const selected = points[index];
       if (!selected) throw new Error('Selected dispatch point is not configured.');
 
