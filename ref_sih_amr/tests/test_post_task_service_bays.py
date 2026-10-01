@@ -4,10 +4,10 @@ from models import RobotStatus
 
 def test_post_task_staging_bays_are_unique_and_reassigned_if_occupied():
     """Completed AMRs must not fight over one fixed staging bay."""
-    ascii_map = """\\
+    ascii_map = """\
 ###########
 #R.......R#
-#.........#
+#..S...S..#
 #....D....#
 ###########
 """
