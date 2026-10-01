@@ -360,12 +360,25 @@ class Simulator:
         # cells, random task generation could otherwise send a whole fleet
         # into the same corner and force CBS to solve an impossible target
         # collision.
+        # A dropoff slot is unavailable not only while another task is
+        # targeting it, but also while an AMR is physically parked on that
+        # slot after completing a previous order.  Treating only active task
+        # targets as occupied lets a new AMR be assigned to an already occupied
+        # dropoff; CBS then sees the parked AMR as a dynamic obstacle and can
+        # incorrectly reinterpret the goal as an obstacle/rack, producing a
+        # never-ending detour instead of task completion.
         occupied_dropoffs = {
             tuple(m.current_task.dropoff_cell)
             for m in self.robot_managers
             if m.current_task is not None
             and m.state.status not in (RobotStatus.OFFLINE, RobotStatus.CHARGING)
         }
+        occupied_dropoffs.update(
+            (int(m.state.position[0]), int(m.state.position[1]))
+            for m in self.robot_managers
+            if m.state.status != RobotStatus.OFFLINE
+            and (int(m.state.position[0]), int(m.state.position[1])) in self.dropoff_cells
+        )
         available_queueable = [
             task for task in queueable
             if tuple(task.dropoff_cell) not in occupied_dropoffs
@@ -435,8 +448,14 @@ class Simulator:
         positions = {}
         starts    = {}
 
-        # Group active robots by their current target so a duplicated physical
-        # pickup/dropoff slot cannot make the entire CBS problem unsatisfiable.
+        # A completed AMR remains physically on its dropoff cell until it
+        # receives another task.  If another active task was already assigned
+        # to that same cell before the first task completed, the goal is
+        # temporarily unavailable.  Do not feed that occupied goal into CBS:
+        # ObstacleCostmap intentionally exposes parked robots as '#', and the
+        # low-level planner may otherwise treat the dynamic blockage like a
+        # rack/adjacent-approach goal.  That is the source of the observed
+        # AMR "looping" around an order that never reaches COMPLETED.
         target_groups = {}
         for m in self.robot_managers:
             if m.state.status in (RobotStatus.OFFLINE, RobotStatus.IDLE, RobotStatus.CHARGING):
@@ -444,7 +463,36 @@ class Simulator:
             goal = m.get_current_goal()
             if goal is None:
                 continue
-            target_groups.setdefault(tuple(goal), []).append(m)
+
+            goal_cell = (int(goal[0]), int(goal[1]))
+            current_cell = (
+                int(m.state.position[0]),
+                int(m.state.position[1]),
+            )
+            goal_occupant = next(
+                (
+                    peer for peer in self.robot_managers
+                    if peer is not m
+                    and peer.state.status != RobotStatus.OFFLINE
+                    and (int(peer.state.position[0]), int(peer.state.position[1])) == goal_cell
+                ),
+                None,
+            )
+            if goal_cell in self.dropoff_cells and goal_occupant is not None and current_cell != goal_cell:
+                if m.state.status != RobotStatus.WAITING or m.waiting_on != f"GOAL_SLOT_OCCUPIED:{goal_cell[0]},{goal_cell[1]}":
+                    self.event_log.log_conflict(
+                        m.state.robot_id,
+                        goal_occupant.state.robot_id,
+                        "GOAL_SLOT_OCCUPIED",
+                        "WAIT",
+                        self.tick_count,
+                    )
+                m.state.planned_path = []
+                m.state.status = RobotStatus.WAITING
+                m.waiting_on = f"GOAL_SLOT_OCCUPIED:{goal_cell[0]},{goal_cell[1]}"
+                continue
+
+            target_groups.setdefault(goal_cell, []).append(m)
 
         for goal_cell, managers in target_groups.items():
             if len(managers) > 1:
