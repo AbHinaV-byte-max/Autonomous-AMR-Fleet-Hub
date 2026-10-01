@@ -890,28 +890,66 @@ class Simulator:
         for manager in self.robot_managers:
             if manager.state.status == RobotStatus.OFFLINE:
                 continue
+
             cell = (
                 int(manager.state.position[0]),
                 int(manager.state.position[1]),
             )
-            if cell not in occupied_after_tick:
+            existing = occupied_after_tick.get(cell)
+            if existing is None:
                 occupied_after_tick[cell] = manager
                 continue
 
-            prior_cell = positions_before_tick[manager.state.robot_id]
-            manager.state.position = (float(prior_cell[0]), float(prior_cell[1]))
-            manager.state.planned_path = []
-            manager.state.status = RobotStatus.WAITING
-            manager.waiting_on = occupied_after_tick[cell].state.robot_id
-            manager.checkpoint_reached = True
-            manager.wait_time += 1.0
+            # Treat the end-of-tick occupancy check like an onboard safety
+            # interlock: a robot that was already stationary in the cell is
+            # protected, while the robot that entered the occupied cell is
+            # stopped and rolled back. The old implementation always rolled
+            # back the later list element, which could move the stationary
+            # occupant out of the way and leave the actual mover sitting on
+            # top of it.
+            manager_prior = positions_before_tick[manager.state.robot_id]
+            existing_prior = positions_before_tick[existing.state.robot_id]
+            manager_moved = manager_prior != cell
+            existing_moved = existing_prior != cell
+
+            if manager_moved and not existing_moved:
+                violator = manager
+                occupant = existing
+            elif existing_moved and not manager_moved:
+                violator = existing
+                occupant = manager
+            else:
+                # If both robots entered the same cell in this tick, let the
+                # lower-priority robot yield. Priority is deterministic because
+                # the calculator includes robot_id as a tie-breaker.
+                manager_priority = manager.get_priority()
+                existing_priority = existing.get_priority()
+                if manager_priority <= existing_priority:
+                    violator = manager
+                    occupant = existing
+                else:
+                    violator = existing
+                    occupant = manager
+
+            prior_cell = positions_before_tick[violator.state.robot_id]
+            violator.state.position = (float(prior_cell[0]), float(prior_cell[1]))
+            violator.state.planned_path = []
+            violator.state.status = RobotStatus.WAITING
+            violator.waiting_on = occupant.state.robot_id
+            violator.checkpoint_reached = True
+            violator.wait_time += 1.0
             self.event_log.log_conflict(
-                manager.state.robot_id,
-                occupied_after_tick[cell].state.robot_id,
+                violator.state.robot_id,
+                occupant.state.robot_id,
                 "PHYSICAL_SAFETY_STOP",
                 "ROLLBACK",
                 self.tick_count,
             )
+
+            # Keep the protected occupant as the authoritative cell owner for
+            # the remainder of this tick. The violator will wait for a fresh
+            # peer intent before attempting another move.
+            occupied_after_tick[cell] = occupant
 
         # Re-plan any taskless robots whose fixed service resource became
         # available, then route newly completed robots away from the delivery cell.
