@@ -15,7 +15,12 @@ Evidence matrix scenarios:
 
 import json
 import os
+import sys
 from dataclasses import asdict, dataclass
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
 
 from experiments.runner import SCENARIOS
 from models import Task, TaskStatus
