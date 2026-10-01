@@ -541,10 +541,7 @@ class Simulator:
                 and (
                     m.state.status in (RobotStatus.IDLE, RobotStatus.STAGING)
                     or (
-                        m.state.status == RobotStatus.MOVING
-                        and m.current_task is None
-                        and m.post_task_mode == "STAGING"
-                    )
+                            )
                 )
             )
         ]
