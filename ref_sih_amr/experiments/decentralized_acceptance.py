@@ -29,7 +29,6 @@ class Result:
     replans: float
     collisions: float
     timeout: bool
-    collision_trace: list
 
 
 def fixed_workload(sim: Simulator, count: int = 6):
@@ -61,56 +60,8 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int) -> Result
     sim = Simulator(ascii_map=SCENARIOS[scenario], headless=True, strategy=strategy)
     fixed_workload(sim, task_count)
 
-    collision_trace = []
-
     while sim.tick_count < max_ticks and sim.completed_tasks < task_count:
-        before = {}
-        for manager in sim.robot_managers:
-            if manager.state.status == getattr(__import__("models"), "RobotStatus").OFFLINE:
-                continue
-            before[manager.state.robot_id] = (
-                int(manager.state.position[0]),
-                int(manager.state.position[1]),
-            )
-
         sim.tick()
-
-        after = {}
-        for manager in sim.robot_managers:
-            if manager.state.status == getattr(__import__("models"), "RobotStatus").OFFLINE:
-                continue
-            after[manager.state.robot_id] = (
-                int(manager.state.position[0]),
-                int(manager.state.position[1]),
-            )
-
-        for phase, positions in (("before", before), ("after", after)):
-            by_cell = {}
-            for robot_id, cell in positions.items():
-                by_cell.setdefault(cell, []).append(robot_id)
-            for cell, robot_ids in by_cell.items():
-                if len(robot_ids) < 2:
-                    continue
-                snapshot = []
-                for robot_id in robot_ids:
-                    manager = next(
-                        m for m in sim.robot_managers if m.state.robot_id == robot_id
-                    )
-                    snapshot.append({
-                        "robot_id": robot_id,
-                        "status": manager.state.status.value,
-                        "task_id": manager.state.current_task_id,
-                        "target": manager.target_cell,
-                        "next_path": manager.state.planned_path[:5],
-                        "waiting_on": manager.waiting_on,
-                        "post_task_mode": manager.post_task_mode,
-                    })
-                collision_trace.append({
-                    "tick": sim.tick_count,
-                    "phase": phase,
-                    "cell": cell,
-                    "robots": snapshot,
-                })
 
     return Result(
         strategy=strategy,
@@ -120,7 +71,6 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int) -> Result
         replans=float(sim.metric_values.get("REPLAN_COUNT", 0.0)),
         collisions=float(sim.metric_values.get("COLLISION_COUNT", 0.0)),
         timeout=sim.completed_tasks < task_count,
-        collision_trace=collision_trace,
     )
 
 
@@ -138,8 +88,6 @@ def main():
         "baseline": asdict(baseline),
         "p2p": asdict(coordinated),
     }
-    if coordinated.collision_trace:
-        payload["collision_trace"] = coordinated.collision_trace
 
     if baseline.timeout or coordinated.timeout:
         payload["time_reduction_pct"] = None
