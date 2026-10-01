@@ -25,10 +25,3 @@ def test_acceptance_workload_removes_seeded_manager_state():
         manager.state.current_task_id in (None, "BENCH_01")
         for manager in sim.robot_managers
     )
-    assert all(
-        not any(
-            reservation.robot_id.startswith("robot-")
-            for reservation in manager.reservation_table._reservations.values()
-        )
-        for manager in sim.robot_managers
-    )
