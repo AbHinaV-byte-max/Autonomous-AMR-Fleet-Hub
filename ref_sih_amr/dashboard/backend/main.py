@@ -99,13 +99,18 @@ def live_simulation_loop(bus):
         sim.task_generator.enabled = AUTO_TASKS_ENABLED
         CURRENT_SIM = sim
 
-        # S6 CommDelay: patch comms so robot-0 drops broadcasts
+        # S6 CommDelay: patch robot-0's own peer transport so its
+        # broadcasts are dropped while the other AMRs continue normally.
         if current_scen == "S6_CommDelay":
-            original_send = sim.comms.send
-            def patched_send(msg):
-                if msg.robot_id != "robot-0":
-                    original_send(msg)
-            sim.comms.send = patched_send
+            for manager in sim.robot_managers:
+                if manager.state.robot_id == "robot-0":
+                    original_send = manager.comms.send
+
+                    def patched_send(msg, _original_send=original_send):
+                        if msg.robot_id != "robot-0":
+                            _original_send(msg)
+
+                    manager.comms.send = patched_send
 
         # Keep one simulator instance alive for the whole scenario. Recreating
         # it every 500 ticks silently discarded live tasks, robot positions,
