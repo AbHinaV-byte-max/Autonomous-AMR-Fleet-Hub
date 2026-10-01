@@ -448,12 +448,16 @@ class LocalTaskManager:
                 and self.target_cell is not None
                 and not self.state.planned_path
                 and current_int != (int(self.target_cell[0]), int(self.target_cell[1]))
+                and self.waiting_on in (None, "NO_EXECUTABLE_PATH")
             ):
                 # A dynamic obstacle or peer reservation can invalidate the
                 # current route after it was already committed. Non-CBS
                 # strategies own their route authority, so an empty path must
-                # trigger a fresh A* attempt instead of waiting forever for the
-                # P1-only simulator checkpoint hook.
+                # trigger a fresh A* attempt unless this robot is already
+                # waiting on a known peer. In that case the conflict handler
+                # intentionally cleared the path and the robot must hold rather
+                # than immediately planning a detour around a persistently
+                # occupied goal.
                 if not self.cbs_mode:
                     self._replan()
 
