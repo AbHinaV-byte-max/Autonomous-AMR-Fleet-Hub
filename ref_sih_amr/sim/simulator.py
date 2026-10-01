@@ -1220,6 +1220,13 @@ class Simulator:
         pygame.display.flip()
         self.clock.tick(10)
 
+    def close(self):
+        """Close per-robot network transports when running in UDP mode."""
+        for channel in getattr(self, "comms_channels", []):
+            close = getattr(channel, "close", None)
+            if close is not None:
+                close()
+
     def run(self, max_ticks: int = 500):
         for _ in range(max_ticks):
             self.tick()
