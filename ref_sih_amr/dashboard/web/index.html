@@ -1542,18 +1542,11 @@ body {
           <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="font-bold text-gray-700 block mb-1">Source Station</label>
-            <select id="modalSource" class="w-full rounded-xl border border-gray-300 p-2 text-xs">
-              <option value="PK-1 (Aisle 1)">PK-1 (Aisle 1)</option>
-              <option value="PK-2 (Aisle 2)">PK-2 (Aisle 2)</option>
-              <option value="PK-3 (Aisle 3)">PK-3 (Aisle 3)</option>
-            </select>
+            <select id="modalSource" class="w-full rounded-xl border border-gray-300 p-2 text-xs"></select>
           </div>
           <div>
             <label class="font-bold text-gray-700 block mb-1">Target Dock</label>
-            <select id="modalTarget" class="w-full rounded-xl border border-gray-300 p-2 text-xs">
-              <option value="DD-1 (Left Bay)">DD-1 (Left Bay)</option>
-              <option value="DD-2 (Right Bay)">DD-2 (Right Bay)</option>
-            </select>
+            <select id="modalTarget" class="w-full rounded-xl border border-gray-300 p-2 text-xs"></select>
           </div>
         </div>
 
@@ -1785,11 +1778,14 @@ body {
     }
 
     function addDispatchPointMarkers(mapW, mapH) {
-      if (!dockGroup || !state.currentScenario || state.currentScenario !== 'S1_Normal') return;
+      if (!dockGroup || !state.currentScenario) return;
+
+      const configured = getScenarioDispatchPoints();
+      if (!configured) return;
 
       const points = [
-        ...S1_DISPATCH_POINTS.pickup.map((p, i) => ({ ...p, type: 'pickup', color: 0x10b981, index: i })),
-        ...S1_DISPATCH_POINTS.dropoff.map((p, i) => ({ ...p, type: 'dropoff', color: 0x00d4ff, index: i }))
+        ...configured.pickup.map((p, i) => ({ ...p, type: 'pickup', color: 0x10b981, index: i })),
+        ...configured.dropoff.map((p, i) => ({ ...p, type: 'dropoff', color: 0x00d4ff, index: i }))
       ];
 
       points.forEach(point => {
@@ -3444,6 +3440,12 @@ body {
         window.alert('Manual Dispatch is available only when Auto Orders is OFF.');
         return;
       }
+      const points = getScenarioDispatchPoints();
+      if (!points) {
+        window.alert('Manual Dispatch is not configured for ' + (SCENARIO_LABELS[state.currentScenario] || state.currentScenario || 'this scenario') + '.');
+        return;
+      }
+      populateDispatchModal(points);
       document.getElementById('dispatchModal').classList.remove('hidden');
     }
 
@@ -3451,19 +3453,95 @@ body {
       document.getElementById('dispatchModal').classList.add('hidden');
     }
 
-    // S1_Normal has three named pickup stations and two physical delivery bays.
-    // These are fixed map cells, not heuristic "nearest" cells.
-    const S1_DISPATCH_POINTS = {
-      pickup: [
-        { label: 'PK-1 (Aisle 1)', cell: [2, 5] },
-        { label: 'PK-2 (Aisle 2)', cell: [14, 5] },
-        { label: 'PK-3 (Aisle 3)', cell: [27, 5] }
-      ],
-      dropoff: [
-        { label: 'DD-1 (Left Bay)', cell: [3, 17] },
-        { label: 'DD-2 (Right Bay)', cell: [27, 17] }
-      ]
+    // Manual Dispatch uses explicit scenario contracts so the UI never invents
+    // pickup/dropoff cells from the live map geometry.
+    const DISPATCH_POINTS = {
+      'S1_Normal': {
+        pickup: [
+          { label: 'PK-1 (Aisle 1)', cell: [2, 5] },
+          { label: 'PK-2 (Aisle 2)', cell: [14, 5] },
+          { label: 'PK-3 (Aisle 3)', cell: [27, 5] }
+        ],
+        dropoff: [
+          { label: 'DD-1 (Left Bay)', cell: [3, 17] },
+          { label: 'DD-2 (Right Bay)', cell: [27, 17] }
+        ]
+      },
+      'S2_Crossing': {
+        pickup: [
+          { label: 'PK-1 (West Aisle)', cell: [2, 5] },
+          { label: 'PK-2 (Center Aisle)', cell: [10, 5] },
+          { label: 'PK-3 (East Aisle)', cell: [18, 5] }
+        ],
+        dropoff: [
+          { label: 'DD-1 (Top Bay)', cell: [5, 1] },
+          { label: 'DD-2 (East Bay)', cell: [21, 6] }
+        ]
+      },
+      'S3_Narrow': {
+        pickup: [
+          { label: 'PK-1 (West Passage)', cell: [6, 5] },
+          { label: 'PK-2 (East Passage)', cell: [16, 5] },
+          { label: 'PK-3 (Lower Passage)', cell: [4, 7] }
+        ],
+        dropoff: [
+          { label: 'DD-1 (Left Bay)', cell: [2, 9] },
+          { label: 'DD-2 (Right Bay)', cell: [18, 9] }
+        ]
+      },
+      'S4_Blocked': {
+        pickup: [
+          { label: 'PK-1 (West Aisle)', cell: [4, 6] },
+          { label: 'PK-2 (Center Aisle)', cell: [11, 6] },
+          { label: 'PK-3 (East Aisle)', cell: [18, 6] }
+        ],
+        dropoff: [
+          { label: 'DD-1 (Left Bay)', cell: [2, 9] },
+          { label: 'DD-2 (Right Bay)', cell: [17, 9] }
+        ]
+      },
+      'S5_Failure': {
+        pickup: [
+          { label: 'PK-1 (West Aisle)', cell: [5, 4] },
+          { label: 'PK-2 (Center Aisle)', cell: [12, 4] },
+          { label: 'PK-3 (East Aisle)', cell: [18, 4] }
+        ],
+        dropoff: [
+          { label: 'DD-1 (Left Bay)', cell: [2, 10] },
+          { label: 'DD-2 (Right Bay)', cell: [18, 10] }
+        ]
+      },
+      'S6_CommDelay': {
+        pickup: [
+          { label: 'PK-1 (West Aisle)', cell: [5, 4] },
+          { label: 'PK-2 (Center Aisle)', cell: [15, 4] },
+          { label: 'PK-3 (East Aisle)', cell: [20, 4] }
+        ],
+        dropoff: [
+          { label: 'DD-1 (Left Bay)', cell: [2, 10] },
+          { label: 'DD-2 (Right Bay)', cell: [20, 10] }
+        ]
+      }
     };
+
+    function getScenarioDispatchPoints() {
+      return DISPATCH_POINTS[state.currentScenario] || null;
+    }
+
+    function populateDispatchModal(points) {
+      const source = document.getElementById('modalSource');
+      const target = document.getElementById('modalTarget');
+      if (!source || !target) return;
+
+      source.innerHTML = points.pickup
+        .map((point, index) => '<option value="' + index + '">' + point.label + '</option>')
+        .join('');
+      target.innerHTML = points.dropoff
+        .map((point, index) => '<option value="' + index + '">' + point.label + '</option>')
+        .join('');
+      source.selectedIndex = 0;
+      target.selectedIndex = 0;
+    }
 
     function resolveDispatchCell(role, index) {
       const grid = state.grid || [];
@@ -3471,14 +3549,17 @@ body {
       const width = height && Array.isArray(grid[0]) ? grid[0].length : 0;
       if (!width || !height) throw new Error('Live warehouse map is not ready yet.');
 
-      const points = S1_DISPATCH_POINTS[role] || [];
-      const selected = points[index];
-      if (!selected) throw new Error('Selected dispatch point is not configured.');
+      const points = getScenarioDispatchPoints();
+      const selected = points && points[role] ? points[role][index] : null;
+      if (!selected) throw new Error('Selected dispatch point is not configured for the current scenario.');
 
       const [x, y] = selected.cell;
       const row = Array.isArray(grid[y]) ? grid[y] : String(grid[y] || '').split('');
       if (!row[x] || row[x] === '#') {
         throw new Error(selected.label + ' is not available on the live warehouse map.');
+      }
+      if (role === 'pickup' && row[x] === 'D') {
+        throw new Error(selected.label + ' is configured as a delivery dock, not a pickup station.');
       }
       if (role === 'dropoff' && row[x] !== 'D') {
         throw new Error(selected.label + ' is not a configured delivery dock.');
