@@ -1,6 +1,7 @@
 services:
   amr-dashboard:
     build: .
+    image: autonomous-amr-fleet-hub:local
     ports:
       - "8000:8000"
     restart: unless-stopped
@@ -9,7 +10,10 @@ services:
   # process/container and communicates only over the Docker UDP network.
   # This is NOT Raspberry Pi/Jetson hardware evidence.
   robot-0:
-    build: .
+    image: autonomous-amr-fleet-hub:local
+    pull_policy: never
+    depends_on:
+      - amr-dashboard
     command:
       - python
       - ref_sih_amr/robot/node.py
@@ -20,18 +24,25 @@ services:
       - --peers
       - robot-1=robot-1:19002,robot-2=robot-2:19003
       - --start
-      - 1,1
+      - 10,1
       - --pickup
-      - 2,1
+      - 1,5
       - --dropoff
-      - 3,17
+      - 5,1
+      - --scenario
+      - S2_Crossing
+      - --start-delay
+      - "0"
       - --ticks
       - "120"
     mem_limit: 1g
     cpus: "1.0"
 
   robot-1:
-    build: .
+    image: autonomous-amr-fleet-hub:local
+    pull_policy: never
+    depends_on:
+      - amr-dashboard
     command:
       - python
       - ref_sih_amr/robot/node.py
@@ -42,18 +53,25 @@ services:
       - --peers
       - robot-0=robot-0:19001,robot-2=robot-2:19003
       - --start
-      - 12,1
+      - 1,6
       - --pickup
-      - 13,1
+      - 21,8
       - --dropoff
-      - 14,17
+      - 22,6
+      - --scenario
+      - S2_Crossing
+      - --start-delay
+      - "2"
       - --ticks
       - "120"
     mem_limit: 1g
     cpus: "1.0"
 
   robot-2:
-    build: .
+    image: autonomous-amr-fleet-hub:local
+    pull_policy: never
+    depends_on:
+      - amr-dashboard
     command:
       - python
       - ref_sih_amr/robot/node.py
@@ -64,11 +82,15 @@ services:
       - --peers
       - robot-0=robot-0:19001,robot-1=robot-1:19002
       - --start
-      - 24,5
+      - 22,7
       - --pickup
-      - 23,5
+      - 13,12
       - --dropoff
-      - 25,17
+      - 16,12
+      - --scenario
+      - S2_Crossing
+      - --start-delay
+      - "4"
       - --ticks
       - "120"
     mem_limit: 1g
