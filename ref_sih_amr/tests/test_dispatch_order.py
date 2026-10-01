@@ -38,23 +38,23 @@ def test_s1_dispatch_points_are_distinct():
 SCENARIO_DISPATCH_POINTS = {
     "S2_Crossing": {
         "pickup": {"PK-1 (West Aisle)": (2, 5), "PK-2 (Center Aisle)": (10, 5), "PK-3 (East Aisle)": (18, 5)},
-        "dropoff": {"DD-1 (Top Bay)": (5, 1), "DD-2 (East Bay)": (21, 6)},
+        "dropoff": {"DD-1 (Top Bay)": (5, 1), "DD-2 (East Bay)": (22, 6)},
     },
     "S3_Narrow": {
         "pickup": {"PK-1 (West Passage)": (6, 5), "PK-2 (East Passage)": (16, 5), "PK-3 (Lower Passage)": (4, 7)},
-        "dropoff": {"DD-1 (Left Bay)": (2, 9), "DD-2 (Right Bay)": (18, 9)},
+        "dropoff": {"DD-1 (Left Bay)": (3, 9), "DD-2 (Right Bay)": (19, 9)},
     },
     "S4_Blocked": {
         "pickup": {"PK-1 (West Aisle)": (4, 6), "PK-2 (Center Aisle)": (11, 6), "PK-3 (East Aisle)": (18, 6)},
-        "dropoff": {"DD-1 (Left Bay)": (2, 9), "DD-2 (Right Bay)": (17, 9)},
+        "dropoff": {"DD-1 (Left Bay)": (3, 9), "DD-2 (Right Bay)": (19, 9)},
     },
     "S5_Failure": {
         "pickup": {"PK-1 (West Aisle)": (5, 4), "PK-2 (Center Aisle)": (12, 4), "PK-3 (East Aisle)": (18, 4)},
-        "dropoff": {"DD-1 (Left Bay)": (2, 10), "DD-2 (Right Bay)": (18, 10)},
+        "dropoff": {"DD-1 (Left Bay)": (3, 10), "DD-2 (Right Bay)": (19, 10)},
     },
     "S6_CommDelay": {
         "pickup": {"PK-1 (West Aisle)": (5, 4), "PK-2 (Center Aisle)": (15, 4), "PK-3 (East Aisle)": (20, 4)},
-        "dropoff": {"DD-1 (Left Bay)": (2, 10), "DD-2 (Right Bay)": (20, 10)},
+        "dropoff": {"DD-1 (Left Bay)": (3, 10), "DD-2 (Right Bay)": (20, 10)},
     },
 }
 
