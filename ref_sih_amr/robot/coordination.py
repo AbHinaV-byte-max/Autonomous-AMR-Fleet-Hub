@@ -50,6 +50,19 @@ class ReservationTable:
     def get_claimer(self, cell: Tuple[int, int], time: float) -> Optional[str]:
         return self.claims.get((cell[0], cell[1], time))
 
+    def stake_current(self, robot_id: str, cell: Tuple[int, int], time: float):
+        """Claim the robot's actual current cell without deleting future reservations."""
+        claim_key = (int(cell[0]), int(cell[1]), float(time))
+        existing = self.claims.get(claim_key)
+        if existing is not None and existing != robot_id:
+            return False
+
+        reservations = self.robot_reservations.setdefault(robot_id, [])
+        if claim_key not in reservations:
+            reservations.append(claim_key)
+        self.claims[claim_key] = robot_id
+        return True
+
 # --- Conflict Detection Functions ---
 
 def check_vertex_conflict(table: ReservationTable, robot_id: str, cell: Tuple[int, int], time: float) -> Optional[str]:
