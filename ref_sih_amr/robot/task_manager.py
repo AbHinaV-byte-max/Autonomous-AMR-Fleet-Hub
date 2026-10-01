@@ -444,19 +444,28 @@ class LocalTaskManager:
         if self.state.status not in (RobotStatus.OFFLINE, RobotStatus.CHARGING):
             current_int = (int(self.state.position[0]), int(self.state.position[1]))
             if (
-                self.state.status in (RobotStatus.MOVING, RobotStatus.DEGRADED)
+                self.state.status in (RobotStatus.MOVING, RobotStatus.DEGRADED, RobotStatus.WAITING)
                 and self.target_cell is not None
                 and not self.state.planned_path
                 and current_int != (int(self.target_cell[0]), int(self.target_cell[1]))
             ):
-                # Never advertise MOVING/IN TRANSIT without an executable route.
-                # P1 will ask the simulator/CBS for a fresh route on the next
-                # planning checkpoint instead of leaving the AMR visually frozen.
-                self.state.status = RobotStatus.WAITING
-                if self.waiting_on is None:
-                    self.waiting_on = "NO_EXECUTABLE_PATH"
-                self.checkpoint_reached = True
-                self.wait_time += 1.0
+                # A dynamic obstacle or peer reservation can invalidate the
+                # current route after it was already committed. Non-CBS
+                # strategies own their route authority, so an empty path must
+                # trigger a fresh A* attempt instead of waiting forever for the
+                # P1-only simulator checkpoint hook.
+                if not self.cbs_mode:
+                    self._replan()
+
+                # If replanning still produced no executable route, remain
+                # waiting and let a later tick retry. This avoids both a frozen
+                # AMR and an unbounded busy-loop inside a single tick.
+                if not self.state.planned_path:
+                    self.state.status = RobotStatus.WAITING
+                    if self.waiting_on is None:
+                        self.waiting_on = "NO_EXECUTABLE_PATH"
+                    self.checkpoint_reached = True
+                    self.wait_time += 1.0
 
             if self._check_conflicts(current_time):
                 # Move
