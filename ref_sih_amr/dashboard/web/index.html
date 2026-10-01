@@ -2547,16 +2547,19 @@ body {
         document.getElementById('hdr-tick').innerText = `T+${snap.tick}`;
       }
 
-      if (snap.scenario && snap.scenario !== state.currentScenario) {
+      const previousScenario = state.currentScenario;
+      const scenarioChanged = Boolean(snap.scenario && snap.scenario !== previousScenario);
+      if (scenarioChanged) {
         state.currentScenario = snap.scenario;
         const sel = document.getElementById('scenarioSelect');
         if (sel) sel.value = snap.scenario;
         updateScenarioDisplay(snap.scenario);
       }
 
-      if ((snap.warehouse ? snap.warehouse.grid : []) && (!state.grid.length || (snap.warehouse ? snap.warehouse.grid : []).length !== state.grid.length)) {
-        state.grid = (snap.warehouse ? snap.warehouse.grid : []);
-        build3DEnvironment((snap.warehouse ? snap.warehouse.grid : []));
+      const liveGrid = snap.warehouse ? snap.warehouse.grid : [];
+      if (liveGrid && liveGrid.length && (scenarioChanged || !state.grid.length || liveGrid.length !== state.grid.length)) {
+        state.grid = liveGrid;
+        build3DEnvironment(liveGrid);
       }
 
       if (snap.robots) {
