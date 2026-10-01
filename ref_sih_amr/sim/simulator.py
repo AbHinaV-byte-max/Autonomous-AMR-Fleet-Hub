@@ -62,6 +62,16 @@ class Simulator:
         self.spawn_cells   = self.grid_map.find_all('R')
         self.free_cells    = self.grid_map.find_all('.')
 
+        # Scenario maps define explicit S/C bays. Small unit-test/custom maps
+        # may omit infrastructure, so derive deterministic fixed bays once at
+        # initialization rather than falling back to arbitrary dynamic parking.
+        if not self.staging_cells or not self.charger_cells:
+            fallback_staging, fallback_chargers = self._derive_fixed_service_cells()
+            if not self.staging_cells:
+                self.staging_cells = fallback_staging
+            if not self.charger_cells:
+                self.charger_cells = fallback_chargers
+
         self.task_generator = TaskGenerator(
             self.pickup_cells, self.dropoff_cells, spawn_interval=5)
 
@@ -174,6 +184,57 @@ class Simulator:
     # -------------------------------------------------------------------------
     # Public debug/test hooks
     # -------------------------------------------------------------------------
+
+    def _derive_fixed_service_cells(self):
+        """Choose deterministic fixed service bays for maps without S/C markers."""
+        specials = set(self.dropoff_cells + self.pickup_cells + self.spawn_cells)
+        occupied = set(specials)
+        candidates = []
+
+        for cell in self.grid_map.find_all('.'):
+            cell = (int(cell[0]), int(cell[1]))
+            degree = sum(
+                1
+                for dx, dy in ((0, 1), (1, 0), (0, -1), (-1, 0))
+                if self.grid_map.get_cell(cell[0] + dx, cell[1] + dy) != '#'
+            )
+            if degree < 2:
+                continue
+
+            min_special_distance = min(
+                (
+                    abs(cell[0] - sx) + abs(cell[1] - sy)
+                    for sx, sy in specials
+                ),
+                default=0,
+            )
+            candidates.append((-min_special_distance, -degree, cell[1], cell[0], cell))
+
+        candidates.sort()
+
+        staging = []
+        for _, _, _, _, cell in candidates:
+            if cell in occupied:
+                continue
+            if any(abs(cell[0] - other[0]) + abs(cell[1] - other[1]) < 3 for other in staging):
+                continue
+            staging.append(cell)
+            occupied.add(cell)
+            if len(staging) >= min(4, max(1, len(self.free_cells) // 10)):
+                break
+
+        chargers = []
+        for _, _, _, _, cell in candidates:
+            if cell in occupied:
+                continue
+            if any(abs(cell[0] - other[0]) + abs(cell[1] - other[1]) < 3 for other in chargers):
+                continue
+            chargers.append(cell)
+            occupied.add(cell)
+            if len(chargers) >= min(2, max(1, len(self.free_cells) // 20)):
+                break
+
+        return staging, chargers
 
     def clear_queued_auto_tasks(self) -> int:
         """Remove pending automatic orders when switching to manual-only mode.
