@@ -39,3 +39,29 @@ def test_udp_peer_channel_exchanges_intents_directly():
     finally:
         a.close()
         b.close()
+
+
+def test_simulator_can_use_per_robot_udp_channels():
+    from sim.simulator import Simulator
+    from comms.channel import UdpPeerChannel
+
+    ascii_map = """\
+########
+#R..P.R#
+#......#
+#D....D#
+########
+"""
+    sim = Simulator(
+        ascii_map=ascii_map,
+        headless=True,
+        strategy="P2P",
+        comms_mode="udp",
+        udp_base_port=19301,
+    )
+    try:
+        assert len(sim.comms_channels) == len(sim.robot_managers)
+        assert all(isinstance(ch, UdpPeerChannel) for ch in sim.comms_channels)
+        sim.tick()
+    finally:
+        sim.close()
