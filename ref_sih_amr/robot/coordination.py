@@ -83,11 +83,15 @@ def check_edge_swap(table: ReservationTable, robot_id: str, curr_cell: Tuple[int
     return None
 
 def check_following(table: ReservationTable, robot_id: str, curr_cell: Tuple[int, int], next_cell: Tuple[int, int], time: float) -> Optional[str]:
-    """Following/unsafe gap: R2 would reach a cell before R1 has cleared it."""
-    # Simplified temporal headway: just don't enter if the cell is claimed at time or time+1
-    # Actually, vertex conflict handles time+1. Let's just check if it's occupied at time
-    # and they aren't moving. For this simulation, 1 tick per cell implies atomic swaps which are caught by edge_swap.
-    pass
+    """Return a peer that has not cleared next_cell yet.
+
+    Edge-swap detection handles opposite traversal; this helper covers the
+    same-direction/headway case.
+    """
+    claimer = table.get_claimer(next_cell, time)
+    if claimer is not None and claimer != robot_id:
+        return claimer
+    return None
 
 def check_intersection(table: ReservationTable, robot_id: str, cell: Tuple[int, int], time: float, window: int = 2) -> Optional[str]:
     """Intersection conflict: multiple robots request the same choke-point within a window."""
