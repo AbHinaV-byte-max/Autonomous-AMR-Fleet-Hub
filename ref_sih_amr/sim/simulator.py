@@ -859,6 +859,40 @@ class Simulator:
         for m in self.robot_managers:
             m.tick(t)
 
+        # Final physical safety interlock for the lockstep simulator.
+        # Planning/reservations are the primary coordination mechanism, but
+        # execution is sequential and can race with delayed peer telemetry.
+        # If a robot nevertheless enters a cell occupied by another robot in
+        # the same tick, roll the later mover back before the state is published.
+        # This models a safety stop rather than allowing an actual simulated
+        # collision to persist into telemetry.
+        occupied_after_tick = {}
+        for manager in self.robot_managers:
+            if manager.state.status == RobotStatus.OFFLINE:
+                continue
+            cell = (
+                int(manager.state.position[0]),
+                int(manager.state.position[1]),
+            )
+            if cell not in occupied_after_tick:
+                occupied_after_tick[cell] = manager
+                continue
+
+            prior_cell = positions_before_tick[manager.state.robot_id]
+            manager.state.position = (float(prior_cell[0]), float(prior_cell[1]))
+            manager.state.planned_path = []
+            manager.state.status = RobotStatus.WAITING
+            manager.waiting_on = occupied_after_tick[cell].state.robot_id
+            manager.checkpoint_reached = True
+            manager.wait_time += 1.0
+            self.event_log.log_conflict(
+                manager.state.robot_id,
+                occupied_after_tick[cell].state.robot_id,
+                "PHYSICAL_SAFETY_STOP",
+                "ROLLBACK",
+                self.tick_count,
+            )
+
         # Re-plan any taskless robots whose fixed service resource became
         # available, then route newly completed robots away from the delivery cell.
         self._retry_post_task_destinations()
