@@ -110,6 +110,24 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int) -> Result
             sim.block_cell(*block_cell)
         sim.tick()
 
+    if scenario == "S4_Blocked":
+        print(
+            f"[S4 TRACE] strategy={strategy} tick={sim.tick_count} "
+            f"completed={sim.completed_tasks}"
+        )
+        for manager in sim.robot_managers:
+            print(
+                f"[S4 TRACE] {manager.state.robot_id} "
+                f"status={manager.state.status.value} "
+                f"task={getattr(manager.current_task, 'task_id', None)} "
+                f"task_status={getattr(getattr(manager, 'current_task', None), 'status', None)} "
+                f"pos={(int(manager.state.position[0]), int(manager.state.position[1]))} "
+                f"target={manager.target_cell} "
+                f"post={manager.post_task_mode} "
+                f"wait={manager.wait_time} "
+                f"waiting_on={manager.waiting_on}"
+            )
+
     return Result(
         strategy=strategy,
         completed=sim.completed_tasks,
