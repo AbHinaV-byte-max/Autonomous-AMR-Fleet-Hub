@@ -11,6 +11,7 @@ from config import GridMap, load_map
 from models import RobotState, Task, RobotStatus, TaskStatus
 from allocator.task_generator import TaskGenerator
 from allocator.hungarian import HungarianAllocator
+from allocator.auction import AuctionAllocator
 from robot.planner import AStarPlanner
 from robot.cbs import CBSPlanner, ObstacleCostmap
 from robot.task_manager import LocalTaskManager
@@ -89,6 +90,7 @@ class Simulator:
         self.comms     = PubSubChannel()
         self.comms_channels = []
         self.allocator = HungarianAllocator(planner=self.planner, costmap=self.grid_map)
+        self.auction_allocator = AuctionAllocator(planner=self.planner, costmap=self.grid_map)
         self.event_log = EventLog()
         self.priority_calc = PriorityCalculator()
         # CBS coordinator — used when strategy == "P1"
@@ -763,7 +765,12 @@ class Simulator:
         if not unique_dropoff_tasks:
             return
 
-        assignments = self.allocator.allocate(eligible, unique_dropoff_tasks)
+        if self.strategy == "P2P":
+            # Live P2P uses robot-local bids; Hungarian remains available for
+            # centralized comparison strategies and legacy validation.
+            assignments = self.auction_allocator.allocate(eligible, unique_dropoff_tasks)
+        else:
+            assignments = self.allocator.allocate(eligible, unique_dropoff_tasks)
         newly_assigned = []
         for robot_id, task_id in assignments.items():
             manager = next(m for m in self.robot_managers if m.state.robot_id == robot_id)
