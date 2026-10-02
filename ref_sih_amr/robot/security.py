@@ -52,6 +52,7 @@ def _canonical_message(message: IntentMessage) -> bytes:
         "battery": float(message.battery),
         "waiting_on": message.waiting_on,
         "heartbeat": float(message.heartbeat),
+        "session_epoch": message.session_epoch,
     }
     return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
@@ -70,7 +71,8 @@ def verify_hmac(msg: IntentMessage) -> bool:
 
 class TrustValidator(BaseValidator):
     def __init__(self):
-        self._last_seq: Dict[str, int] = {}
+        self._last_seq: Dict[tuple[str, str], int] = {}
+        self._last_epoch: Dict[str, str] = {}
         self._last_position: Dict[str, Tuple[float, float]] = {}
         self._last_timestamp: Dict[str, float] = {}
         self.quarantine_log = []
@@ -84,28 +86,34 @@ class TrustValidator(BaseValidator):
             self._record_reject(rid, "unauthorized robot_id")
             return "reject"
 
-        # 2. Timestamp fresh?
-        now = time.time()
-        # For sim we use tick timestamp; compare against monotonic sim clock
-        # (freshness check: within ±TIMESTAMP_FRESHNESS of last known)
+        # 2. Session epoch: a restarted robot gets a fresh replay namespace.
+        epoch = message.session_epoch
+        if not epoch:
+            self._record_reject(rid, "missing session epoch")
+            return "reject"
+        last_epoch = self._last_epoch.get(rid)
+        if last_epoch is not None and epoch != last_epoch:
+            self._last_seq.pop((rid, last_epoch), None)
+
+        # 3. Timestamp monotonicity within the sender epoch.
         last_ts = self._last_timestamp.get(rid)
         if last_ts is not None and message.timestamp < last_ts:
             self._record_reject(rid, f"stale timestamp {message.timestamp} < {last_ts}")
             return "reject"
 
-        # 3. Sequence newer?
-        last_seq = self._last_seq.get(rid, -1)
+        # 4. Sequence newer within the current epoch.
+        last_seq = self._last_seq.get((rid, epoch), -1)
         if message.seq <= last_seq:
             self._record_reject(rid, f"seq {message.seq} ≤ last seen {last_seq}")
             return "reject"
 
-        # 4. HMAC valid?
+        # 5. HMAC valid?
         expected = compute_hmac(rid, message)
         if not hmac.compare_digest(expected, message.auth_tag):
             self._record_reject(rid, "HMAC mismatch")
             return "reject"
 
-        # 5. Physical plausibility
+        # 6. Physical plausibility
         last_pos = self._last_position.get(rid)
         last_tick = self._last_timestamp.get(rid)
         if last_pos is not None and last_tick is not None:
@@ -121,7 +129,8 @@ class TrustValidator(BaseValidator):
                 return "quarantine"
 
         # Accept — update state
-        self._last_seq[rid] = message.seq
+        self._last_epoch[rid] = epoch
+        self._last_seq[(rid, epoch)] = message.seq
         self._last_position[rid] = message.position
         self._last_timestamp[rid] = message.timestamp
         return "accept"
