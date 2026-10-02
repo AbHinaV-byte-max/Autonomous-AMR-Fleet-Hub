@@ -11,7 +11,6 @@ from config import GridMap, load_map
 from models import RobotState, Task, RobotStatus, TaskStatus
 from allocator.task_generator import TaskGenerator
 from allocator.hungarian import HungarianAllocator
-from allocator.auction import AuctionAllocator
 from robot.planner import AStarPlanner
 from robot.cbs import CBSPlanner, ObstacleCostmap
 from robot.task_manager import LocalTaskManager
@@ -91,7 +90,6 @@ class Simulator:
         self.comms     = PubSubChannel()
         self.comms_channels = []
         self.allocator = HungarianAllocator(planner=self.planner, costmap=self.grid_map)
-        self.auction_allocator = AuctionAllocator(planner=self.planner, costmap=self.grid_map)
         self.event_log = EventLog()
         self.priority_calc = PriorityCalculator()
         # CBS coordinator — used when strategy == "P1"
@@ -766,25 +764,54 @@ class Simulator:
         if not unique_dropoff_tasks:
             return
 
+        newly_assigned = []
         if self.strategy == "P2P":
-            # Live P2P uses robot-local bids; Hungarian remains available for
-            # centralized comparison strategies and legacy validation.
-            assignments = self.auction_allocator.allocate(eligible, unique_dropoff_tasks)
+            # Each robot computes and authenticates only its own bids. The
+            # simulator orchestrates the lockstep round but never calculates
+            # another robot's cost.
+            eligible_ids = {
+                m.state.robot_id for m in self.robot_managers
+                if m.state in eligible
+            }
+            for manager in self.robot_managers:
+                if manager.state.robot_id in eligible_ids:
+                    manager.publish_task_bids(unique_dropoff_tasks, self.tick_count)
+            bids = self.comms.collect_bids()
+            winners = {}
+            for manager in self.robot_managers:
+                if manager.state.robot_id not in eligible_ids:
+                    continue
+                task_id = manager.choose_auction_task(bids, unique_dropoff_tasks)
+                if task_id is not None:
+                    winners[manager.state.robot_id] = task_id
+            for robot_id, task_id in winners.items():
+                manager = next(m for m in self.robot_managers if m.state.robot_id == robot_id)
+                task = next((t for t in unique_dropoff_tasks if t.task_id == task_id and t.status == TaskStatus.QUEUED), None)
+                if task is None:
+                    continue
+                was_recoverable = (task.status == TaskStatus.RECOVERABLE)
+                manager.assign_task(task)
+                newly_assigned.append(robot_id)
+                if was_recoverable:
+                    self.event_log.log_conflict(
+                        "SYSTEM", robot_id, "TASK_TAKEOVER",
+                        f"Task {task_id} successfully reallocated & assigned to {robot_id}",
+                        self.tick_count
+                    )
         else:
             assignments = self.allocator.allocate(eligible, unique_dropoff_tasks)
-        newly_assigned = []
-        for robot_id, task_id in assignments.items():
-            manager = next(m for m in self.robot_managers if m.state.robot_id == robot_id)
-            task = next(t for t in self.tasks if t.task_id == task_id)
-            was_recoverable = (task.status == TaskStatus.RECOVERABLE)
-            manager.assign_task(task)
-            newly_assigned.append(robot_id)
-            if was_recoverable:
-                self.event_log.log_conflict(
-                    "SYSTEM", robot_id, "TASK_TAKEOVER",
-                    f"Task {task_id} successfully reallocated & assigned to {robot_id}",
-                    self.tick_count
-                )
+            for robot_id, task_id in assignments.items():
+                manager = next(m for m in self.robot_managers if m.state.robot_id == robot_id)
+                task = next(t for t in self.tasks if t.task_id == task_id)
+                was_recoverable = (task.status == TaskStatus.RECOVERABLE)
+                manager.assign_task(task)
+                newly_assigned.append(robot_id)
+                if was_recoverable:
+                    self.event_log.log_conflict(
+                        "SYSTEM", robot_id, "TASK_TAKEOVER",
+                        f"Task {task_id} successfully reallocated & assigned to {robot_id}",
+                        self.tick_count
+                    )
         # After new assignments, replan all active robots with CBS so new
         # robots don't conflict with robots already on their way.
         if newly_assigned and self.strategy == "P1":
