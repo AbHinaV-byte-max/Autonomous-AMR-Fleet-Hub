@@ -8,7 +8,7 @@ The project combines task allocation, robot-local A* planning, peer-intent confl
 
 > **Primary runtime:** `ref_sih_amr/`  
 > **Dashboard:** FastAPI + WebSocket + HTML5 Canvas  
-> **Coordination:** Hungarian task allocation + robot-local A* + peer-intent reservations + runtime safety checks
+> **Coordination:** robot-local auction bidding + robot-local A* + authenticated peer-intent reservations + runtime safety checks
 
 ![SIH AMR Fleet Dashboard](assets/dashboard/fleet_dashboard_hud.png)
 
@@ -195,15 +195,14 @@ The repository no longer carries the inherited NVIDIA Kit application-template/t
 
 ## Evidence boundaries and deployment notes
 
-### Task allocation is fleet-level, coordination is P2P
+### Task allocation and motion coordination are distributed in the live P2P path
 
-The live runtime intentionally separates **task assignment** from **motion coordination**:
+The live runtime separates **robot-local task bidding** from **robot-local motion coordination**:
 
-- Hungarian allocation is a fleet-level optimization service that assigns queued orders to eligible AMRs.
-- Once a task is assigned, each AMR performs its own A* planning, owns its own reservation table, and exchanges intent directly with peers over UDP.
-- No fleet-wide reservation table or centralized motion coordinator is used by the live P2P path.
-
-This is an explicit architectural trade-off: the SIH requirement calls for decentralized robot-to-robot communication and multi-agent conflict resolution; task allocation is kept centralized so the prototype can optimize global order-to-robot assignment deterministically. Replacing this allocator with CBBA/auction bidding would be a separate research change and is not required to establish the current P2P motion-coordination evidence.
+- Eligible AMRs compute local A* travel bids for queued orders.
+- The live P2P allocator resolves submitted bids deterministically; Hungarian remains available only as a centralized comparison strategy.
+- Once assigned, each AMR performs its own A* planning, owns its own reservation table, and exchanges authenticated intent directly with peers over UDP.
+- No fleet-wide reservation table is used by the live P2P motion path.
 
 ### Edge-class emulation
 
