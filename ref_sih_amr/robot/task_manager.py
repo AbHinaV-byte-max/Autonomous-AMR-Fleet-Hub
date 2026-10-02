@@ -245,17 +245,31 @@ class LocalTaskManager:
                             self.waiting_on = None
 
         # Check for degraded comms (Phase 4)
+        # Peer reservations are forecasts, not permanent locks. When an intent
+        # is stale beyond the degraded threshold, retain the peer's last known
+        # physical state for safety checks but release its future reservations.
+        # This lets a robot keep making local progress during bounded packet
+        # delay/loss; a later authenticated intent rebuilds the reservation.
         degraded = False
+        stale_reservations_released = False
         for peer_id, last_t in list(self.last_seen.items()):
             gap = current_time - last_t
             if gap > 10.0:  # Beyond heartbeat timeout — peer is offline, not delayed
                 self.last_seen.pop(peer_id, None)
                 self.peer_states.pop(peer_id, None)
+                self.reservation_table.expire(peer_id)
                 continue
             if gap > 3.0:  # 3 ticks threshold
                 degraded = True
-                break
-                
+                self.reservation_table.expire(peer_id, after_time=current_time + 1)
+                stale_reservations_released = True
+
+        if stale_reservations_released and self.strategy == "P2P" and not self.cbs_mode:
+            # Replan once against the remaining local reservations. The current
+            # physical occupancy checks still protect against entering a peer's
+            # last known cell while communication is degraded.
+            self._replan()
+
         if degraded and self.state.status == RobotStatus.MOVING:
             self.state.status = RobotStatus.DEGRADED
 
