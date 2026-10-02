@@ -53,6 +53,9 @@ SCENARIO_TASKS = {
     "S2_Crossing": 6,
     "S3_Narrow": 1,
     "S4_Blocked": 6,
+    "S5_Failure": 6,
+    "S6_CommDelay": 6,
+    "S7_Malformed": 6,
     "S8_Scale": 6,
 }
 
