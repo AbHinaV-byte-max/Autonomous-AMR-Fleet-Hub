@@ -102,6 +102,7 @@ class UdpPeerChannel(CommsChannel):
             "heartbeat": message.heartbeat,
             "auth_tag": message.auth_tag,
             "session_epoch": message.session_epoch,
+            "session_epoch": message.session_epoch,
             "type": "intent",
         }
         return json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -130,6 +131,7 @@ class UdpPeerChannel(CommsChannel):
             waiting_on=data.get("waiting_on"),
             heartbeat=float(data.get("heartbeat", 0.0)),
             auth_tag=data.get("auth_tag", ""),
+            session_epoch=data.get("session_epoch", ""),
             session_epoch=data.get("session_epoch", ""),
         )
 
