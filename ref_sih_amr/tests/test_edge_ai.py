@@ -85,3 +85,19 @@ if __name__ == "__main__":
     test_deterministic_continue_when_clear()
     test_safety_override_blocks_unsafe_ml_suggestion()
     print("\n=== All edge AI tests passed ===")
+
+
+def test_edge_policy_is_instantiated_in_live_robot_managers():
+    from sim.simulator import Simulator
+    sim = Simulator(
+        ascii_map="""########
+#R..P.R#
+#......#
+#D....D#
+########
+""",
+        headless=True,
+        strategy="P2P",
+    )
+    assert all(hasattr(manager, "edge_policy") for manager in sim.robot_managers)
+    sim.close()
