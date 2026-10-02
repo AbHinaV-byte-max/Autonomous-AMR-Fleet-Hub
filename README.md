@@ -199,14 +199,16 @@ The repository no longer carries the inherited NVIDIA Kit application-template/t
 
 The live runtime separates **robot-local task bidding** from **robot-local motion coordination**:
 
-- Eligible AMRs compute local A* travel bids for queued orders.
-- The live P2P allocator resolves submitted bids deterministically; Hungarian remains available only as a centralized comparison strategy.
+- Eligible AMRs compute only their own A* travel bids for queued orders and publish authenticated `TaskBid` messages over the peer channel.
+- Each AMR independently evaluates the exchanged bids and self-selects a winning task; the simulator only orchestrates the lockstep round. Hungarian remains available only as a centralized comparison strategy.
 - Once assigned, each AMR performs its own A* planning, owns its own reservation table, and exchanges authenticated intent directly with peers over UDP.
 - No fleet-wide reservation table is used by the live P2P motion path.
 
 ### Edge-class emulation
 
-No Raspberry Pi or Jetson measurement is currently claimed. Containerized Docker measurements are also not substituted for physical hardware evidence; they are reported separately as edge-class emulation.
+No Raspberry Pi or Jetson measurement is currently claimed.
+
+For UDP deployments, set `AMR_HMAC_MASTER_KEY` consistently on the robot processes. Robot identities are not limited to a fixed fleet-size key table. Containerized Docker measurements are also not substituted for physical hardware evidence; they are reported separately as edge-class emulation.
 
 For a repeatable **Pi-class resource emulation**, `robot/node.py` can run as an independent robot process inside Docker containers with approximately **1 CPU and 1 GB RAM per robot**. The containers communicate over UDP exactly as separate robot nodes would. CPU/RAM usage and robot-local planning latency should be recorded from those containers and reported as **containerized edge-class emulation**, not physical edge-hardware evidence.
 
