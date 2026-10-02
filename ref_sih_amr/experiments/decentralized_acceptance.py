@@ -51,7 +51,7 @@ TRIALS = 20
 
 SCENARIO_TASKS = {
     "S2_Crossing": 6,
-    "S3_Narrow": 1,
+    "S3_Narrow": 4,
     "S4_Blocked": 6,
     "S5_Failure": 6,
     "S6_CommDelay": 6,
@@ -90,11 +90,32 @@ def fixed_workload(sim: Simulator, count: int = 6, seed: int = 0):
         raise RuntimeError("Benchmark scenario has no pickup/dropoff cells")
 
     rng = random.Random(seed)
-    for i in range(count):
+    if sim.strategy == "P2P" or sim.strategy == "B2":
+        if "S3_Narrow" in getattr(sim, "scenario_name", ""):
+            pass
+    if getattr(sim, "benchmark_scenario", None) == "S3_Narrow":
+        # Four paired jobs deliberately reuse the narrow corridor and alternate
+        # delivery bays. This is an overlap/coordination workload, not a
+        # single-task safety demonstration.
+        corridor_pickups = sorted(
+            pickups,
+            key=lambda p: (abs(p[0] - 11) + abs(p[1] - 5), p),
+        )[:4]
+        workload = [
+            (corridor_pickups[i % len(corridor_pickups)], dropoffs[i % len(dropoffs)])
+            for i in range(count)
+        ]
+    else:
+        workload = [
+            (pickups[rng.randrange(len(pickups))], dropoffs[rng.randrange(len(dropoffs))])
+            for _ in range(count)
+        ]
+
+    for i, (pickup_cell, dropoff_cell) in enumerate(workload):
         task = Task(
             task_id=f"BENCH_{i + 1:02d}",
-            pickup_cell=pickups[rng.randrange(len(pickups))],
-            dropoff_cell=dropoffs[rng.randrange(len(dropoffs))],
+            pickup_cell=pickup_cell,
+            dropoff_cell=dropoff_cell,
             priority=1 + (i % 3),
             status=TaskStatus.QUEUED,
             created_at=0.0,
@@ -107,6 +128,7 @@ def fixed_workload(sim: Simulator, count: int = 6, seed: int = 0):
 
 def run(strategy: str, scenario: str, task_count: int, max_ticks: int, seed: int = 26123, trial: int = 0) -> Result:
     sim = Simulator(ascii_map=SCENARIOS[scenario], headless=True, strategy=strategy, seed=seed)
+    sim.benchmark_scenario = scenario
     fixed_workload(sim, task_count, seed=seed)
 
     # S4 is the dynamic-obstacle case: allow both strategies to establish their
