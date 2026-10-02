@@ -35,7 +35,12 @@ class PubSubChannel(CommsChannel):
         self.next_bids.append(bid)
 
     def collect_bids(self) -> List[TaskBid]:
-        return [bid for bid in self.next_bids if verify_bid_hmac(bid)]
+        # A bid buffer represents one allocation round. Consume it when the
+        # round is collected so a later allocation cannot reuse a robot's stale
+        # bid after its eligibility or task state has changed.
+        bids = [bid for bid in self.next_bids if verify_bid_hmac(bid)]
+        self.next_bids = []
+        return bids
 
     def receive(self) -> List[IntentMessage]:
         return [
