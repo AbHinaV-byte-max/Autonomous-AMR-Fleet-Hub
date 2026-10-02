@@ -1,6 +1,4 @@
-"""
-Phase 6B Security tests — Section 11.3 anomaly demo.
-"""
+"""Phase 6B Security tests — Section 11.3 anomaly demo."""
 import sys, os
 import time
 from models import IntentMessage, Intent
@@ -17,8 +15,7 @@ def test_anomaly_injection_teleport():
       3. Message is quarantined (or robot marked degraded)
     """
     validator = TrustValidator()
-    
-    # Setup initial state
+
     msg1 = IntentMessage(
         robot_id="robot-0",
         seq=1,
@@ -33,26 +30,23 @@ def test_anomaly_injection_teleport():
         session_epoch="test-epoch",
     )
     msg1.auth_tag = compute_hmac("robot-0", msg1)
-    
     assert validator.validate(msg1) == "accept", "Initial valid message rejected"
-    
-    # 2. Inject impossible teleport message a split second later
+
     msg2 = IntentMessage(
         robot_id="robot-0",
         seq=2,
-        timestamp=msg1.timestamp + 0.1,  # 0.1 seconds later
-        position=(100.0, 100.0),         # 141 cells away — impossible!
+        timestamp=msg1.timestamp + 0.1,
+        position=(100.0, 100.0),
         velocity=1.0,
         intent=Intent.MOVE,
         next_intersection=None,
         task_id=None,
         priority=0,
-        auth_tag=""
+        auth_tag="",
+        session_epoch="test-epoch",
     )
     msg2.auth_tag = compute_hmac("robot-0", msg2)
-    
     result = validator.validate(msg2)
-    
     assert result == "quarantine", f"Expected quarantine due to impossible speed, got {result}"
     print("Security anomaly demo passed: impossible teleport quarantined.")
 
