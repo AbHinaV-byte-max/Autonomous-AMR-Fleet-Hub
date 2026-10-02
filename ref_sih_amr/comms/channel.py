@@ -132,7 +132,6 @@ class UdpPeerChannel(CommsChannel):
             heartbeat=float(data.get("heartbeat", 0.0)),
             auth_tag=data.get("auth_tag", ""),
             session_epoch=data.get("session_epoch", ""),
-            session_epoch=data.get("session_epoch", ""),
         )
 
     def send(self, message: IntentMessage) -> None:
