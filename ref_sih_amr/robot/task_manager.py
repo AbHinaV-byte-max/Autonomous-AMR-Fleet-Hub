@@ -1,4 +1,5 @@
 from typing import Optional, Any, List
+import uuid
 from models import RobotState, RobotStatus, Intent, IntentMessage, Task, TaskStatus
 from interfaces import Planner, CommsChannel
 from robot.coordination import ReservationTable, PriorityCalculator, check_vertex_conflict, check_edge_swap
@@ -23,6 +24,7 @@ class LocalTaskManager:
         self.edge_policy = SafeEdgePolicy(model_path=model_path)
         self.current_task: Optional[Task] = None
         self.seq = 0
+        self.session_epoch = uuid.uuid4().hex
         self.target_cell: Optional[tuple[int, int]] = None
         # Post-task lifecycle target: CHARGER or STAGING. None means normal task work.
         self.post_task_mode: Optional[str] = None
@@ -498,7 +500,8 @@ class LocalTaskManager:
                 priority=0,
                 planned_path=[curr_pos] * 200,
                 waiting_on=None,
-                heartbeat=current_time
+                heartbeat=current_time,
+                session_epoch=self.session_epoch,
             )
             self.comms.send(msg)
             return
@@ -582,7 +585,8 @@ class LocalTaskManager:
             priority=self.state.task_priority,
             planned_path=broadcast_path,
             waiting_on=self.waiting_on,
-            heartbeat=current_time
+            heartbeat=current_time,
+            session_epoch=self.session_epoch,
         )
         self.comms.send(msg)
 
