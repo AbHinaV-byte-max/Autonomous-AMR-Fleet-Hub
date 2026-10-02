@@ -30,4 +30,8 @@ def test_s7_debug_state_trace():
             "wait", manager.wait_time,
             "waiting_on", manager.waiting_on,
         )
-    print("S7_EVENTS", sim.event_log.conflict_events[-30:])
+    assert sim.completed_tasks == 6, repr({
+        "tasks": [(t.task_id, t.status.value, t.assigned_robot_id, t.pickup_cell, t.dropoff_cell) for t in sim.tasks],
+        "robots": [(m.state.robot_id, m.state.status.value, m.state.position, m.state.current_task_id, m.current_task.status.value if m.current_task else None, m.current_task.dropoff_cell if m.current_task else None, m.target_cell, len(m.state.planned_path), m.wait_time, m.waiting_on) for m in sim.robot_managers],
+        "events": sim.event_log.conflict_events[-50:],
+    })
