@@ -57,6 +57,8 @@ def main():
     p.add_argument("--start", required=True)
     p.add_argument("--pickup", required=True)
     p.add_argument("--dropoff", required=True)
+    p.add_argument("--task-id", default=None)
+    p.add_argument("--auction-task", action="append", default=[], help="shared task spec id:x,y:x,y:priority; repeat for the common fleet queue")
     p.add_argument("--scenario", default="S1_Normal")
     p.add_argument("--ticks", type=int, default=500)
     p.add_argument("--period", type=float, default=0.2)
@@ -87,29 +89,53 @@ def main():
         costmap,
         strategy="P2P",
     )
-    task = Task(
-        task_id=f"{args.robot_id}-TASK-1",
-        pickup_cell=parse_cell(args.pickup),
-        dropoff_cell=parse_cell(args.dropoff),
-        priority=1,
-        status=TaskStatus.QUEUED,
-        source="MANUAL",
-    )
-    manager.assign_task(task)
+    tasks = []
+    if args.auction_task:
+        for spec in args.auction_task:
+            task_id, pickup, dropoff, priority = spec.split(":", 3)
+            tasks.append(Task(
+                task_id=task_id,
+                pickup_cell=parse_cell(pickup),
+                dropoff_cell=parse_cell(dropoff),
+                priority=int(priority),
+                status=TaskStatus.QUEUED,
+                source="MANUAL",
+            ))
+    else:
+        tasks.append(Task(
+            task_id=args.task_id or f"{args.robot_id}-TASK-1",
+            pickup_cell=parse_cell(args.pickup),
+            dropoff_cell=parse_cell(args.dropoff),
+            priority=1,
+            status=TaskStatus.QUEUED,
+            source="MANUAL",
+        ))
 
     try:
         if args.start_delay > 0:
             time.sleep(args.start_delay)
 
         for tick in range(1, args.ticks + 1):
+            if manager.current_task is None:
+                queued = [task for task in tasks if task.status == TaskStatus.QUEUED]
+                if queued:
+                    manager.publish_task_bids(queued, float(tick))
             manager.tick(float(tick))
+            if manager.current_task is None:
+                queued = [task for task in tasks if task.status == TaskStatus.QUEUED]
+                if queued:
+                    bids = channel.collect_bids()
+                    winner = manager.choose_auction_task(bids, queued)
+                    if winner:
+                        selected = next(task for task in queued if task.task_id == winner)
+                        manager.assign_task(selected)
             print(
                 f"{args.robot_id} tick={tick} "
                 f"pos={manager.state.position} status={manager.state.status.value} "
                 f"task={manager.state.current_task_id}",
                 flush=True,
             )
-            if task.status == TaskStatus.COMPLETED:
+            if all(task.status == TaskStatus.COMPLETED for task in tasks):
                 break
             time.sleep(args.period)
     finally:
