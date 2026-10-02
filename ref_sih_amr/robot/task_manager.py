@@ -2,6 +2,7 @@ from typing import Optional, Any, List
 from models import RobotState, RobotStatus, Intent, IntentMessage, Task, TaskStatus
 from interfaces import Planner, CommsChannel
 from robot.coordination import ReservationTable, PriorityCalculator, check_vertex_conflict, check_edge_swap
+from robot.edge_policy import SafeEdgePolicy, PolicyFeatures, ACTION_WAIT, ACTION_YIELD, ACTION_REROUTE, ACTION_DEGRADED_MODE
 
 # How many consecutive ticks a robot can wait on the same peer before
 # proactively replanning (without needing a full cycle to be detected).
@@ -15,6 +16,11 @@ class LocalTaskManager:
         self.costmap = costmap
         self.strategy = strategy
         self.event_logger = event_logger
+        import os
+        model_path = os.getenv("EDGE_POLICY_MODEL")
+        if model_path and not os.path.exists(model_path):
+            model_path = None
+        self.edge_policy = SafeEdgePolicy(model_path=model_path)
         self.current_task: Optional[Task] = None
         self.seq = 0
         self.target_cell: Optional[tuple[int, int]] = None
@@ -220,6 +226,34 @@ class LocalTaskManager:
             
         next_cell = self.state.planned_path[0]
         current_cell = (int(self.state.position[0]), int(self.state.position[1]))
+
+        peer_distances = [abs(int(msg.position[0]) - current_cell[0]) + abs(int(msg.position[1]) - current_cell[1]) for msg in self.peer_states.values()]
+        nearest_peer = min(peer_distances, default=99.0)
+        freshness = max((current_time - ts for ts in self.last_seen.values()), default=0.0)
+        next_occupied = any((int(msg.position[0]), int(msg.position[1])) == tuple(next_cell) for msg in self.peer_states.values())
+        features = PolicyFeatures(
+            dist_to_nearest_peer=float(nearest_peer), relative_velocity=0.0,
+            time_to_conflict=1.0 if next_occupied else 10.0,
+            intersection_occupancy=1.0 if next_occupied else 0.0,
+            queue_length=float(len(self.peer_states)),
+            local_obstacle_flag=1.0 if self.costmap.get_cell(next_cell[0], next_cell[1]) == "#" else 0.0,
+            task_urgency=float(self.state.task_priority), battery=float(self.state.battery),
+            peer_comm_freshness=float(freshness),
+        )
+        safe_actions = {"CONTINUE", ACTION_YIELD, ACTION_WAIT, ACTION_REROUTE, ACTION_DEGRADED_MODE}
+        if next_occupied:
+            safe_actions.discard("CONTINUE")
+        edge_action = self.edge_policy.decide(features, safe_actions)
+        if edge_action in (ACTION_WAIT, ACTION_YIELD):
+            self.state.status = RobotStatus.WAITING
+            self.wait_time += 1.0
+            return False
+        if edge_action == ACTION_REROUTE and not self.cbs_mode:
+            self._replan()
+            if not self.state.planned_path:
+                self.state.status = RobotStatus.WAITING
+                self.wait_time += 1.0
+                return False
         
         # Check static obstacles (Phase 4 Blocked Aisles)
         if self.costmap.get_cell(next_cell[0], next_cell[1]) == '#':
