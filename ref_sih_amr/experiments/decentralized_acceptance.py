@@ -47,6 +47,8 @@ DEFAULT_SCENARIOS = ("S2_Crossing", "S3_Narrow", "S4_Blocked", "S8_Scale")
 # one delivery because the four-robot, one-cell corridor is itself the
 # stress condition; the blocked-aisle case intentionally keeps six jobs so it can
 # demonstrate P2P recovery even when B2 cannot finish after the blockage.
+TRIALS = 20
+
 SCENARIO_TASKS = {
     "S2_Crossing": 6,
     "S3_Narrow": 1,
