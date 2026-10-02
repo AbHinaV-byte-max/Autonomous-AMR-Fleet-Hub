@@ -94,6 +94,19 @@ class IntentMessage:
 
 
 @dataclass
+class TaskBid:
+    """Authenticated robot-local auction bid exchanged over the peer channel."""
+
+    robot_id: str
+    seq: int
+    timestamp: float
+    session_epoch: str
+    task_id: str
+    bid: float
+    auth_tag: str = ""
+
+
+@dataclass
 class Task:
     """A single pick-and-place warehouse task."""
 
