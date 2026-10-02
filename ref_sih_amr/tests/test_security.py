@@ -29,7 +29,8 @@ def test_anomaly_injection_teleport():
         next_intersection=None,
         task_id=None,
         priority=0,
-        auth_tag=""
+        auth_tag="",
+        session_epoch="test-epoch",
     )
     msg1.auth_tag = compute_hmac("robot-0", msg1)
     
@@ -65,7 +66,7 @@ def test_hmac_covers_planned_path_and_rejects_tampering():
     msg = IntentMessage(
         robot_id="robot-0", seq=1, timestamp=time.time(), position=(1.0, 1.0),
         velocity=1.0, intent=Intent.MOVE, next_intersection=None, task_id="T1",
-        priority=1, planned_path=[(1, 1), (2, 1)], auth_tag=""
+        priority=1, planned_path=[(1, 1), (2, 1)], auth_tag="", session_epoch="test-epoch"
     )
     msg.auth_tag = compute_hmac("robot-0", msg)
     msg.planned_path = [(1, 1), (9, 9)]
