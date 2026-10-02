@@ -1,4 +1,4 @@
-# 🤖 Edge-AI Distributed Fleet Coordination for AMRs
+# 🤖 Edge-Local Distributed Fleet Coordination for AMRs
 
 **SIH 2026 · Problem Statement 26123 · Bharat Electronics Limited**
 
@@ -19,16 +19,16 @@ The project combines task allocation, robot-local A* planning, peer-intent confl
 | Capability | Implementation |
 |---|---|
 | 🤖 Multi-AMR coordination | Concurrent simulated robot managers |
-| 📦 Task allocation | Fleet allocator with Hungarian assignment |
+| 📦 Task allocation | Robot-local auction bidding in live P2P; Hungarian retained as comparison baseline |
 | 🧭 Navigation | Grid-based A* path planning |
 | 🔀 Conflict resolution | Robot-local A* + peer-intent reservations; CBS retained only as an explicit centralized benchmark strategy |
 | 🛡️ Safety | Vertex, edge-swap, occupancy and reservation checks |
 | 🚧 Dynamic rerouting | Blocked-cell detection and replanning |
 | 🔋 Resilience | Battery/failure handling and task reassignment |
-| 📡 Peer communication | Direct UDP peer mesh (`UdpPeerChannel`) plus deterministic in-process test transport |
+| 📡 Peer communication | Authenticated direct UDP peer mesh with HMAC + sequence replay protection, plus deterministic in-process transport |
 | 📊 Telemetry | Queue-based `TelemetryBus` + WebSocket stream |
 | 🖥️ Operations dashboard | Live fleet state, task pipeline and warehouse view |
-| 🧪 Benchmarking | Reproducible scenarios and coordination strategies |
+| 🧪 Benchmarking | Paired seeded trials, per-scenario statistics and vertex/edge-swap safety metrics |
 
 ---
 
@@ -66,7 +66,7 @@ The project combines task allocation, robot-local A* planning, peer-intent confl
                      └───────────────────┘
 ```
 
-The live fleet uses the **P2P strategy**: each robot owns its reservation table and exchanges intent directly with peers. Hungarian allocation remains a fleet-level task-assignment service; CBS is not used by the live P2P motion loop and is retained for comparison/legacy validation.
+The live fleet uses the **P2P strategy**: each robot owns its reservation table, computes task bids locally, and exchanges authenticated intent directly with peers. Hungarian allocation remains available for centralized comparison; CBS is not used by the live P2P motion loop. The edge decision loop always runs the deterministic `SafeEdgePolicy`; an ONNX model is an optional deployment input (`EDGE_POLICY_MODEL`) and is not claimed as shipped evidence unless the model artifact is present.
 
 ---
 
@@ -207,7 +207,7 @@ This is an explicit architectural trade-off: the SIH requirement calls for decen
 
 ### Edge-class emulation
 
-No Raspberry Pi or Jetson measurement is currently claimed.
+No Raspberry Pi or Jetson measurement is currently claimed. Containerized Docker measurements are also not substituted for physical hardware evidence; they are reported separately as edge-class emulation.
 
 For a repeatable **Pi-class resource emulation**, `robot/node.py` can run as an independent robot process inside Docker containers with approximately **1 CPU and 1 GB RAM per robot**. The containers communicate over UDP exactly as separate robot nodes would. CPU/RAM usage and robot-local planning latency should be recorded from those containers and reported as **containerized edge-class emulation**, not physical edge-hardware evidence.
 
