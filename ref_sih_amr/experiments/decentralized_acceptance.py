@@ -90,9 +90,6 @@ def fixed_workload(sim: Simulator, count: int = 6, seed: int = 0):
         raise RuntimeError("Benchmark scenario has no pickup/dropoff cells")
 
     rng = random.Random(seed)
-    if sim.strategy == "P2P" or sim.strategy == "B2":
-        if "S3_Narrow" in getattr(sim, "scenario_name", ""):
-            pass
     if getattr(sim, "benchmark_scenario", None) == "S3_Narrow":
         # Four paired jobs deliberately reuse the narrow corridor and alternate
         # delivery bays. This is an overlap/coordination workload, not a
