@@ -108,6 +108,16 @@ def fixed_workload(sim: Simulator, count: int = 6, seed: int = 0):
             (corridor_pickups[i % len(corridor_pickups)], dropoffs[i % len(dropoffs)])
             for i in range(count)
         ]
+    elif getattr(sim, "benchmark_scenario", None) == "S7_Malformed":
+        # S7 intentionally stresses malformed traffic and a malformed warehouse
+        # layout, but acceptance orders must themselves be physically reachable.
+        # The previous random draw could select an isolated boundary wall such as
+        # (5, 0), creating an impossible task and masking the communication test.
+        reachable_pickups = [(3, 3), (10, 3), (6, 6), (9, 6), (4, 7), (12, 7)]
+        workload = [
+            (reachable_pickups[i % len(reachable_pickups)], dropoffs[i % len(dropoffs)])
+            for i in range(count)
+        ]
     else:
         workload = [
             (pickups[rng.randrange(len(pickups))], dropoffs[rng.randrange(len(dropoffs))])
