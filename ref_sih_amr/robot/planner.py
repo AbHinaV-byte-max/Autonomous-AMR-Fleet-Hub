@@ -25,6 +25,9 @@ class AStarPlanner(Planner):
         
         final_state = None
         max_time = start_time + 400  # Cutoff search
+        max_expansions = 12000
+        expansions = 0
+        path_cells = {(start_int, start_time): {start_int}}
         
         target_is_rack = False
         if costmap.get_cell(goal_int[0], goal_int[1]) == '#':
@@ -36,7 +39,10 @@ class AStarPlanner(Planner):
             return cell == goal_int
         
         while frontier:
+            if expansions >= max_expansions:
+                break
             _, t, current = heapq.heappop(frontier)
+            expansions += 1
             
             if is_goal(current):
                 final_state = (current, t)
@@ -74,26 +80,18 @@ class AStarPlanner(Planner):
                 if dx == 0 and dy == 0:
                     new_cost += 0.5  # Penalise waiting in-place: prefer detour over temporal stall
 
-                # Penalise spatial revisits in the same candidate route. In
-                # the S4 blocked-aisle case, time-expanded A* can otherwise
-                # find a valid but pathological cycle such as
-                # A -> B -> C -> D -> A while it waits for a peer reservation
-                # to clear. Re-visiting remains possible when needed for a
-                # constrained space-time route; the extra cost simply makes a
-                # genuine detour or an in-place wait preferable.
-                if nxt != current:
-                    ancestor_state = (current, t)
-                    revisits = False
-                    while ancestor_state is not None:
-                        if ancestor_state[0] == nxt:
-                            revisits = True
-                            break
-                        ancestor_state = came_from.get(ancestor_state)
-                    if revisits:
-                        new_cost += 6.0  # Strongly discourage spatial cycles
-                
+                # Explicit wait actions provide the time dimension; a route
+                # does not need to revisit a spatial cell. Track compact path
+                # history per state instead of walking the entire ancestor chain
+                # on every neighbor expansion.
+                current_state = (current, t)
+                history = path_cells.get(current_state, {current})
+                if nxt != current and nxt in history:
+                    continue
+
                 if (nxt, nxt_t) not in cost_so_far or new_cost < cost_so_far[(nxt, nxt_t)]:
                     cost_so_far[(nxt, nxt_t)] = new_cost
+                    path_cells[(nxt, nxt_t)] = history if nxt == current else history | {nxt}
                     priority = new_cost + heuristic(nxt, goal_int)
                     heapq.heappush(frontier, (priority, nxt_t, nxt))
                     came_from[(nxt, nxt_t)] = (current, t)
