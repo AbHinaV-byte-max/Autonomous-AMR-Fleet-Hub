@@ -274,7 +274,10 @@ class LocalTaskManager:
                 continue
             if gap > 3.0:  # 3 ticks threshold
                 degraded = True
-                self.reservation_table.expire(peer_id, after_time=current_time + 1)
+                # Keep the immediate next-step reservation so local
+                # edge-swap checks remain effective even when the peer's next
+                # intent packet is delayed. Release only farther-future claims.
+                self.reservation_table.expire(peer_id, after_time=current_time + 2)
                 stale_reservations_released = True
 
         if stale_reservations_released and self.strategy == "P2P" and not self.cbs_mode:
