@@ -124,7 +124,8 @@ def fixed_workload(sim: Simulator, count: int = 6, seed: int = 0):
 
 
 def run(strategy: str, scenario: str, task_count: int, max_ticks: int, seed: int = 26123, trial: int = 0) -> Result:
-    sim = Simulator(ascii_map=SCENARIOS[scenario], headless=True, strategy=strategy, seed=seed)
+    comms_mode = os.getenv("BENCH_COMMS_MODE", "local")
+    sim = Simulator(ascii_map=SCENARIOS[scenario], headless=True, strategy=strategy, comms_mode=comms_mode, seed=seed)
     sim.benchmark_scenario = scenario
     fixed_workload(sim, task_count, seed=seed)
 
@@ -136,13 +137,28 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int, seed: int
     comms_loss = scenario == "S6_CommDelay"
     malformed_at = 20 if scenario == "S7_Malformed" else None
     original_send = sim.comms.send
+    original_clear = sim.comms.clear
+    delayed_messages = []
 
     if comms_loss:
-        def lossy_send(message):
+        def degraded_send(message):
+            # Deterministic wireless impairment: loss + 2/3 tick delay + jitter.
             if message.robot_id == "robot-0" and sim.tick_count % 4 == 0:
                 return
-            original_send(message)
-        sim.comms.send = lossy_send
+            release_tick = sim.tick_count + 2 + (sim.tick_count % 2)
+            delayed_messages.append((release_tick, message))
+        def degraded_clear():
+            sim.comms.current_messages = [
+                msg for release, msg in delayed_messages
+                if release <= sim.tick_count
+            ]
+            delayed_messages[:] = [
+                (release, msg) for release, msg in delayed_messages
+                if release > sim.tick_count
+            ]
+            sim.comms.next_messages = []
+        sim.comms.send = degraded_send
+        sim.comms.clear = degraded_clear
 
     while sim.tick_count < max_ticks and sim.completed_tasks < task_count:
         if block_at is not None and sim.tick_count == block_at:
