@@ -12,6 +12,7 @@ from typing import Dict, List, Tuple
 
 from interfaces import CommsChannel
 from models import Intent, IntentMessage
+from robot.security import verify_hmac, compute_hmac, AUTHORIZED_ROBOTS
 
 
 class PubSubChannel(CommsChannel):
@@ -20,12 +21,24 @@ class PubSubChannel(CommsChannel):
     def __init__(self):
         self.current_messages: List[IntentMessage] = []
         self.next_messages: List[IntentMessage] = []
+        self.last_seq: Dict[str, int] = {}
 
     def send(self, message: IntentMessage) -> None:
+        if not message.auth_tag:
+            message.auth_tag = compute_hmac(message.robot_id, message)
         self.next_messages.append(message)
 
     def receive(self) -> List[IntentMessage]:
-        return self.current_messages
+        accepted = []
+        for msg in self.current_messages:
+            if msg.robot_id not in AUTHORIZED_ROBOTS or not verify_hmac(msg):
+                continue
+            last_seq = self.last_seq.get(msg.robot_id, -1)
+            if msg.seq <= last_seq:
+                continue
+            self.last_seq[msg.robot_id] = msg.seq
+            accepted.append(msg)
+        return accepted
 
     def clear(self) -> None:
         self.current_messages = self.next_messages
@@ -54,6 +67,7 @@ class UdpPeerChannel(CommsChannel):
         self.socket.bind(bind)
         self.socket.setblocking(False)
         self.recv_buffer = recv_buffer
+        self.last_seq: Dict[str, int] = {}
 
     @staticmethod
     def _encode(message: IntentMessage) -> bytes:
@@ -103,6 +117,8 @@ class UdpPeerChannel(CommsChannel):
         )
 
     def send(self, message: IntentMessage) -> None:
+        if not message.auth_tag:
+            message.auth_tag = compute_hmac(message.robot_id, message)
         packet = self._encode(message)
         for peer_id, endpoint in self.peers.items():
             if peer_id == self.robot_id:
@@ -128,6 +144,12 @@ class UdpPeerChannel(CommsChannel):
             except (ValueError, KeyError, TypeError, json.JSONDecodeError):
                 continue
             if msg.robot_id != self.robot_id:
+                if msg.robot_id not in AUTHORIZED_ROBOTS or not verify_hmac(msg):
+                    continue
+                last_seq = self.last_seq.get(msg.robot_id, -1)
+                if msg.seq <= last_seq:
+                    continue
+                self.last_seq[msg.robot_id] = msg.seq
                 messages.append(msg)
         return messages
 
