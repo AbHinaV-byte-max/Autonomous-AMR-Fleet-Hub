@@ -100,9 +100,9 @@ def fixed_workload(sim: Simulator, count: int = 6, seed: int = 0):
     sim._allocate()
 
 
-def run(strategy: str, scenario: str, task_count: int, max_ticks: int) -> Result:
-    sim = Simulator(ascii_map=SCENARIOS[scenario], headless=True, strategy=strategy)
-    fixed_workload(sim, task_count)
+def run(strategy: str, scenario: str, task_count: int, max_ticks: int, seed: int = 26123, trial: int = 0) -> Result:
+    sim = Simulator(ascii_map=SCENARIOS[scenario], headless=True, strategy=strategy, seed=seed)
+    fixed_workload(sim, task_count, seed=seed)
 
     # S4 is the dynamic-obstacle case: allow both strategies to establish their
     # initial routes, then block the same corridor cell for both runs.
@@ -123,6 +123,7 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int) -> Result
         replans=float(sim.metric_values.get("REPLAN_COUNT", 0.0)),
         collisions=float(sim.metric_values.get("COLLISION_COUNT", 0.0)),
         timeout=sim.completed_tasks < task_count,
+        edge_swaps=float(sim.metric_values.get("EDGE_SWAP_COUNT", 0.0)),
     )
 
 
