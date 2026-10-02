@@ -15,6 +15,8 @@ import hmac
 import time
 import logging
 import math
+import os
+import re
 from typing import Dict, Optional, Tuple
 
 from models import IntentMessage
@@ -22,14 +24,33 @@ from interfaces import SecurityValidator as BaseValidator
 
 logger = logging.getLogger(__name__)
 
-# Simulated per-robot symmetric keys (shared-secret demo — no PKI needed).
-# In production these would be provisioned securely.
-ROBOT_KEYS: Dict[str, bytes] = {
-    f"robot-{i}": f"BEL-AMR-2026-{i}-HMAC".encode("utf-8")
-    for i in range(16)
-}
+# Robot identities are derived from the deployment master secret. The
+# development simulator may run without one, in which case it creates an
+# ephemeral process-local key; real UDP robot processes must share
+# AMR_HMAC_MASTER_KEY.
+_MASTER_KEY = os.getenv("AMR_HMAC_MASTER_KEY")
+if _MASTER_KEY:
+    _MASTER_KEY_BYTES = _MASTER_KEY.encode("utf-8")
+else:
+    _MASTER_KEY_BYTES = os.urandom(32)
 
-AUTHORIZED_ROBOTS = set(ROBOT_KEYS.keys())
+ROBOT_ID_PATTERN = re.compile(r"^robot-[0-9]+$")
+
+
+def is_authorized_robot(robot_id: str) -> bool:
+    return bool(ROBOT_ID_PATTERN.fullmatch(robot_id))
+
+
+def robot_key(robot_id: str) -> bytes:
+    return hmac.new(
+        _MASTER_KEY_BYTES,
+        robot_id.encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
+
+
+AUTHORIZED_ROBOTS = set()  # retained for backwards-compatible imports
+
 TIMESTAMP_FRESHNESS = 5.0    # seconds / ticks
 MAX_ROBOT_SPEED = 2.0        # cells per tick — plausibility ceiling
 
@@ -58,12 +79,13 @@ def _canonical_message(message: IntentMessage) -> bytes:
 
 
 def compute_hmac(robot_id: str, msg: IntentMessage) -> str:
-    key = ROBOT_KEYS.get(robot_id, b"")
-    return hmac.new(key, _canonical_message(msg), hashlib.sha256).hexdigest()
+    if not is_authorized_robot(robot_id):
+        return ""
+    return hmac.new(robot_key(robot_id), _canonical_message(msg), hashlib.sha256).hexdigest()
 
 
 def verify_hmac(msg: IntentMessage) -> bool:
-    if msg.robot_id not in AUTHORIZED_ROBOTS or not msg.auth_tag:
+    if not is_authorized_robot(msg.robot_id) or not msg.auth_tag:
         return False
     return hmac.compare_digest(compute_hmac(msg.robot_id, msg), msg.auth_tag)
 
@@ -82,7 +104,7 @@ class TrustValidator(BaseValidator):
         rid = message.robot_id
 
         # 1. Authorized?
-        if rid not in AUTHORIZED_ROBOTS:
+        if not is_authorized_robot(rid):
             self._record_reject(rid, "unauthorized robot_id")
             return "reject"
 
