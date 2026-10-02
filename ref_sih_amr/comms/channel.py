@@ -38,9 +38,6 @@ class PubSubChannel(CommsChannel):
         return [bid for bid in self.next_bids if verify_bid_hmac(bid)]
 
     def receive(self) -> List[IntentMessage]:
-        # Verify integrity for every consumer. Replay sequencing is owned by
-        # UdpPeerChannel because the in-process transport fan-outs one frame
-        # to multiple robot managers.
         return [
             msg for msg in self.current_messages
             if isinstance(msg, IntentMessage)
@@ -56,12 +53,7 @@ class PubSubChannel(CommsChannel):
 
 
 class UdpPeerChannel(CommsChannel):
-    """Direct UDP unicast mesh transport for one robot process.
-
-    Each robot binds its own local UDP endpoint and knows only its peers'
-    endpoints. Messages are sent directly to every peer; no central broker,
-    server, or shared-memory table is involved.
-    """
+    """Direct UDP unicast mesh transport for one robot process."""
 
     def __init__(
         self,
@@ -102,7 +94,6 @@ class UdpPeerChannel(CommsChannel):
             "heartbeat": message.heartbeat,
             "auth_tag": message.auth_tag,
             "session_epoch": message.session_epoch,
-            "session_epoch": message.session_epoch,
             "type": "intent",
         }
         return json.dumps(payload, separators=(",", ":")).encode("utf-8")
@@ -123,9 +114,7 @@ class UdpPeerChannel(CommsChannel):
             ),
             task_id=data.get("task_id"),
             priority=int(data["priority"]),
-            planned_path=[
-                (int(p[0]), int(p[1])) for p in data.get("planned_path", [])
-            ],
+            planned_path=[(int(p[0]), int(p[1])) for p in data.get("planned_path", [])],
             reservation_horizon=float(data.get("reservation_horizon", 0.0)),
             battery=float(data.get("battery", 100.0)),
             waiting_on=data.get("waiting_on"),
@@ -144,8 +133,6 @@ class UdpPeerChannel(CommsChannel):
             try:
                 self.socket.sendto(packet, endpoint)
             except OSError:
-                # A disconnected peer is handled by heartbeat timeout; sending
-                # must never block the robot control loop.
                 continue
 
     @staticmethod
@@ -222,7 +209,7 @@ class UdpPeerChannel(CommsChannel):
             except (ValueError, KeyError, TypeError, json.JSONDecodeError):
                 continue
             if msg.robot_id != self.robot_id:
-                if msg.robot_id not in AUTHORIZED_ROBOTS or not verify_hmac(msg):
+                if not is_authorized_robot(msg.robot_id) or not verify_hmac(msg):
                     continue
                 epoch = msg.session_epoch
                 if not epoch:
@@ -239,7 +226,7 @@ class UdpPeerChannel(CommsChannel):
         return messages
 
     def clear(self) -> None:
-        """No-op: UDP receive drains the socket directly."""
+        pass
 
     def close(self) -> None:
         try:
