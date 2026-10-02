@@ -156,99 +156,31 @@ def benchmark_scenario(scenario: str, task_count: int, max_ticks: int, trials: i
 
 def main():
     scenario_env = os.getenv("BENCH_SCENARIOS")
-    scenarios = tuple(
-        s.strip() for s in scenario_env.split(",")
-        if s.strip()
-    ) if scenario_env else DEFAULT_SCENARIOS
-
+    scenarios = tuple(s.strip() for s in scenario_env.split(",") if s.strip()) if scenario_env else DEFAULT_SCENARIOS
     unknown = [s for s in scenarios if s not in SCENARIOS]
     if unknown:
         raise SystemExit(f"Unknown benchmark scenario(s): {', '.join(unknown)}")
-
     task_override = os.getenv("BENCH_TASKS")
     max_ticks = int(os.getenv("BENCH_MAX_TICKS", "3000"))
-    output_path = os.getenv(
-        "BENCH_OUTPUT",
-        "artifacts/p2p_acceptance_matrix.json",
-    )
-
-    results = [
-        benchmark_scenario(
-            scenario,
-            int(task_override) if task_override else SCENARIO_TASKS[scenario],
-            max_ticks,
-        )
-        for scenario in scenarios
-    ]
-
-    completed_results = [
-        r for r in results
-        if r["time_reduction_pct"] is not None
-    ]
-    resilience_results = [
-        r for r in results
-        if r["status"] == "P2P_COMPLETES_BASELINE_TIMEOUT"
-    ]
-    aggregate_reduction = None
-    if completed_results:
-        baseline_total = sum(
-            r["baseline"]["makespan"] for r in completed_results
-        )
-        p2p_total = sum(
-            r["p2p"]["makespan"] for r in completed_results
-        )
-        if baseline_total:
-            aggregate_reduction = (
-                (baseline_total - p2p_total)
-                / baseline_total
-                * 100.0
-            )
-
-    zero_collision = all(r["zero_collision"] for r in results)
-    p2p_no_timeouts = all(
-        not r["p2p"]["timeout"] for r in results
-    )
-    stress_cases_pass = all(
-        r["status"] in {"PASS", "P2P_COMPLETES_BASELINE_TIMEOUT"}
-        and r["p2p"]["collisions"] == 0
-        for r in results
-    )
-    target_20pct = (
-        aggregate_reduction is not None
-        and aggregate_reduction >= 20.0
-    )
-    status = (
-        "PASS"
-        if p2p_no_timeouts and stress_cases_pass and zero_collision and target_20pct
-        else "FAIL"
-    )
-
+    trials = int(os.getenv("BENCH_TRIALS", str(TRIALS)))
+    output_path = os.getenv("BENCH_OUTPUT", "artifacts/p2p_acceptance_matrix.json")
+    results = [benchmark_scenario(s, int(task_override) if task_override else SCENARIO_TASKS[s], max_ticks, trials) for s in scenarios]
+    scenario_means = [r["summary"]["mean_reduction_pct"] for r in results if r["summary"]["mean_reduction_pct"] is not None]
+    p2p_no_timeouts = all(r["summary"]["p2p_timeout_trials"] == 0 for r in results)
+    zero_collision = all(r["summary"]["p2p_collision_events"] == 0 and r["summary"]["p2p_edge_swap_events"] == 0 for r in results)
+    mean_reduction = statistics.mean(scenario_means) if scenario_means else None
+    target_20pct = mean_reduction is not None and mean_reduction >= 20.0
+    status = "PASS" if p2p_no_timeouts and zero_collision and target_20pct else "FAIL"
     payload = {
+        "methodology": {"trials_per_scenario": trials, "seed_base": 26123, "paired_trials": True, "edge_swap_counted": True, "raw_tick_sum_aggregate_used": False},
         "scenarios": results,
-        "aggregate": {
-            "baseline_makespan": sum(
-                r["baseline"]["makespan"] for r in completed_results
-            ),
-            "p2p_makespan": sum(
-                r["p2p"]["makespan"] for r in completed_results
-            ),
-            "time_reduction_pct": aggregate_reduction,
-            "zero_collision": zero_collision,
-            "p2p_no_timeouts": p2p_no_timeouts,
-            "stress_cases_pass": stress_cases_pass,
-            "baseline_timeout_resilience_cases": len(resilience_results),
-            "target_20pct": target_20pct,
-            "status": status,
-        },
+        "aggregate": {"mean_scenario_reduction_pct": mean_reduction, "zero_collision_and_edge_swap": zero_collision, "p2p_no_timeouts": p2p_no_timeouts, "target_20pct": target_20pct, "status": status},
     }
-
     print(json.dumps(payload, indent=2))
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
-
     return 0 if status == "PASS" else 1
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
