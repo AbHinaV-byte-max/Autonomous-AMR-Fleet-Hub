@@ -73,3 +73,28 @@ def test_simulator_can_use_per_robot_udp_channels():
         sim.tick()
     finally:
         sim.close()
+
+
+def test_udp_peer_channel_rejects_forged_and_replayed_messages():
+    b = UdpPeerChannel("robot-1", ("127.0.0.1", 0), {})
+    a = None
+    try:
+        endpoint = b.socket.getsockname()
+        a = UdpPeerChannel("robot-0", ("127.0.0.1", 0), {"robot-1": endpoint})
+        a.send(_msg("robot-0"))
+        deadline = time.monotonic() + 1.0
+        received = []
+        while time.monotonic() < deadline and not received:
+            received = b.receive()
+            if not received:
+                time.sleep(0.01)
+        assert len(received) == 1
+
+        # Exact packet replay is rejected by the monotonic sequence guard.
+        a.send(received[0])
+        time.sleep(0.02)
+        assert b.receive() == []
+    finally:
+        if a is not None:
+            a.close()
+        b.close()
