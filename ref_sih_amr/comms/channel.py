@@ -12,7 +12,7 @@ from typing import Dict, List, Tuple
 
 from interfaces import CommsChannel
 from models import Intent, IntentMessage
-from robot.security import verify_hmac, compute_hmac, AUTHORIZED_ROBOTS
+from robot.security import verify_hmac, compute_hmac, is_authorized_robot
 
 
 class PubSubChannel(CommsChannel):
@@ -34,7 +34,7 @@ class PubSubChannel(CommsChannel):
         return [
             msg for msg in self.current_messages
             if isinstance(msg, IntentMessage)
-            and msg.robot_id in AUTHORIZED_ROBOTS
+            and is_authorized_robot(msg.robot_id)
             and verify_hmac(msg)
         ]
 
