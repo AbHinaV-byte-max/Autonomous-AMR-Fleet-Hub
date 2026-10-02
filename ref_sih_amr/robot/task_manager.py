@@ -56,17 +56,31 @@ class LocalTaskManager:
         if self.state.status in (RobotStatus.OFFLINE, RobotStatus.CHARGING) or self.state.battery <= 20.0:
             return
         for task in tasks:
-            path = self.planner.plan(
+            to_pickup = self.planner.plan(
                 start=self.state.position,
                 goal=task.pickup_cell,
                 costmap=self.costmap,
             )
-            if not path:
+            if not to_pickup:
                 continue
-            distance = max(0, len(path) - 1)
+            pickup_distance = max(0, len(to_pickup) - 1)
+
+            # A delivery bid should reflect the whole job, not only the
+            # pickup leg. Each robot evaluates the pickup and dropoff legs
+            # locally; no coordinator computes another robot's cost.
+            pickup_start = task.pickup_cell
+            to_dropoff = self.planner.plan(
+                start=pickup_start,
+                goal=task.dropoff_cell,
+                costmap=self.costmap,
+            )
+            if not to_dropoff:
+                continue
+            dropoff_distance = max(0, len(to_dropoff) - 1)
+
             urgency_penalty = max(0, 10 - int(task.priority)) * 0.5
             battery_penalty = max(0.0, 30.0 - float(self.state.battery)) * 0.2
-            bid_value = float(distance) + urgency_penalty + battery_penalty
+            bid_value = float(pickup_distance + dropoff_distance) + urgency_penalty + battery_penalty
             self.bid_seq += 1
             bid = TaskBid(
                 robot_id=self.state.robot_id,
