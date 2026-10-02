@@ -25,6 +25,11 @@ on:
 jobs:
   acceptance:
     runs-on: ubuntu-latest
+    env:
+      # Keep PR/push CI bounded. The full 20-trial / 3000-tick matrix remains
+      # available through manual workflow_dispatch for evidence generation.
+      BENCH_TRIALS: ${{ github.event_name == 'workflow_dispatch' && '20' || '1' }}
+      BENCH_MAX_TICKS: ${{ github.event_name == 'workflow_dispatch' && '3000' || '300' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
