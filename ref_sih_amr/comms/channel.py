@@ -147,6 +147,50 @@ class UdpPeerChannel(CommsChannel):
                 # must never block the robot control loop.
                 continue
 
+    @staticmethod
+    def _encode_bid(bid: TaskBid) -> bytes:
+        payload = {
+            "type": "task_bid",
+            "robot_id": bid.robot_id,
+            "seq": bid.seq,
+            "timestamp": bid.timestamp,
+            "session_epoch": bid.session_epoch,
+            "task_id": bid.task_id,
+            "bid": bid.bid,
+            "auth_tag": bid.auth_tag,
+        }
+        return json.dumps(payload, separators=(",", ":")).encode("utf-8")
+
+    @staticmethod
+    def _decode_bid(payload: bytes) -> TaskBid:
+        data = json.loads(payload.decode("utf-8"))
+        return TaskBid(
+            robot_id=str(data["robot_id"]),
+            seq=int(data["seq"]),
+            timestamp=float(data["timestamp"]),
+            session_epoch=str(data["session_epoch"]),
+            task_id=str(data["task_id"]),
+            bid=float(data["bid"]),
+            auth_tag=data.get("auth_tag", ""),
+        )
+
+    def send_bid(self, bid: TaskBid) -> None:
+        if not bid.auth_tag:
+            bid.auth_tag = compute_bid_hmac(bid)
+        packet = self._encode_bid(bid)
+        for peer_id, endpoint in self.peers.items():
+            if peer_id == self.robot_id:
+                continue
+            try:
+                self.socket.sendto(packet, endpoint)
+            except OSError:
+                continue
+
+    def collect_bids(self) -> List[TaskBid]:
+        bids = list(self.received_bids)
+        self.received_bids.clear()
+        return bids
+
     def receive(self) -> List[IntentMessage]:
         messages: List[IntentMessage] = []
         while True:
@@ -157,6 +201,22 @@ class UdpPeerChannel(CommsChannel):
             except OSError:
                 break
             try:
+                raw = json.loads(packet.decode("utf-8"))
+                if raw.get("type") == "task_bid":
+                    bid = self._decode_bid(packet)
+                    if not is_authorized_robot(bid.robot_id) or not verify_bid_hmac(bid):
+                        continue
+                    epoch = bid.session_epoch
+                    previous_epoch = self.last_bid_epoch.get(bid.robot_id)
+                    if previous_epoch is not None and epoch != previous_epoch:
+                        self.last_bid_seq.pop((bid.robot_id, previous_epoch), None)
+                    last_seq = self.last_bid_seq.get((bid.robot_id, epoch), -1)
+                    if bid.seq <= last_seq:
+                        continue
+                    self.last_bid_epoch[bid.robot_id] = epoch
+                    self.last_bid_seq[(bid.robot_id, epoch)] = bid.seq
+                    self.received_bids.append(bid)
+                    continue
                 msg = self._decode(packet)
             except (ValueError, KeyError, TypeError, json.JSONDecodeError):
                 continue
