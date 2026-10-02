@@ -19,7 +19,7 @@ import os
 import re
 from typing import Dict, Optional, Tuple
 
-from models import IntentMessage
+from models import IntentMessage, TaskBid
 from interfaces import SecurityValidator as BaseValidator
 
 logger = logging.getLogger(__name__)
@@ -82,6 +82,22 @@ def compute_hmac(robot_id: str, msg: IntentMessage) -> str:
     if not is_authorized_robot(robot_id):
         return ""
     return hmac.new(robot_key(robot_id), _canonical_message(msg), hashlib.sha256).hexdigest()
+
+
+def compute_bid_hmac(bid: TaskBid) -> str:
+    if not is_authorized_robot(bid.robot_id):
+        return ""
+    payload = (
+        f"{bid.robot_id}|{bid.seq}|{bid.timestamp:.6f}|"
+        f"{bid.session_epoch}|{bid.task_id}|{bid.bid:.6f}"
+    ).encode("utf-8")
+    return hmac.new(robot_key(bid.robot_id), payload, hashlib.sha256).hexdigest()
+
+
+def verify_bid_hmac(bid: TaskBid) -> bool:
+    if not is_authorized_robot(bid.robot_id) or not bid.auth_tag:
+        return False
+    return hmac.compare_digest(compute_bid_hmac(bid), bid.auth_tag)
 
 
 def verify_hmac(msg: IntentMessage) -> bool:
