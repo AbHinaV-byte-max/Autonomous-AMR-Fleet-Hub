@@ -47,7 +47,8 @@ class EventLog:
 class Simulator:
     def __init__(self, ascii_map: str, headless: bool = True,
                  telemetry_bus=None, strategy: str = "P1",
-                 comms_mode: str = "local", udp_base_port: int = 19100):
+                 comms_mode: str = "local", udp_base_port: int = 19100,
+                 seed: Optional[int] = None):
         self.grid_map = load_map(ascii_map)
         self.headless = headless
         self.telemetry_bus = telemetry_bus   # Phase 5 — write-only publish, never reads back
