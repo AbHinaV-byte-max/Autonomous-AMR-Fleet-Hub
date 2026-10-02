@@ -38,11 +38,11 @@ BENCH_SCENARIOS=S2_Crossing,S8_Scale python ref_sih_amr/experiments/decentralize
 | Scenario | Workload | Evidence purpose |
 |---|---:|---|
 | S2_Crossing | 6 tasks | Orthogonal crossing / choke-point coordination |
-| S3_Narrow | 1 delivery | Narrow-aisle safety case; not a throughput claim |
+| S3_Narrow | 4 tasks | Overlap-heavy narrow-aisle coordination workload |
 | S4_Blocked | 6 tasks | Dynamic blocked-aisle recovery |
-| S8_Scale | 6 tasks / 8 AMRs | Fleet scalability |
+| S5_Failure | 6 tasks | Failure/reallocation resilience |\n| S6_CommDelay | 6 tasks | Deterministic loss + latency + jitter resilience |\n| S7_Malformed | 6 tasks | Malformed-input resilience |\n| S8_Scale | 6 tasks / 8 AMRs | Fleet scalability |
 
-The broader regression suite separately exercises S5 failure recovery, S6 degraded communication and S7 malformed input.
+S5, S6 and S7 are included directly in the acceptance run so resilience failures cannot silently disappear from the acceptance artifact.
 
 ## Historical evidence
 
@@ -54,5 +54,6 @@ They must not be presented as current performance until a fresh benchmark artifa
 
 This matrix measures simulator-level coordination behavior. It does not establish:
 - Raspberry Pi / Jetson CPU, RAM, thermal or planner-latency performance.
-- Real Wi-Fi/5G packet loss, jitter or partition behavior unless explicitly run with transport fault injection.
+- Real Wi-Fi/5G packet loss or physical RF behavior. S6 now injects deterministic packet loss, 2/3-tick latency and jitter in the simulator; UDP can be selected with `BENCH_COMMS_MODE=udp`.
 - A shipped ONNX edge model. The live decision loop has a deterministic SafeEdgePolicy; ONNX is optional and must be supplied explicitly as a deployment artifact.
+- Production UDP authentication without a shared `AMR_HMAC_MASTER_KEY` deployment secret.
