@@ -41,7 +41,7 @@ class Result:
     edge_swaps: float = 0.0
 
 
-DEFAULT_SCENARIOS = ("S2_Crossing", "S3_Narrow", "S4_Blocked", "S8_Scale")
+DEFAULT_SCENARIOS = ("S2_Crossing", "S3_Narrow", "S4_Blocked", "S5_Failure", "S6_CommDelay", "S7_Malformed", "S8_Scale")
 
 # Keep each stress case comparable and executable. The narrow-aisle case uses
 # one delivery because the four-robot, one-cell corridor is itself the
@@ -110,11 +110,25 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int, seed: int
     # initial routes, then block the same corridor cell for both runs.
     block_at = 100 if scenario == "S4_Blocked" else None
     block_cell = (5, 2)
+    failure_at = 80 if scenario == "S5_Failure" else None
+    comms_loss = scenario == "S6_CommDelay"
+    malformed_at = 20 if scenario == "S7_Malformed" else None
+    original_send = sim.comms.send
+
+    if comms_loss:
+        def lossy_send(message):
+            if message.robot_id == "robot-0" and sim.tick_count % 4 == 0:
+                return
+            original_send(message)
+        sim.comms.send = lossy_send
 
     while sim.tick_count < max_ticks and sim.completed_tasks < task_count:
         if block_at is not None and sim.tick_count == block_at:
             sim.block_cell(*block_cell)
-
+        if failure_at is not None and sim.tick_count == failure_at:
+            sim.kill_robot("robot-0")
+        if malformed_at is not None and sim.tick_count == malformed_at:
+            sim.comms.next_messages.append({"malformed": True})
         sim.tick()
 
     return Result(
