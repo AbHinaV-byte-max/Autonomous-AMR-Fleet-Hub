@@ -1,9 +1,10 @@
 from typing import Optional, Any, List
 import uuid
-from models import RobotState, RobotStatus, Intent, IntentMessage, Task, TaskStatus
+from models import RobotState, RobotStatus, Intent, IntentMessage, Task, TaskStatus, TaskBid
 from interfaces import Planner, CommsChannel
 from robot.coordination import ReservationTable, PriorityCalculator, check_vertex_conflict, check_edge_swap
 from robot.edge_policy import SafeEdgePolicy, PolicyFeatures, ACTION_WAIT, ACTION_YIELD, ACTION_REROUTE, ACTION_DEGRADED_MODE
+from robot.security import compute_bid_hmac
 
 # How many consecutive ticks a robot can wait on the same peer before
 # proactively replanning (without needing a full cycle to be detected).
@@ -24,6 +25,7 @@ class LocalTaskManager:
         self.edge_policy = SafeEdgePolicy(model_path=model_path)
         self.current_task: Optional[Task] = None
         self.seq = 0
+        self.bid_seq = 0
         self.session_epoch = uuid.uuid4().hex
         self.target_cell: Optional[tuple[int, int]] = None
         # Post-task lifecycle target: CHARGER or STAGING. None means normal task work.
@@ -48,6 +50,50 @@ class LocalTaskManager:
         # Set to True when the robot reaches its pickup and switches to the
         # dropoff goal. The simulator checks this flag and triggers CBS replan.
         self.checkpoint_reached: bool = False
+
+    def publish_task_bids(self, tasks: List[Task], current_time: float) -> None:
+        """Compute only this robot's bids and publish them to its peers."""
+        if self.state.status in (RobotStatus.OFFLINE, RobotStatus.CHARGING) or self.state.battery <= 20.0:
+            return
+        for task in tasks:
+            path = self.planner.plan(
+                start=self.state.position,
+                goal=task.pickup_cell,
+                costmap=self.costmap,
+            )
+            if not path:
+                continue
+            distance = max(0, len(path) - 1)
+            urgency_penalty = max(0, 10 - int(task.priority)) * 0.5
+            battery_penalty = max(0.0, 30.0 - float(self.state.battery)) * 0.2
+            bid_value = float(distance) + urgency_penalty + battery_penalty
+            self.bid_seq += 1
+            bid = TaskBid(
+                robot_id=self.state.robot_id,
+                seq=self.bid_seq,
+                timestamp=current_time,
+                session_epoch=self.session_epoch,
+                task_id=task.task_id,
+                bid=bid_value,
+            )
+            bid.auth_tag = compute_bid_hmac(bid)
+            self.comms.send_bid(bid)
+
+    def choose_auction_task(self, bids: List[TaskBid], tasks: List[Task]) -> Optional[str]:
+        """Independently decide whether this robot won one task from peer bids."""
+        task_ids = {task.task_id for task in tasks}
+        winners = []
+        for task_id in task_ids:
+            candidates = [bid for bid in bids if bid.task_id == task_id]
+            if not candidates:
+                continue
+            winner = min(candidates, key=lambda bid: (bid.bid, bid.robot_id))
+            if winner.robot_id == self.state.robot_id:
+                winners.append(winner)
+        if not winners:
+            return None
+        winners.sort(key=lambda bid: (bid.bid, bid.task_id))
+        return winners[0].task_id
 
     def assign_task(self, task: Task):
         self.current_task = task
