@@ -17,6 +17,8 @@ import json
 import os
 import sys
 from dataclasses import asdict, dataclass
+import random
+import statistics
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if ROOT not in sys.path:
@@ -36,6 +38,7 @@ class Result:
     replans: float
     collisions: float
     timeout: bool
+    edge_swaps: float = 0.0
 
 
 DEFAULT_SCENARIOS = ("S2_Crossing", "S3_Narrow", "S4_Blocked", "S8_Scale")
@@ -52,7 +55,7 @@ SCENARIO_TASKS = {
 }
 
 
-def fixed_workload(sim: Simulator, count: int = 6):
+def fixed_workload(sim: Simulator, count: int = 6, seed: int = 0):
     # The Simulator constructor seeds a demonstration workload so the live
     # dashboard starts with executable routes. Acceptance runs must not inherit
     # that hidden state: otherwise clearing sim.tasks leaves orphaned tasks,
@@ -81,11 +84,12 @@ def fixed_workload(sim: Simulator, count: int = 6):
     if not pickups or not dropoffs:
         raise RuntimeError("Benchmark scenario has no pickup/dropoff cells")
 
+    rng = random.Random(seed)
     for i in range(count):
         task = Task(
             task_id=f"BENCH_{i + 1:02d}",
-            pickup_cell=pickups[i % len(pickups)],
-            dropoff_cell=dropoffs[i % len(dropoffs)],
+            pickup_cell=pickups[rng.randrange(len(pickups))],
+            dropoff_cell=dropoffs[rng.randrange(len(dropoffs))],
             priority=1 + (i % 3),
             status=TaskStatus.QUEUED,
             created_at=0.0,
