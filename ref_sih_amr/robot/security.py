@@ -25,9 +25,8 @@ logger = logging.getLogger(__name__)
 # Simulated per-robot symmetric keys (shared-secret demo — no PKI needed).
 # In production these would be provisioned securely.
 ROBOT_KEYS: Dict[str, bytes] = {
-    "robot-0": b"key-robot-0-secret",
-    "robot-1": b"key-robot-1-secret",
-    "robot-2": b"key-robot-2-secret",
+    f"robot-{i}": f"BEL-AMR-2026-{i}-HMAC".encode("utf-8")
+    for i in range(16)
 }
 
 AUTHORIZED_ROBOTS = set(ROBOT_KEYS.keys())
@@ -35,14 +34,38 @@ TIMESTAMP_FRESHNESS = 5.0    # seconds / ticks
 MAX_ROBOT_SPEED = 2.0        # cells per tick — plausibility ceiling
 
 
+def _canonical_message(message: IntentMessage) -> bytes:
+    """Canonical bytes for every security-relevant IntentMessage field."""
+    import json
+    payload = {
+        "robot_id": message.robot_id,
+        "seq": int(message.seq),
+        "timestamp": float(message.timestamp),
+        "position": [float(message.position[0]), float(message.position[1])],
+        "velocity": float(message.velocity),
+        "intent": message.intent.value,
+        "next_intersection": list(message.next_intersection) if message.next_intersection else None,
+        "task_id": message.task_id,
+        "priority": int(message.priority),
+        "planned_path": [list(p) for p in message.planned_path],
+        "reservation_horizon": float(message.reservation_horizon),
+        "battery": float(message.battery),
+        "waiting_on": message.waiting_on,
+        "heartbeat": float(message.heartbeat),
+    }
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
 def compute_hmac(robot_id: str, msg: IntentMessage) -> str:
     key = ROBOT_KEYS.get(robot_id, b"")
-    payload = (
-        f"{msg.robot_id}:{msg.seq}:{msg.timestamp}:"
-        f"{msg.position[0]:.4f},{msg.position[1]:.4f}:"
-        f"{msg.intent.value}"
-    ).encode()
-    return hmac.new(key, payload, hashlib.sha256).hexdigest()
+    return hmac.new(key, _canonical_message(msg), hashlib.sha256).hexdigest()
+
+
+def verify_hmac(msg: IntentMessage) -> bool:
+    if msg.robot_id not in AUTHORIZED_ROBOTS or not msg.auth_tag:
+        return False
+    return hmac.compare_digest(compute_hmac(msg.robot_id, msg), msg.auth_tag)
+
 
 
 class TrustValidator(BaseValidator):
