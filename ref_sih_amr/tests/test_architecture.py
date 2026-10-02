@@ -1,5 +1,4 @@
-"""
-Architecture guard test — Section 5.2.
+"""Architecture guard test — Section 5.2.
 Greps /robot and /allocator source trees for any import of 'dashboard'.
 Fails CI if any such import is found, enforcing the observer-only contract.
 """
@@ -26,8 +25,7 @@ def test_no_dashboard_imports_in_core():
 
     assert not violations, (
         "ARCHITECTURE VIOLATION — /dashboard imported from core modules "
-        "(Section 5.2 observer contract broken):\n" +
-        "\n".join(violations)
+        "(Section 5.2 observer contract broken):\n" + "\n".join(violations)
     )
     print("Architecture guard passed — no dashboard imports in core modules.")
 
@@ -50,6 +48,8 @@ def test_live_p2p_publishes_robot_local_bids():
         strategy="P2P",
     )
     task = Task("BID-1", (4, 1), (1, 3), 1, TaskStatus.QUEUED)
+    sim.comms.next_bids.clear()
+    sim.comms.current_bids.clear()
     sim.robot_managers[0].publish_task_bids([task], 1.0)
     bids = sim.comms.collect_bids()
     assert len(bids) == 1
