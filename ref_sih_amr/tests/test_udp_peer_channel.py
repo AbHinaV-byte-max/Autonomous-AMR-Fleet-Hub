@@ -23,11 +23,11 @@ def _msg(robot_id: str) -> IntentMessage:
 def test_udp_peer_channel_exchanges_intents_directly():
     # Bind to ephemeral loopback ports so the test is isolated from stale
     # listeners or another local simulator instance.
-    b = UdpPeerChannel("robot-b", ("127.0.0.1", 0), {})
+    b = UdpPeerChannel("robot-1", ("127.0.0.1", 0), {})
     a = None
     try:
         b_endpoint = b.socket.getsockname()
-        a = UdpPeerChannel("robot-a", ("127.0.0.1", 0), {"robot-b": b_endpoint})
+        a = UdpPeerChannel("robot-0", ("127.0.0.1", 0), {"robot-b": b_endpoint})
         a_endpoint = a.socket.getsockname()
         b.peers = {"robot-a": a_endpoint}
 
