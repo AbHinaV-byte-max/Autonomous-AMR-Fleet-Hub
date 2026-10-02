@@ -127,36 +127,32 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int, seed: int
     )
 
 
-def benchmark_scenario(scenario: str, task_count: int, max_ticks: int) -> dict:
-    baseline = run("B2", scenario, task_count, max_ticks)
-    coordinated = run("P2P", scenario, task_count, max_ticks)
+def benchmark_scenario(scenario: str, task_count: int, max_ticks: int, trials: int = TRIALS) -> dict:
+    runs = []
+    for trial in range(trials):
+        seed = 26123 + trial
+        baseline = run("B2", scenario, task_count, max_ticks, seed=seed, trial=trial)
+        coordinated = run("P2P", scenario, task_count, max_ticks, seed=seed, trial=trial)
+        comparable = not baseline.timeout and not coordinated.timeout
+        reduction = ((baseline.makespan - coordinated.makespan) / baseline.makespan * 100.0) if comparable else None
+        runs.append({"trial": trial, "seed": seed, "baseline": asdict(baseline), "p2p": asdict(coordinated), "time_reduction_pct": reduction})
 
-    if coordinated.timeout:
-        reduction = None
-        status = "INCONCLUSIVE_P2P_TIMEOUT"
-    elif baseline.timeout:
-        # This is still useful resilience evidence: the stop-and-wait baseline
-        # failed to finish the blocked-aisle workload while P2P completed it.
-        reduction = None
-        status = "P2P_COMPLETES_BASELINE_TIMEOUT"
-    else:
-        reduction = (
-            (baseline.makespan - coordinated.makespan)
-            / baseline.makespan
-            * 100.0
-        )
-        status = "PASS" if coordinated.collisions == 0 else "FAIL"
-
+    reductions = [r["time_reduction_pct"] for r in runs if r["time_reduction_pct"] is not None]
     return {
         "scenario": scenario,
         "task_count": task_count,
-        "baseline": asdict(baseline),
-        "p2p": asdict(coordinated),
-        "time_reduction_pct": reduction,
-        "zero_collision": coordinated.collisions == 0,
-        "status": status,
+        "trials": trials,
+        "runs": runs,
+        "summary": {
+            "comparable_trials": len(reductions),
+            "baseline_timeout_trials": sum(r["baseline"]["timeout"] for r in runs),
+            "p2p_timeout_trials": sum(r["p2p"]["timeout"] for r in runs),
+            "p2p_collision_events": sum(r["p2p"]["collisions"] for r in runs),
+            "p2p_edge_swap_events": sum(r["p2p"]["edge_swaps"] for r in runs),
+            "mean_reduction_pct": statistics.mean(reductions) if reductions else None,
+            "std_reduction_pct": statistics.stdev(reductions) if len(reductions) > 1 else 0.0,
+        },
     }
-
 
 def main():
     scenario_env = os.getenv("BENCH_SCENARIOS")
