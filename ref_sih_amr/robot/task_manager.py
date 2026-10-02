@@ -80,20 +80,33 @@ class LocalTaskManager:
             self.comms.send_bid(bid)
 
     def choose_auction_task(self, bids: List[TaskBid], tasks: List[Task]) -> Optional[str]:
-        """Independently decide whether this robot won one task from peer bids."""
+        """Independently compute a deterministic one-robot/one-task auction match.
+
+        Every robot receives the same authenticated bid set and runs this
+        identical local matching rule. A robot may win at most one task in a
+        round, so one low bid cannot silently reserve several tasks and leave
+        the rest queued for another allocation cycle.
+        """
         task_ids = {task.task_id for task in tasks}
-        winners = []
-        for task_id in task_ids:
-            candidates = [bid for bid in bids if bid.task_id == task_id]
-            if not candidates:
+        candidates = [bid for bid in bids if bid.task_id in task_ids]
+        assigned_robots = set()
+        own_wins = []
+
+        # Deterministic greedy matching over exchanged bids. The simulator does
+        # not calculate costs or choose winners; each robot independently
+        # derives the same matching from the peer bid messages.
+        for bid in sorted(candidates, key=lambda item: (item.bid, item.task_id, item.robot_id)):
+            if bid.task_id in {task_id for task_id, _ in own_wins}:
                 continue
-            winner = min(candidates, key=lambda bid: (bid.bid, bid.robot_id))
-            if winner.robot_id == self.state.robot_id:
-                winners.append(winner)
-        if not winners:
+            if bid.robot_id in assigned_robots:
+                continue
+            assigned_robots.add(bid.robot_id)
+            if bid.robot_id == self.state.robot_id:
+                own_wins.append((bid.task_id, bid.bid))
+
+        if not own_wins:
             return None
-        winners.sort(key=lambda bid: (bid.bid, bid.task_id))
-        return winners[0].task_id
+        return min(own_wins, key=lambda item: (item[1], item[0]))[0]
 
     def assign_task(self, task: Task):
         self.current_task = task
