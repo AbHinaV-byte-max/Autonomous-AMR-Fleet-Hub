@@ -31,6 +31,8 @@ class PubSubChannel(CommsChannel):
     def receive(self) -> List[IntentMessage]:
         accepted = []
         for msg in self.current_messages:
+            if not isinstance(msg, IntentMessage):
+                continue
             if msg.robot_id not in AUTHORIZED_ROBOTS or not verify_hmac(msg):
                 continue
             last_seq = self.last_seq.get(msg.robot_id, -1)
