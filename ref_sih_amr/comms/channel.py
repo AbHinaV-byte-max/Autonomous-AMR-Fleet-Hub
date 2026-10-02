@@ -21,7 +21,6 @@ class PubSubChannel(CommsChannel):
     def __init__(self):
         self.current_messages: List[IntentMessage] = []
         self.next_messages: List[IntentMessage] = []
-        self.last_seq: Dict[str, int] = {}
 
     def send(self, message: IntentMessage) -> None:
         if not message.auth_tag:
@@ -29,18 +28,15 @@ class PubSubChannel(CommsChannel):
         self.next_messages.append(message)
 
     def receive(self) -> List[IntentMessage]:
-        accepted = []
-        for msg in self.current_messages:
-            if not isinstance(msg, IntentMessage):
-                continue
-            if msg.robot_id not in AUTHORIZED_ROBOTS or not verify_hmac(msg):
-                continue
-            last_seq = self.last_seq.get(msg.robot_id, -1)
-            if msg.seq <= last_seq:
-                continue
-            self.last_seq[msg.robot_id] = msg.seq
-            accepted.append(msg)
-        return accepted
+        # Verify integrity for every consumer. Replay sequencing is owned by
+        # UdpPeerChannel because the in-process transport fan-outs one frame
+        # to multiple robot managers.
+        return [
+            msg for msg in self.current_messages
+            if isinstance(msg, IntentMessage)
+            and msg.robot_id in AUTHORIZED_ROBOTS
+            and verify_hmac(msg)
+        ]
 
     def clear(self) -> None:
         self.current_messages = self.next_messages
