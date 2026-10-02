@@ -11,8 +11,8 @@ import socket
 from typing import Dict, List, Tuple
 
 from interfaces import CommsChannel
-from models import Intent, IntentMessage
-from robot.security import verify_hmac, compute_hmac, is_authorized_robot
+from models import Intent, IntentMessage, TaskBid
+from robot.security import verify_hmac, compute_hmac, is_authorized_robot, verify_bid_hmac, compute_bid_hmac
 
 
 class PubSubChannel(CommsChannel):
@@ -21,11 +21,21 @@ class PubSubChannel(CommsChannel):
     def __init__(self):
         self.current_messages: List[IntentMessage] = []
         self.next_messages: List[IntentMessage] = []
+        self.current_bids: List[TaskBid] = []
+        self.next_bids: List[TaskBid] = []
 
     def send(self, message: IntentMessage) -> None:
         if not message.auth_tag:
             message.auth_tag = compute_hmac(message.robot_id, message)
         self.next_messages.append(message)
+
+    def send_bid(self, bid: TaskBid) -> None:
+        if not bid.auth_tag:
+            bid.auth_tag = compute_bid_hmac(bid)
+        self.next_bids.append(bid)
+
+    def collect_bids(self) -> List[TaskBid]:
+        return [bid for bid in self.next_bids if verify_bid_hmac(bid)]
 
     def receive(self) -> List[IntentMessage]:
         # Verify integrity for every consumer. Replay sequencing is owned by
@@ -41,6 +51,8 @@ class PubSubChannel(CommsChannel):
     def clear(self) -> None:
         self.current_messages = self.next_messages
         self.next_messages = []
+        self.current_bids = self.next_bids
+        self.next_bids = []
 
 
 class UdpPeerChannel(CommsChannel):
@@ -67,6 +79,9 @@ class UdpPeerChannel(CommsChannel):
         self.recv_buffer = recv_buffer
         self.last_seq: Dict[tuple[str, str], int] = {}
         self.last_epoch: Dict[str, str] = {}
+        self.last_bid_seq: Dict[tuple[str, str], int] = {}
+        self.last_bid_epoch: Dict[str, str] = {}
+        self.received_bids: List[TaskBid] = []
 
     @staticmethod
     def _encode(message: IntentMessage) -> bytes:
@@ -86,6 +101,8 @@ class UdpPeerChannel(CommsChannel):
             "waiting_on": message.waiting_on,
             "heartbeat": message.heartbeat,
             "auth_tag": message.auth_tag,
+            "session_epoch": message.session_epoch,
+            "type": "intent",
         }
         return json.dumps(payload, separators=(",", ":")).encode("utf-8")
 
@@ -113,6 +130,7 @@ class UdpPeerChannel(CommsChannel):
             waiting_on=data.get("waiting_on"),
             heartbeat=float(data.get("heartbeat", 0.0)),
             auth_tag=data.get("auth_tag", ""),
+            session_epoch=data.get("session_epoch", ""),
         )
 
     def send(self, message: IntentMessage) -> None:
