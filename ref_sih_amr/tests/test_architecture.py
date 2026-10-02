@@ -34,3 +34,20 @@ def test_no_dashboard_imports_in_core():
 
 if __name__ == "__main__":
     test_no_dashboard_imports_in_core()
+
+
+def test_live_p2p_uses_auction_allocator():
+    from sim.simulator import Simulator
+    from allocator.auction import AuctionAllocator
+    sim = Simulator(
+        ascii_map="""########
+#R..P.R#
+#......#
+#D....D#
+########
+""",
+        headless=True,
+        strategy="P2P",
+    )
+    assert isinstance(sim.auction_allocator, AuctionAllocator)
+    sim.close()
