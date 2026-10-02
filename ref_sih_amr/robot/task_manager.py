@@ -280,18 +280,45 @@ class LocalTaskManager:
             return True
             
         if self.strategy == "B2":
-            # Stop-and-wait
+            # Proper stop-and-wait baseline:
+            # 1) never enter a currently occupied peer cell;
+            # 2) never perform an edge swap with a peer's previous/current edge;
+            # 3) retain the wait-for-peer relation so the simulator can break
+            # persistent waits instead of silently livelocking forever.
             for peer_id, msg in self.peer_states.items():
-                if current_time - self.last_seen.get(peer_id, 0) < 3.0:
-                    px, py = msg.position
-                    if int(px) == next_cell[0] and int(py) == next_cell[1]:
-                        if self.event_logger and self.state.status != RobotStatus.WAITING:
-                            self.event_logger.log_conflict(self.state.robot_id, peer_id, "PROXIMITY_STOP", "WAIT", int(current_time))
-                        self.state.status = RobotStatus.WAITING
-                        self.wait_time += 1.0
-                        return False
+                if current_time - self.last_seen.get(peer_id, 0) >= 3.0:
+                    continue
+                peer_cell = (int(msg.position[0]), int(msg.position[1]))
+                peer_next = (
+                    tuple(msg.planned_path[0])
+                    if msg.planned_path
+                    else peer_cell
+                )
+                occupied = peer_cell == tuple(next_cell)
+                edge_swap = peer_cell == current_cell and peer_next == tuple(next_cell)
+                if occupied or edge_swap:
+                    if self.event_logger and self.state.status != RobotStatus.WAITING:
+                        self.event_logger.log_conflict(
+                            self.state.robot_id,
+                            peer_id,
+                            "STOP_AND_WAIT" if occupied else "EDGE_SWAP_PREVENTION",
+                            "WAIT",
+                            int(current_time),
+                        )
+                    self.state.status = RobotStatus.WAITING
+                    self.waiting_on = peer_id
+                    self.wait_time += 1.0
+                    if peer_id == self._prev_waiting_on:
+                        self.wait_ticks_on_peer += 1
+                    else:
+                        self.wait_ticks_on_peer = 1
+                    self._prev_waiting_on = peer_id
+                    return False
             if self.state.status == RobotStatus.WAITING:
                 self.state.status = RobotStatus.MOVING
+            self.waiting_on = None
+            self.wait_ticks_on_peer = 0
+            self._prev_waiting_on = None
             return True
 
         # Phase 3 Conflict Detection (P1 Strategy)
