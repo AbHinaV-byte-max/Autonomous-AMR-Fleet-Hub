@@ -17,6 +17,7 @@ def _msg(robot_id: str) -> IntentMessage:
         priority=1,
         planned_path=[(1, 2), (2, 2)],
         heartbeat=1.0,
+        session_epoch="test-epoch",
     )
 
 
