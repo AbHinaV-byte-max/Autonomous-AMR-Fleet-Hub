@@ -53,6 +53,9 @@ class Simulator:
         self.strategy = strategy
         self.comms_mode = comms_mode
         self.udp_base_port = int(udp_base_port)
+        self.seed = seed
+        if seed is not None:
+            random.seed(seed)
         if self.comms_mode not in ("local", "udp"):
             raise ValueError("comms_mode must be 'local' or 'udp'")
 
@@ -100,6 +103,7 @@ class Simulator:
         # Metric counters
         self.metric_values: Dict[str, float] = {
             metrics.COLLISION_COUNT: 0,
+            metrics.EDGE_SWAP_COUNT: 0,
             metrics.DEADLOCK_COUNT: 0,
             metrics.REPLAN_COUNT: 0,
             metrics.THROUGHPUT: 0,
@@ -1038,6 +1042,45 @@ class Simulator:
         for m in self.robot_managers:
             m.tick(t)
 
+        # Edge-swap interlock: A->B and B->A in the same simulation tick is a
+        # collision even though the final positions differ. Roll back the
+        # lower-priority mover before publishing telemetry.
+        for i, first in enumerate(self.robot_managers):
+            if first.state.status == RobotStatus.OFFLINE:
+                continue
+            first_after = (int(first.state.position[0]), int(first.state.position[1]))
+            first_before = positions_before_tick[first.state.robot_id]
+            if first_after == first_before:
+                continue
+            for second in self.robot_managers[i + 1:]:
+                if second.state.status == RobotStatus.OFFLINE:
+                    continue
+                second_after = (int(second.state.position[0]), int(second.state.position[1]))
+                second_before = positions_before_tick[second.state.robot_id]
+                if (second_after == second_before or
+                        first_after != second_before or
+                        second_after != first_before):
+                    continue
+                self.metric_values[metrics.EDGE_SWAP_COUNT] += 1
+                if first.get_priority() <= second.get_priority():
+                    violator, occupant = first, second
+                else:
+                    violator, occupant = second, first
+                prior = positions_before_tick[violator.state.robot_id]
+                violator.state.position = (float(prior[0]), float(prior[1]))
+                violator.state.planned_path = []
+                violator.state.status = RobotStatus.WAITING
+                violator.waiting_on = occupant.state.robot_id
+                violator.checkpoint_reached = True
+                violator.wait_time += 1.0
+                self.event_log.log_conflict(
+                    violator.state.robot_id,
+                    occupant.state.robot_id,
+                    "EDGE_SWAP_INTERLOCK",
+                    "ROLLBACK",
+                    self.tick_count,
+                )
+
         # Final physical safety interlock for the lockstep simulator.
         # Planning/reservations are the primary coordination mechanism, but
         # execution is sequential and can race with delayed peer telemetry.
@@ -1256,6 +1299,7 @@ class Simulator:
             "makespan": self.metric_values.get(metrics.MAKESPAN, 0.0),
             "throughput": self.metric_values.get(metrics.THROUGHPUT, 0.0),
             "collision_count": self.metric_values.get(metrics.COLLISION_COUNT, 0),
+            "edge_swap_count": self.metric_values.get(metrics.EDGE_SWAP_COUNT, 0),
             "deadlock_count": self.metric_values.get(metrics.DEADLOCK_COUNT, 0),
             "replan_count": self.metric_values.get(metrics.REPLAN_COUNT, 0),
             "waiting_time": self.metric_values.get(metrics.WAITING_TIME, 0.0),
