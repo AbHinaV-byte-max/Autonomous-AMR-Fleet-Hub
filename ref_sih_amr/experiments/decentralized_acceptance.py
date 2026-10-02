@@ -69,11 +69,13 @@ def fixed_workload(sim: Simulator, count: int = 6, seed: int = 0):
     sim.task_generator.queue.clear()
     sim.task_generator.enabled = False
 
-    # Acceptance scenarios isolate coordination/planning behavior. Normalize
-    # battery so seeded dashboard demo levels cannot silently turn S7 (or another
-    # non-battery scenario) into an unintended low-battery benchmark.
+    # S7 is a malformed-layout resilience case, not a battery case. Keep
+    # the seeded fleet battery profile everywhere else so B2/P2P priority
+    # behavior remains comparable, but neutralize battery depletion for S7 so
+    # its final queued order is not confounded by charger lifecycle handling.
     for manager in sim.robot_managers:
-        manager.state.battery = 100.0
+        if getattr(sim, "benchmark_scenario", None) == "S7_Malformed":
+            manager.state.battery = 100.0
         manager.current_task = None
         manager.state.current_task_id = None
         manager.state.planned_path = []
