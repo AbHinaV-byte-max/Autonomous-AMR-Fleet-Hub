@@ -65,7 +65,8 @@ class UdpPeerChannel(CommsChannel):
         self.socket.bind(bind)
         self.socket.setblocking(False)
         self.recv_buffer = recv_buffer
-        self.last_seq: Dict[str, int] = {}
+        self.last_seq: Dict[tuple[str, str], int] = {}
+        self.last_epoch: Dict[str, str] = {}
 
     @staticmethod
     def _encode(message: IntentMessage) -> bytes:
@@ -144,10 +145,17 @@ class UdpPeerChannel(CommsChannel):
             if msg.robot_id != self.robot_id:
                 if msg.robot_id not in AUTHORIZED_ROBOTS or not verify_hmac(msg):
                     continue
-                last_seq = self.last_seq.get(msg.robot_id, -1)
+                epoch = msg.session_epoch
+                if not epoch:
+                    continue
+                previous_epoch = self.last_epoch.get(msg.robot_id)
+                if previous_epoch is not None and epoch != previous_epoch:
+                    self.last_seq.pop((msg.robot_id, previous_epoch), None)
+                last_seq = self.last_seq.get((msg.robot_id, epoch), -1)
                 if msg.seq <= last_seq:
                     continue
-                self.last_seq[msg.robot_id] = msg.seq
+                self.last_epoch[msg.robot_id] = epoch
+                self.last_seq[(msg.robot_id, epoch)] = msg.seq
                 messages.append(msg)
         return messages
 
