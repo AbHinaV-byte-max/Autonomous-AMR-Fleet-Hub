@@ -36,9 +36,9 @@ if __name__ == "__main__":
     test_no_dashboard_imports_in_core()
 
 
-def test_live_p2p_uses_auction_allocator():
+def test_live_p2p_publishes_robot_local_bids():
     from sim.simulator import Simulator
-    from allocator.auction import AuctionAllocator
+    from models import Task, TaskStatus
     sim = Simulator(
         ascii_map="""########
 #R..P.R#
@@ -49,5 +49,9 @@ def test_live_p2p_uses_auction_allocator():
         headless=True,
         strategy="P2P",
     )
-    assert isinstance(sim.auction_allocator, AuctionAllocator)
+    task = Task("BID-1", (4, 1), (1, 3), 1, TaskStatus.QUEUED)
+    sim.robot_managers[0].publish_task_bids([task], 1.0)
+    bids = sim.comms.collect_bids()
+    assert len(bids) == 1
+    assert bids[0].robot_id == sim.robot_managers[0].state.robot_id
     sim.close()
