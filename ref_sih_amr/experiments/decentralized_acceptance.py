@@ -159,10 +159,16 @@ def run(strategy: str, scenario: str, task_count: int, max_ticks: int, seed: int
     if comms_loss:
         def degraded_send(message):
             # Deterministic wireless impairment: loss + 2/3 tick delay + jitter.
+            # Preserve the real channel's authentication step before delaying
+            # the packet; otherwise the fault injector would accidentally turn
+            # every delayed intent into an unauthenticated message.
             if message.robot_id == "robot-0" and sim.tick_count % 4 == 0:
                 return
-            release_tick = sim.tick_count + 2 + (sim.tick_count % 2)
-            delayed_messages.append((release_tick, message))
+            original_send(message)
+            if sim.comms.next_messages:
+                delayed_message = sim.comms.next_messages.pop()
+                release_tick = sim.tick_count + 2 + (sim.tick_count % 2)
+                delayed_messages.append((release_tick, delayed_message))
         def degraded_clear():
             sim.comms.current_messages = [
                 msg for release, msg in delayed_messages
