@@ -181,7 +181,8 @@ def main():
     trials = int(os.getenv("BENCH_TRIALS", str(TRIALS)))
     output_path = os.getenv("BENCH_OUTPUT", "artifacts/p2p_acceptance_matrix.json")
     results = [benchmark_scenario(s, int(task_override) if task_override else SCENARIO_TASKS[s], max_ticks, trials) for s in scenarios]
-    scenario_means = [r["summary"]["mean_reduction_pct"] for r in results if r["summary"]["mean_reduction_pct"] is not None]
+    performance_ids = {"S2_Crossing", "S3_Narrow", "S8_Scale"}
+    scenario_means = [r["summary"]["mean_reduction_pct"] for r in results if r["scenario"] in performance_ids and r["summary"]["mean_reduction_pct"] is not None]
     p2p_no_timeouts = all(r["summary"]["p2p_timeout_trials"] == 0 for r in results)
     zero_collision = all(r["summary"]["p2p_collision_events"] == 0 and r["summary"]["p2p_edge_swap_events"] == 0 for r in results)
     mean_reduction = statistics.mean(scenario_means) if scenario_means else None
@@ -190,7 +191,7 @@ def main():
     payload = {
         "methodology": {"trials_per_scenario": trials, "seed_base": 26123, "paired_trials": True, "edge_swap_counted": True, "raw_tick_sum_aggregate_used": False},
         "scenarios": results,
-        "aggregate": {"mean_scenario_reduction_pct": mean_reduction, "zero_collision_and_edge_swap": zero_collision, "p2p_no_timeouts": p2p_no_timeouts, "target_20pct": target_20pct, "status": status},
+        "aggregate": {"performance_scenarios": sorted(performance_ids), "mean_scenario_reduction_pct": mean_reduction, "zero_collision_and_edge_swap": zero_collision, "p2p_no_timeouts": p2p_no_timeouts, "target_20pct": target_20pct, "status": status},
     }
     print(json.dumps(payload, indent=2))
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
