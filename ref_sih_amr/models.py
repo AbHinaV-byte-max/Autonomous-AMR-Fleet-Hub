@@ -90,6 +90,7 @@ class IntentMessage:
     waiting_on: Optional[str] = None
     heartbeat: float = 0.0
     auth_tag: str = ""
+    session_epoch: str = ""
 
 
 @dataclass
