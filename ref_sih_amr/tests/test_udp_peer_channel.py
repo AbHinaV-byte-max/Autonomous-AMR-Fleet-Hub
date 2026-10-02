@@ -27,11 +27,11 @@ def test_udp_peer_channel_exchanges_intents_directly():
     a = None
     try:
         b_endpoint = b.socket.getsockname()
-        a = UdpPeerChannel("robot-0", ("127.0.0.1", 0), {"robot-b": b_endpoint})
+        a = UdpPeerChannel("robot-0", ("127.0.0.1", 0), {"robot-1": b_endpoint})
         a_endpoint = a.socket.getsockname()
-        b.peers = {"robot-a": a_endpoint}
+        b.peers = {"robot-0": a_endpoint}
 
-        a.send(_msg("robot-a"))
+        a.send(_msg("robot-0"))
         deadline = time.monotonic() + 1.0
         received = []
         while time.monotonic() < deadline and not received:
@@ -40,7 +40,7 @@ def test_udp_peer_channel_exchanges_intents_directly():
                 time.sleep(0.01)
 
         assert len(received) == 1
-        assert received[0].robot_id == "robot-a"
+        assert received[0].robot_id == "robot-0"
         assert received[0].planned_path == [(1, 2), (2, 2)]
         assert received[0].intent == Intent.MOVE
     finally:
