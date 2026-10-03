@@ -1143,7 +1143,7 @@ body {
               <!-- 3D Layer Toggles & Speed -->
               <div class="flex items-center gap-2">
                 <div class="flex items-center gap-1 bg-gray-100/90 p-1 rounded-xl border border-gray-200/80">
-                  <button onclick="toggle3DLayer('lidar', this)" class="toggle-active px-2 py-0.5 text-[11px] font-bold rounded-lg text-gray-700 hover:bg-white transition-all">LiDAR</button>
+                  <button id="btnToggleLidar" onclick="toggle3DLayer('lidar', this)" class="toggle-active px-2 py-0.5 text-[11px] font-bold rounded-lg text-gray-700 hover:bg-white transition-all">Show LiDAR</button>
                   <button onclick="toggle3DLayer('paths', this)" class="toggle-active px-2 py-0.5 text-[11px] font-bold rounded-lg text-gray-700 hover:bg-white transition-all">Paths</button>
                   <button onclick="toggle3DLayer('racks', this)" class="toggle-active px-2 py-0.5 text-[11px] font-bold rounded-lg text-gray-700 hover:bg-white transition-all">Racks</button>
                 </div>
@@ -2092,6 +2092,12 @@ body {
       scanRing.name = 'scanRing';
       group.add(scanRing);
 
+      // LiDAR Ray Overlay Group (radiating scan rays + contour polygon ring)
+      const lidarRayGroup = new THREE.Group();
+      lidarRayGroup.name = 'lidarRayGroup';
+      lidarRayGroup.position.y = 0.04;
+      group.add(lidarRayGroup);
+
       // Cargo Pallet Container (initially hidden)
       const cargoGeo = new THREE.BoxGeometry(0.85, 0.55, 0.85);
       const cargoMat = new THREE.MeshStandardMaterial({
@@ -2228,11 +2234,91 @@ body {
         // Selection highlight
         const selRing = mesh.getObjectByName('selRing');
         if (selRing) selRing.visible = (state.selectedRobotId === rid);
+
+        // Update LiDAR Scan Overlay (radiating lines + contour ring)
+        const scan = r.lidar_scan || (state.snapshot && state.snapshot.lidar_scan && (Array.isArray(state.snapshot.lidar_scan) ? state.snapshot.lidar_scan : state.snapshot.lidar_scan[rid]));
+        updateLidarRayOverlay(mesh, scan, state.toggles.lidar && r.state !== 'OFFLINE');
       });
 
       // Update 3D Paths
       if (state.toggles.paths) {
         updatePaths3D(robots, mapW, mapH);
+      }
+    }
+
+    /* -------------------------------------------------------------
+       LIDAR RAY & CONTOUR VISUAL OVERLAY (Feature 1 Sensor Emulation)
+       ------------------------------------------------------------- */
+    function updateLidarRayOverlay(mesh, scan, isVisible) {
+      let rayGroup = mesh.getObjectByName('lidarRayGroup');
+      if (!rayGroup) {
+        rayGroup = new THREE.Group();
+        rayGroup.name = 'lidarRayGroup';
+        rayGroup.position.y = 0.04;
+        mesh.add(rayGroup);
+      }
+
+      if (!isVisible || !scan || !Array.isArray(scan) || scan.length === 0) {
+        rayGroup.visible = false;
+        return;
+      }
+
+      rayGroup.visible = true;
+
+      // Dispose previous frame's ray line geometries and materials to avoid memory leaks
+      while (rayGroup.children.length > 0) {
+        const child = rayGroup.children[0];
+        disposeThreeObjectResources(child);
+        rayGroup.remove(child);
+      }
+
+      const numRays = scan.length;
+      const angleStep = (2 * Math.PI) / numRays;
+      const contourPoints = [];
+
+      for (let i = 0; i < numRays; i++) {
+        const distCells = Number(scan[i]) || 0;
+        // 1 cell = CELL_SIZE (2.0 meters in warehouse digital twin)
+        const rayDist = distCells * CELL_SIZE;
+        const angle = i * angleStep;
+
+        // In robot mesh local space (+Z is forward heading):
+        const lx = Math.sin(angle) * rayDist;
+        const lz = Math.cos(angle) * rayDist;
+
+        // Warning color if obstacle is closer than 1.5 cells
+        const isCloseObstacle = distCells < 1.5;
+        const rayColor = isCloseObstacle ? 0xef4444 : 0x94a3b8;
+        const rayOpacity = isCloseObstacle ? 0.95 : 0.45;
+
+        // Radiating ray line
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 0, 0),
+          new THREE.Vector3(lx, 0, lz)
+        ]);
+        const lineMat = new THREE.LineBasicMaterial({
+          color: rayColor,
+          transparent: true,
+          opacity: rayOpacity,
+          linewidth: isCloseObstacle ? 2 : 1
+        });
+        const rayLine = new THREE.Line(lineGeo, lineMat);
+        rayGroup.add(rayLine);
+
+        contourPoints.push(new THREE.Vector3(lx, 0, lz));
+      }
+
+      // Thin visual ring connecting ray endpoints (scan contour ring)
+      if (contourPoints.length > 2) {
+        const ringGeo = new THREE.BufferGeometry().setFromPoints([...contourPoints, contourPoints[0]]);
+        const hasCloseObstacle = scan.some(d => Number(d) < 1.5);
+        const ringMat = new THREE.LineBasicMaterial({
+          color: hasCloseObstacle ? 0xef4444 : 0x64748b,
+          transparent: true,
+          opacity: hasCloseObstacle ? 0.8 : 0.4
+        });
+        const ringLine = new THREE.Line(ringGeo, ringMat);
+        rayGroup.add(ringLine);
       }
     }
 

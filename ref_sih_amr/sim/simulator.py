@@ -12,6 +12,7 @@ from models import RobotState, Task, RobotStatus, TaskStatus
 from allocator.task_generator import TaskGenerator
 from allocator.hungarian import HungarianAllocator
 from robot.planner import AStarPlanner
+from robot.sensors import SensorSimulator, LidarScanPayload
 from robot.cbs import CBSPlanner, ObstacleCostmap
 from robot.task_manager import LocalTaskManager
 from robot.coordination import detect_deadlock, PriorityCalculator
@@ -81,6 +82,7 @@ class Simulator:
             self.pickup_cells, self.dropoff_cells, spawn_interval=5)
 
         self.planner   = AStarPlanner()
+        self.sensor_simulator = SensorSimulator()
         # PubSub remains the deterministic lockstep transport for tests.
         # UDP mode gives every AMR its own network socket and peer endpoint.
         self.comms     = PubSubChannel()
@@ -118,11 +120,16 @@ class Simulator:
         initial_batteries = [96.0, 42.0, 88.0, 68.0, 82.0, 32.0, 91.0, 54.0, 94.0]
         for i in range(num_robots):
             spawn = self.spawn_cells[i] if self.spawn_cells else (0, 0)
+            initial_pos = (float(spawn[0]), float(spawn[1]))
+            initial_heading = 0.0
+            initial_lidar = self.sensor_simulator.simulate_lidar(
+                initial_pos, initial_heading, self.grid_map
+            )
             state = RobotState(
                 robot_id=f"robot-{i}",
                 timestamp=0.0,
-                position=(float(spawn[0]), float(spawn[1])),
-                heading=0.0,
+                position=initial_pos,
+                heading=initial_heading,
                 velocity=0.0,
                 battery=initial_batteries[i % len(initial_batteries)],
                 current_task_id=None,
@@ -156,6 +163,7 @@ class Simulator:
             if self.strategy == "P1":
                 manager.cbs_mode = True
 
+            manager.lidar_scan = initial_lidar
             self.robot_managers.append(manager)
             self.last_heartbeat[state.robot_id] = 0.0
 
@@ -1239,7 +1247,15 @@ class Simulator:
         if self.comms_mode == "local":
             self.comms.clear()
 
-        # 9. Publish telemetry (Phase 5 — non-blocking, best-effort)
+        # 9. Update onboard LiDAR sensor scans for each robot
+        for m in self.robot_managers:
+            m.lidar_scan = self.sensor_simulator.simulate_lidar(
+                m.state.position,
+                getattr(m.state, "heading", 0.0),
+                self.grid_map,
+            )
+
+        # 10. Publish telemetry (Phase 5 — non-blocking, best-effort)
         if self.telemetry_bus is not None:
             snapshot = self._build_snapshot()
             self.telemetry_bus.publish(snapshot)
@@ -1299,6 +1315,14 @@ class Simulator:
         robots = {}
         for m in self.robot_managers:
             state = m.state
+            scan = getattr(m, "lidar_scan", None)
+            if scan is None:
+                scan = self.sensor_simulator.simulate_lidar(
+                    state.position,
+                    getattr(state, "heading", 0.0),
+                    self.grid_map,
+                )
+                m.lidar_scan = scan
             robot = {
                 "id": state.robot_id,
                 "position": list(state.position),
@@ -1317,6 +1341,7 @@ class Simulator:
                 ),
                 "target_cell": list(m.target_cell) if m.target_cell is not None else None,
                 "maintenance": getattr(m, "maintenance_profile", {}),
+                "lidar_scan": scan,
             }
             robots[state.robot_id] = robot
 
@@ -1332,6 +1357,8 @@ class Simulator:
             }
             for t in self.tasks
         ]
+
+        all_scans = {m.state.robot_id: getattr(m, "lidar_scan", []) for m in self.robot_managers}
 
         return {
             "schema_version": 1,
@@ -1351,6 +1378,7 @@ class Simulator:
                 "human_zones": [],
             },
             "robots": robots,
+            "lidar_scan": LidarScanPayload(all_scans),
             "tasks": tasks,
             "conflicts": self.event_log.conflict_events[-20:],
             "deadlocks": self.event_log.deadlock_events[-10:],
